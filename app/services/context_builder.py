@@ -360,8 +360,11 @@ class ContextBuilder:
         # System message always first
         messages.append(OpenAIMessage(role="system", content=system_prompt))
 
+        # Sanitize: remove orphaned tool_calls and tool responses
+        sanitized = self._sanitize_tool_pairs(history)
+
         # Add history messages
-        for row in history:
+        for row in sanitized:
             if not row.get("role"):
                 continue
 
@@ -387,6 +390,80 @@ class ContextBuilder:
             messages.append(msg)
 
         return messages
+
+    def _sanitize_tool_pairs(
+        self,
+        history: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """
+        Remove orphaned tool_calls and tool responses from history.
+
+        Ensures every assistant message with tool_calls has ALL corresponding
+        tool responses, and every tool response has its parent assistant message.
+
+        Prevents OpenAI 400 errors:
+        "An assistant message with 'tool_calls' must be followed by tool messages
+        responding to each 'tool_call_id'."
+        """
+        # 1. Collect all tool_call_ids that have responses in history
+        tool_response_ids: set[str] = set()
+        for row in history:
+            if row.get("role") == "tool" and row.get("tool_call_id"):
+                tool_response_ids.add(row["tool_call_id"])
+
+        # 2. Find assistant messages where ALL tool_calls have responses
+        valid_tool_call_ids: set[str] = set()
+        for row in history:
+            if row.get("role") != "assistant":
+                continue
+            tool_calls = row.get("tool_calls")
+            if not tool_calls:
+                continue
+            call_ids = self._extract_tool_call_ids(tool_calls)
+            if call_ids and all(cid in tool_response_ids for cid in call_ids):
+                valid_tool_call_ids.update(call_ids)
+
+        # 3. Filter out orphans
+        sanitized: list[dict[str, Any]] = []
+        for row in history:
+            role = row.get("role")
+
+            # Skip assistant messages with incomplete tool_calls
+            if role == "assistant" and row.get("tool_calls"):
+                call_ids = self._extract_tool_call_ids(row["tool_calls"])
+                if call_ids and not all(cid in tool_response_ids for cid in call_ids):
+                    logger.warning(
+                        "[ContextBuilder] Removendo assistant com tool_calls órfãos: %s",
+                        call_ids,
+                    )
+                    continue
+
+            # Skip tool responses without matching assistant
+            if role == "tool" and row.get("tool_call_id"):
+                if row["tool_call_id"] not in valid_tool_call_ids:
+                    logger.warning(
+                        "[ContextBuilder] Removendo tool response órfã: %s",
+                        row["tool_call_id"],
+                    )
+                    continue
+
+            sanitized.append(row)
+
+        return sanitized
+
+    @staticmethod
+    def _extract_tool_call_ids(tool_calls: Any) -> list[str]:
+        """Extract tool_call IDs from tool_calls field (list or single dict)."""
+        if isinstance(tool_calls, list):
+            return [
+                tc.get("id") or tc.get("tool_call_id", "")
+                for tc in tool_calls
+                if isinstance(tc, dict)
+            ]
+        if isinstance(tool_calls, dict):
+            cid = tool_calls.get("id") or tool_calls.get("tool_call_id")
+            return [cid] if cid else []
+        return []
 
     def _get_response_format(self, output_type: str | None) -> dict[str, Any] | None:
         """Return response_format if needed based on output_type."""

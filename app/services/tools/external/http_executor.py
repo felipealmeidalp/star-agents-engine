@@ -23,6 +23,7 @@ class HttpToolExecutor:
         tool_name: str,
         tool_config: dict[str, Any],
         ai_arguments: dict[str, Any],
+        customer_id: int | None = None,
     ) -> ToolResult:
         """
         Execute an external HTTP tool.
@@ -80,7 +81,7 @@ class HttpToolExecutor:
             )
 
         # 3. Build HTTP request
-        request_config = self._build_request(config, ai_arguments)
+        request_config = self._build_request(config, ai_arguments, customer_id)
         logger.info(
             f"[ExternalTool] Request montado: {request_config['method']} {request_config['url']}"
         )
@@ -158,6 +159,7 @@ class HttpToolExecutor:
         self,
         config: ExternalToolConfigSchema,
         ai_arguments: dict[str, Any],
+        customer_id: int | None = None,
     ) -> dict[str, Any]:
         """Build HTTP request from parameters."""
         request: dict[str, Any] = {
@@ -170,7 +172,7 @@ class HttpToolExecutor:
         }
 
         for param in config.parameters:
-            value = self._extract_value(param, ai_arguments)
+            value = self._extract_value(param, ai_arguments, customer_id)
             if value is None:
                 continue
 
@@ -203,9 +205,12 @@ class HttpToolExecutor:
         self,
         param: ExternalToolParameterSchema,
         ai_arguments: dict[str, Any],
+        customer_id: int | None = None,
     ) -> Any:
-        """Extract parameter value from fixed or AI source."""
-        if param.source == "fixed":
+        """Extract parameter value from fixed, AI or customer_id source."""
+        if param.source == "customer_id":
+            return customer_id
+        elif param.source == "fixed":
             # value is {"value": [...]} - always array
             if not param.value:
                 return None

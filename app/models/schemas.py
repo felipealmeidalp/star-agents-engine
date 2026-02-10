@@ -211,6 +211,7 @@ class ToolExecutionContext(BaseModel):
     company_id: int
     agent_id: int
     sub_agent_id: int
+    customer_id: int | None = None
 
     # Dependencies for internal tools (RAG, etc.)
     db: Any | None = None  # AsyncSession - using Any for Pydantic compatibility
@@ -296,7 +297,7 @@ class ExternalToolParameterSchema(BaseModel):
     type: str | None = None  # text, int, float, bool, array, object
     array_type: str | None = None
     value: dict[str, Any] | None = None  # {"value": [...]} - sempre array
-    source: str | None = None  # 'fixed' ou 'ai'
+    source: str | None = None  # 'fixed', 'ai' ou 'customer_id'
     location: str | None = None  # path_parameters, query_parameters, headers, body
     mandatory: bool = False
 

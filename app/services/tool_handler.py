@@ -262,6 +262,7 @@ class ToolHandler:
             tool_name=tool_name,
             tool_config=tool_config,
             ai_arguments=arguments,
+            customer_id=context.customer_id,
         )
         logger.info(f"[ToolHandler] Resultado: success={result.success}, content_length={len(result.content)}")
         return result

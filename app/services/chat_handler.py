@@ -245,6 +245,7 @@ class ChatHandler:
             company_id=company_id,
             agent_id=agent_id,
             sub_agent_id=sub_agent_id,
+            customer_id=cached_context.customer.id,
             db=self.db,
             openai_api_key=self.openai_api_key,
             chat_history=chat_history,

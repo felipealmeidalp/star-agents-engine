@@ -1,0 +1,96 @@
+version: "3.8"
+
+services:
+  api:
+    image: felipperson/star-agents-engine:latest
+    ports:
+      - "8000:8000"
+    environment:
+      # REQUIRED
+      - DATABASE_URL=postgresql+asyncpg://user:password@host:5432/database
+      - API_KEY=your-api-key-here
+      - QDRANT_URL=http://qdrant:6333
+      - REDIS_URL=redis://redis:6379
+      - RABBIT_URL=amqp://rabbitmq:5672/
+      - RABBIT_USER=guest
+      - RABBIT_PASS=guest
+      - RABBIT_FOLLOW_UP_QUEUE=follow_ups
+      # OPTIONAL
+      - DEBUG=false
+      - DEV_MODE=false
+      - DB_ECHO=false
+      - MAX_CHAT_HISTORY_MESSAGES=10
+      - MESSAGE_BUFFER_DELAY=5
+      
+# ===================
+    depends_on:
+      - redis
+    networks:
+      - star-agents-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      mode: replicated
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--port", "6379", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis-data:/data
+    networks:
+      - star-agents-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+
+networks:
+  star-agents-network:
+    driver: overlay
+    attachable: true
+
+volumes:
+  redis-data:
+    driver: local

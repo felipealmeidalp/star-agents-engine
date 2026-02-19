@@ -100,6 +100,7 @@ class CustomerSchema(BaseModel):
     sub_agent_id: int | None = None
     variable_prompt_status: bool | None = None
     variable_prompt_id: int | None = None
+    customer_context: dict[str, Any] | None = None
 
 
 class AgentContext(BaseModel):

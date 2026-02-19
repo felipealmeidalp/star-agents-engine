@@ -177,6 +177,7 @@ class ContextBuilder:
             sub_agent_id=raw["customer"].get("sub_agent_id"),
             variable_prompt_status=raw["customer"].get("variable_prompt_status"),
             variable_prompt_id=raw["customer"].get("variable_prompt_id"),
+            customer_context=raw["customer"].get("customer_context"),
         )
 
         # Parse agent (DB uses 'title' instead of 'name')
@@ -267,11 +268,7 @@ class ContextBuilder:
         )
 
     def _build_system_prompt(self, context: AgentContext) -> str:
-        """Generate dynamic system prompt based on context."""
-        # Get current date in Brasilia timezone
-        now = datetime.now(ZoneInfo("America/Sao_Paulo"))
-        data_atual = now.strftime("%d/%m/%Y")
-
+        """Generate system prompt with static sections first (cacheable) and dynamic last."""
         # Build tools text
         tools_text = ""
         for i, tool in enumerate(context.tools, 1):
@@ -300,9 +297,8 @@ class ContextBuilder:
                             f"{conn.target_sub_agent_id}\n\n"
                         )
 
-        # Build system prompt
+        # Static sections first (cacheable by OpenAI)
         parts = [
-            f"## Informacao\nData atual: {data_atual}",
             f"## Identidade\n{context.agent.identity or ''}",
             f"## Tom de Voz\n{context.agent.voice_tone or ''}",
             f"## Objetivo Geral\n{context.agent.master_goal or ''}",
@@ -319,6 +315,19 @@ class ContextBuilder:
         parts.append(
             f"## Formatacao de Saida\n{context.agent.output_instructions or ''}"
         )
+
+        # Dynamic sections last (date/time changes every request)
+        now = datetime.now(ZoneInfo("America/Sao_Paulo"))
+        data_hora_atual = now.strftime("%d/%m/%Y %H:%M")
+        parts.append(f"## Informacoes adicionais\nData e hora atual: {data_hora_atual}")
+
+        # Lead context (only if available)
+        customer_ctx = context.customer.customer_context
+        if customer_ctx:
+            parts.append(
+                f"## Contexto sobre o Lead\n"
+                f"{json.dumps(customer_ctx, ensure_ascii=False, indent=2)}"
+            )
 
         return "\n\n".join(parts).strip()
 

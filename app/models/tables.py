@@ -324,6 +324,10 @@ class Customer(Base):
     dev_command_state: Mapped[Optional[Dict[str, Any]]] = mapped_column(
         JSON, nullable=True, default=None
     )
+    # Contextual data about the lead (already exists in DB as JSONB)
+    customer_context: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSON, nullable=True, default=None
+    )
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP, default=datetime.utcnow, nullable=False
     )

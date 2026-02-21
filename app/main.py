@@ -98,11 +98,12 @@ app.add_middleware(
 )
 
 # Import and include routers
-from app.routes import chat, chatwoot, health
+from app.routes import chat, chatwoot, health, meta
 
 app.include_router(health.router, prefix="/api", tags=["Health"])
 app.include_router(chat.router, prefix="/api", tags=["Chat"])
 app.include_router(chatwoot.router, prefix="/api", tags=["Chatwoot"])
+app.include_router(meta.router, prefix="/api", tags=["Meta"])
 
 
 @app.get("/")

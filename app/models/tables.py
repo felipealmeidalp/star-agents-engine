@@ -464,3 +464,19 @@ class Objection(Base):
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), default=datetime.utcnow, nullable=False
     )
+
+
+class Imbox(Base):
+    """Imbox table - WhatsApp inbox configuration for Meta webhook routing."""
+
+    __tablename__ = "imboxes"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    company_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger, ForeignKey("companies.id"), nullable=True
+    )
+    imbox_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    whatsapp: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), default=datetime.utcnow, nullable=False
+    )

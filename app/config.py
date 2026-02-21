@@ -43,6 +43,13 @@ class Settings(BaseSettings):
     message_buffer_delay: int = 5  # Segundos para aguardar no buffer de mensagens
     max_chat_history_messages: int = 10
 
+    # Meta WhatsApp webhook
+    meta_app_secret: str = ""          # Facebook App Secret para X-Hub-Signature-256
+    meta_verify_token: str = ""        # hub.verify_token para verificação GET
+    meta_dedup_ttl: int = 3600         # TTL dedup keys no Redis (1h)
+    meta_forward_timeout: int = 10     # Timeout forward pro Chatwoot (s)
+    meta_cache_ttl: int = 300          # TTL cache imbox/company no Redis (5min)
+
     # Internal (não exposto no .env)
     tool_execution_timeout: int = 300  # 5 minutos
     openai_timeout: int = 300  # 5 minutos

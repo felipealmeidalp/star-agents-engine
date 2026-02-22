@@ -245,6 +245,9 @@ class Tool(Base):
     type: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # internal/external
     method: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # HTTP method
     endpoint: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # URL base
+    send_content_before_execution: Mapped[Optional[bool]] = mapped_column(
+        Boolean, nullable=True, default=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP, default=datetime.utcnow, nullable=False
     )

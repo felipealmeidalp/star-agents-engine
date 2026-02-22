@@ -13,7 +13,7 @@ from app.repositories.agent import AgentRepository
 from app.repositories.chat_history import ChatHistoryRepository
 from app.repositories.company import CompanyRepository
 from app.repositories.prompt import PromptRepository
-from app.services.chat_handler import ChatHandler
+from app.services.chat_handler import ChatHandler, MessageSenderCallback
 from app.services.context_builder import ContextBuilder
 from app.services.openai import OpenAIService
 from app.services.tool_handler import ToolHandler
@@ -24,6 +24,7 @@ async def process_chat(
     message: str,
     company_id: int,
     db: AsyncSession,
+    on_send_messages: MessageSenderCallback | None = None,
 ) -> dict[str, Any]:
     """
     Process a chat message through the full orchestration pipeline.
@@ -42,6 +43,7 @@ async def process_chat(
         message: The user's message to process.
         company_id: Company ID for multi-tenancy isolation.
         db: Async database session.
+        on_send_messages: Optional callback to send messages to the lead before tool execution.
 
     Returns:
         Dict with the assistant's response.
@@ -83,6 +85,7 @@ async def process_chat(
         chat_repo=chat_repo,
         db=db,
         openai_api_key=api_key,
+        on_send_messages=on_send_messages,
     )
 
     return await handler.process(

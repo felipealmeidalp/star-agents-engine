@@ -2,12 +2,13 @@
 
 import json
 import logging
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 from app.exceptions import MaxIterationsExceededError
 
 logger = logging.getLogger(__name__)
-from app.models.schemas import AgentContext, ToolExecutionContext
+from app.models.schemas import AgentContext, OpenAIMessage, OpenAIPayload, ToolExecutionContext
 from app.repositories.chat_history import ChatHistoryRepository
 from app.services.context_builder import ContextBuilder
 from app.services.openai import OpenAIService
@@ -16,6 +17,8 @@ from app.utils.content_formatter import format_content_for_storage
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
+
+MessageSenderCallback = Callable[[list[str]], Awaitable[None]]
 
 
 class ChatHandler:
@@ -31,6 +34,7 @@ class ChatHandler:
         chat_repo: ChatHistoryRepository,
         db: "AsyncSession",
         openai_api_key: str,
+        on_send_messages: MessageSenderCallback | None = None,
     ) -> None:
         """
         Initialize the chat handler.
@@ -42,6 +46,7 @@ class ChatHandler:
             chat_repo: Repository for chat history
             db: Database session for internal tools
             openai_api_key: OpenAI API key for internal tools
+            on_send_messages: Optional callback to send messages to the lead
         """
         self.context_builder = context_builder
         self.openai_service = openai_service
@@ -49,6 +54,7 @@ class ChatHandler:
         self.chat_repo = chat_repo
         self.db = db
         self.openai_api_key = openai_api_key
+        self.on_send_messages = on_send_messages
 
     async def process(
         self,
@@ -132,9 +138,11 @@ class ChatHandler:
                 tc.function.name
                 for tc in self.openai_service.get_tool_calls(response) or []
             ]
+            raw_content = response.choices[0].message.content
             logger.info(
-                "[ChatHandler] Tool calls detectados: %s → executando...",
+                "[ChatHandler] Tool calls detectados: %s, content=%r → executando...",
                 tool_names,
+                raw_content,
             )
 
             should_invalidate = await self._handle_tool_calls(
@@ -142,6 +150,7 @@ class ChatHandler:
                 session_id=session_id,
                 company_id=company_id,
                 cached_context=cached_context,
+                payload=payload,
             )
 
             # 6. Invalidate cache if any tool requested it
@@ -194,12 +203,65 @@ class ChatHandler:
         # Parse and return response
         return self._parse_response(content)
 
+    def _should_send_content_before_tools(
+        self,
+        tool_calls: list,
+        cached_context: AgentContext,
+    ) -> bool:
+        """Check if any called tool has send_content_before_execution=True."""
+        tool_flags: dict[str, bool] = {}
+        for tool in cached_context.tools:
+            if tool.complete_json and tool.complete_json.get("name"):
+                tool_flags[tool.complete_json["name"]] = tool.send_content_before_execution
+
+        return any(tool_flags.get(tc["function"]["name"], False) for tc in tool_calls)
+
+    async def _generate_pre_tool_content(
+        self,
+        payload: OpenAIPayload,
+        tool_names: list[str],
+    ) -> str | None:
+        """Chamada extra à OpenAI SEM tools para forçar geração de texto.
+
+        Usada quando send_content_before_execution=true e o modelo
+        retornou content=null com tool_calls (comportamento do GPT-4.1).
+        """
+        messages = list(payload.messages)
+        messages.append(OpenAIMessage(
+            role="system",
+            content=(
+                f"INSTRUÇÃO: Você vai executar a(s) ferramenta(s): {', '.join(tool_names)}. "
+                "Gere agora APENAS a mensagem de texto que o lead deve receber ANTES da "
+                "execução da ferramenta, conforme descrito no passo a passo. "
+                "Não mencione a ferramenta ao lead. Não avance para passos posteriores."
+            ),
+        ))
+
+        text_payload = OpenAIPayload(
+            model=payload.model,
+            temperature=payload.temperature,
+            messages=messages,
+            tools=None,
+            response_format=payload.response_format,
+        )
+
+        logger.info("[ChatHandler] Chamada extra sem tools para forçar content pre-tool...")
+        response = await self.openai_service.chat_completion(text_payload)
+
+        content = response.choices[0].message.content if response.choices else None
+        logger.info(
+            "[ChatHandler] Content forçado recebido: %s",
+            content[:200] if content else "None",
+        )
+        return content
+
     async def _handle_tool_calls(
         self,
         response: Any,
         session_id: str,
         company_id: int,
         cached_context: AgentContext,
+        payload: OpenAIPayload,
     ) -> bool:
         """
         Handle tool calls from response.
@@ -209,6 +271,7 @@ class ChatHandler:
             session_id: Session identifier
             company_id: Company ID
             cached_context: Cached agent context
+            payload: Original OpenAI payload (used for extra call when needed)
 
         Returns:
             True if any tool requested cache invalidation, False otherwise
@@ -224,13 +287,33 @@ class ChatHandler:
         agent_id = cached_context.customer.agent_id
         sub_agent_id = cached_context.customer.sub_agent_id
 
-        # 1. Save assistant message with tool_calls
+        content_to_save = None
+        should_send = self._should_send_content_before_tools(tool_calls_raw, cached_context)
+
+        if should_send and self.on_send_messages:
+            # GPT-4.1 sempre retorna content=null com tool_calls.
+            # Chamada extra sem tools para forçar o texto.
+            tool_names = [tc["function"]["name"] for tc in tool_calls_raw]
+            forced_content = await self._generate_pre_tool_content(payload, tool_names)
+
+            if forced_content:
+                content_to_save = format_content_for_storage(forced_content)
+                parsed = self._parse_response(forced_content)
+                messages = parsed.get("resposta", [forced_content])
+                await self.on_send_messages(messages)
+                logger.info(
+                    "[ChatHandler] Content enviado ao lead antes das tools (%d msgs)",
+                    len(messages),
+                )
+
+        # 1. Save assistant message with tool_calls (and content if sent)
         await self.chat_repo.insert_assistant_with_tool_calls(
             session_id=session_id,
             company_id=company_id,
             agent_id=agent_id,
             sub_agent_id=sub_agent_id,
             tool_calls=tool_calls_raw,
+            content=content_to_save,
         )
 
         # 2. Fetch chat history for tools that need conversation context

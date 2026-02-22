@@ -185,9 +185,10 @@ class ChatHistoryRepository:
         agent_id: int,
         sub_agent_id: int,
         tool_calls: list[dict],
+        content: str | None = None,
     ) -> ChatHistory:
         """
-        Insert assistant message with tool_calls (content=None).
+        Insert assistant message with tool_calls.
 
         Args:
             session_id: The session identifier
@@ -195,6 +196,7 @@ class ChatHistoryRepository:
             agent_id: Agent ID
             sub_agent_id: Sub-agent ID
             tool_calls: List of tool calls in OpenAI format
+            content: Optional text content sent before tool execution
 
         Returns:
             The created ChatHistory record
@@ -202,7 +204,7 @@ class ChatHistoryRepository:
         chat_record = ChatHistory(
             sessionId=session_id,
             role="assistant",
-            content=None,
+            content=content,
             agent_id=agent_id,
             sub_agent_id=sub_agent_id,
             company_id=company_id,

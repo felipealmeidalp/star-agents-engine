@@ -120,11 +120,23 @@ class ChatwootService:
 
         # 5. Process through chat processor
         logger.info("[ChatwootService] Calling process_chat...")
+
+        async def send_messages_to_lead(messages: list[str]) -> None:
+            """Callback to send messages to lead before tool execution."""
+            await self._send_responses(
+                messages=messages,
+                base_url=company.cw_base_url,
+                account_id=payload.account.id,
+                conversation_id=payload.conversation.id,
+                api_key=company.cw_apikey,
+            )
+
         response = await process_chat(
             session_id=customer.sessionId,
             message=message,
             company_id=company.id,
             db=self.db,
+            on_send_messages=send_messages_to_lead,
         )
 
         logger.info(f"[ChatwootService] Chat response: {response}")

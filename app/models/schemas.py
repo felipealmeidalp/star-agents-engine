@@ -40,6 +40,7 @@ class ToolSchema(BaseModel):
     instructions: str | None = None
     complete_json: dict[str, Any] | None = None
     parameters: list[ToolParameterSchema] = []
+    send_content_before_execution: bool = False
 
 
 class StepSchema(BaseModel):

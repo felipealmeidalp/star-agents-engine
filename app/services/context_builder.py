@@ -255,6 +255,9 @@ class ContextBuilder:
                     instructions=tool_data.get("instructions"),
                     complete_json=tool_data.get("complete_json"),
                     parameters=params,
+                    send_content_before_execution=tool_data.get(
+                        "send_content_before_execution", False
+                    ),
                 )
             )
 

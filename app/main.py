@@ -12,6 +12,7 @@ from sqlalchemy import text
 from app.chatwoot.buffer import close_redis_pool
 from app.config import settings
 from app.db.database import engine
+from app.utils.alerter import send_critical_alert_sync
 from app.followUp import start_follow_up_consumer
 from app.rabbitmq import (
     close_rabbitmq_connection,
@@ -54,6 +55,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         print("✅ Database connection established")
     except Exception as e:
         print(f"❌ Database connection failed: {e}")
+        await send_critical_alert_sync(
+            "DATABASE_CONNECTION_FAILED",
+            "main.py:lifespan",
+            e,
+        )
 
     # Connect to RabbitMQ
     try:
@@ -69,6 +75,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         print(f"✅ FollowUp consumer started (queue: {settings.rabbit_follow_up_queue})")
     except Exception as e:
         print(f"⚠️ RabbitMQ connection failed: {e}")
+        await send_critical_alert_sync(
+            "RABBITMQ_CONNECTION_FAILED",
+            "main.py:lifespan",
+            e,
+        )
         # Note: We don't fail startup, follow-ups will just not work
 
     yield

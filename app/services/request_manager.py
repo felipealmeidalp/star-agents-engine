@@ -16,6 +16,7 @@ from app.chatwoot.buffer import MessageBuffer
 from app.config import settings
 from app.services.chat_processor import process_chat_in_memory
 from app.services.conversation_turn import ConversationTurn
+from app.utils.alerter import send_critical_alert
 
 logger = logging.getLogger(__name__)
 
@@ -201,10 +202,17 @@ class RequestManager:
                 contact_id,
             )
             return None
-        except Exception:
+        except Exception as e:
             logger.exception(
                 "[RequestManager] Task failed for contact %d",
                 contact_id,
+            )
+            send_critical_alert(
+                "REQUEST_MANAGER_TASK_FAILED",
+                "request_manager.py:on_new_message",
+                e,
+                contact_id=contact_id,
+                company_id=company_id,
             )
             raise
 
@@ -235,8 +243,20 @@ class RequestManager:
         active.task.cancel()
         try:
             await active.task
-        except (asyncio.CancelledError, Exception):
+        except asyncio.CancelledError:
             pass
+        except Exception as e:
+            logger.warning(
+                "[RequestManager] Exception during cancel for contact %d: %s",
+                contact_id,
+                e,
+            )
+            send_critical_alert(
+                "REQUEST_MANAGER_CANCEL_ERROR",
+                "request_manager.py:_cancel_active_if_exists",
+                e,
+                contact_id=contact_id,
+            )
 
         # Extract completed tool history before discarding the turn
         tool_history = active.conversation_turn.get_completed_tool_history()

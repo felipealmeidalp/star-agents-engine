@@ -15,6 +15,7 @@ import redis.asyncio as aioredis
 from redis.asyncio.connection import ConnectionPool
 
 from app.config import settings
+from app.utils.alerter import send_critical_alert
 
 logger = logging.getLogger(__name__)
 
@@ -382,5 +383,11 @@ class MessageBuffer:
             logger.error(
                 f"[MessageBuffer] Redis error for contact {contact_id}: {e}. "
                 "Processing message anyway."
+            )
+            send_critical_alert(
+                "REDIS_BUFFER_ERROR",
+                "chatwoot/buffer.py:should_process_message",
+                e,
+                contact_id=contact_id,
             )
             return True

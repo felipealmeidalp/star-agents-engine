@@ -14,6 +14,7 @@ from app.services.context_builder import ContextBuilder
 from app.services.conversation_turn import ConversationTurn
 from app.services.openai import OpenAIService
 from app.services.tool_handler import ToolHandler
+from app.utils.alerter import send_critical_alert
 from app.utils.content_formatter import format_content_for_storage
 
 if TYPE_CHECKING:
@@ -211,11 +212,21 @@ class ChatHandler:
             )
         else:
             # Legacy: save directly to database
-            await self.chat_repo.insert_assistant_message(
-                session_id=session_id,
-                content=formatted_content,
-                company_id=company_id,
-            )
+            try:
+                await self.chat_repo.insert_assistant_message(
+                    session_id=session_id,
+                    content=formatted_content,
+                    company_id=company_id,
+                )
+            except Exception as e:
+                logger.exception("[ChatHandler] Failed to save assistant message: %s", e)
+                send_critical_alert(
+                    "DB_WRITE_ASSISTANT_MSG_FAILED",
+                    "chat_handler.py:_handle_final_response",
+                    e,
+                    company_id=company_id,
+                    extra=f"session={session_id}",
+                )
             logger.info(
                 "[ChatHandler] ========== REQUISIÇÃO FINALIZADA ========== "
                 "resposta salva no banco"
@@ -315,7 +326,18 @@ class ChatHandler:
             # GPT-4.1 sempre retorna content=null com tool_calls.
             # Chamada extra sem tools para forçar o texto.
             tool_names = [tc["function"]["name"] for tc in tool_calls_raw]
-            forced_content = await self._generate_pre_tool_content(payload, tool_names)
+            try:
+                forced_content = await self._generate_pre_tool_content(payload, tool_names)
+            except Exception as e:
+                logger.exception("[ChatHandler] Extra OpenAI call failed: %s", e)
+                send_critical_alert(
+                    "OPENAI_EXTRA_CALL_FAILED",
+                    "chat_handler.py:_handle_tool_calls",
+                    e,
+                    company_id=company_id,
+                    extra=f"session={session_id}",
+                )
+                forced_content = None
 
             if forced_content:
                 content_to_save = format_content_for_storage(forced_content)
@@ -335,14 +357,24 @@ class ChatHandler:
             )
         else:
             # Legacy: save directly to database
-            await self.chat_repo.insert_assistant_with_tool_calls(
-                session_id=session_id,
-                company_id=company_id,
-                agent_id=agent_id,
-                sub_agent_id=sub_agent_id,
-                tool_calls=tool_calls_raw,
-                content=content_to_save,
-            )
+            try:
+                await self.chat_repo.insert_assistant_with_tool_calls(
+                    session_id=session_id,
+                    company_id=company_id,
+                    agent_id=agent_id,
+                    sub_agent_id=sub_agent_id,
+                    tool_calls=tool_calls_raw,
+                    content=content_to_save,
+                )
+            except Exception as e:
+                logger.exception("[ChatHandler] Failed to save tool_calls: %s", e)
+                send_critical_alert(
+                    "DB_WRITE_TOOL_CALLS_FAILED",
+                    "chat_handler.py:_handle_tool_calls",
+                    e,
+                    company_id=company_id,
+                    extra=f"session={session_id}",
+                )
 
         # 2. Fetch chat history for tools that need conversation context
         chat_history = await self.chat_repo.get_history_with_orphan_handling(
@@ -375,14 +407,28 @@ class ChatHandler:
         else:
             # Legacy: save directly to database
             for result in results:
-                await self.chat_repo.insert_tool_result(
-                    session_id=session_id,
-                    company_id=company_id,
-                    agent_id=agent_id,
-                    sub_agent_id=sub_agent_id,
-                    tool_call_id=result.tool_call_id,
-                    content=result.content,
-                )
+                try:
+                    await self.chat_repo.insert_tool_result(
+                        session_id=session_id,
+                        company_id=company_id,
+                        agent_id=agent_id,
+                        sub_agent_id=sub_agent_id,
+                        tool_call_id=result.tool_call_id,
+                        content=result.content,
+                    )
+                except Exception as e:
+                    logger.exception(
+                        "[ChatHandler] Failed to save tool result %s: %s",
+                        result.tool_call_id,
+                        e,
+                    )
+                    send_critical_alert(
+                        "DB_WRITE_TOOL_RESULT_FAILED",
+                        "chat_handler.py:_handle_tool_calls",
+                        e,
+                        company_id=company_id,
+                        extra=f"session={session_id}, tool_call_id={result.tool_call_id}",
+                    )
 
         # 5. Check if any tool requested cache invalidation
         return any(result.invalidate_cache for result in results)

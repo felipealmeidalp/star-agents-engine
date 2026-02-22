@@ -20,6 +20,7 @@ from app.services.context_builder import ContextBuilder
 from app.services.conversation_turn import ConversationTurn
 from app.services.openai import OpenAIService
 from app.services.tool_handler import ToolHandler
+from app.utils.alerter import send_critical_alert
 
 logger = logging.getLogger(__name__)
 
@@ -151,15 +152,31 @@ async def process_chat_in_memory(
     sub_agent_id = context.customer.sub_agent_id if context else None
 
     # 8. Atomic save - protected from cancellation
-    await asyncio.shield(
-        conversation_turn.save_all(
-            chat_repo=chat_repo,
-            session_id=session_id,
-            company_id=company_id,
-            agent_id=agent_id,
-            sub_agent_id=sub_agent_id,
+    try:
+        await asyncio.shield(
+            conversation_turn.save_all(
+                chat_repo=chat_repo,
+                session_id=session_id,
+                company_id=company_id,
+                agent_id=agent_id,
+                sub_agent_id=sub_agent_id,
+            )
         )
-    )
+    except Exception as e:
+        logger.exception(
+            "[ChatProcessor] Failed to save conversation for session=%s: %s",
+            session_id,
+            e,
+        )
+        send_critical_alert(
+            "CONVERSATION_SAVE_FAILED",
+            "chat_processor.py:process_chat_in_memory",
+            e,
+            company_id=company_id,
+            extra=f"session={session_id}",
+        )
+        # Don't re-raise - response was already sent to the lead
+        return response
 
     logger.info(
         "[ChatProcessor] In-memory processing complete, all messages saved "

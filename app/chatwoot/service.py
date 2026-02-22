@@ -16,6 +16,7 @@ from app.repositories.company import CompanyRepository
 from app.repositories.customer import CustomerRepository
 from app.services.chat_processor import process_chat
 from app.services.request_manager import RequestManager
+from app.utils.alerter import send_critical_alert
 
 logger = logging.getLogger(__name__)
 
@@ -297,6 +298,11 @@ class ChatwootService:
             )
         except Exception as e:
             logger.error(f"[ChatwootService] Failed to send to Chatwoot: {e}")
+            send_critical_alert(
+                "CHATWOOT_SEND_FAILED",
+                "chatwoot/service.py:_send_responses",
+                e,
+            )
 
     async def _schedule_follow_up(
         self,
@@ -330,6 +336,13 @@ class ChatwootService:
             logger.error(
                 f"[ChatwootService] Failed to schedule follow-up: {e}. "
                 f"customer_id={customer.id}, company_id={company.id}"
+            )
+            send_critical_alert(
+                "FOLLOWUP_SCHEDULE_FAILED",
+                "chatwoot/service.py:_schedule_follow_up",
+                e,
+                contact_id=customer.id,
+                company_id=company.id,
             )
 
     async def _handle_dev_command(

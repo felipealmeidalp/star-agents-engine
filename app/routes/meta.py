@@ -15,6 +15,7 @@ from app.db.database import AsyncSessionLocal
 from app.repositories.company import CompanyRepository
 from app.repositories.imbox import ImboxRepository
 from app.services.meta_webhook import MetaDeduplicator, MetaWebhookCache, verify_signature
+from app.utils.alerter import send_critical_alert
 
 logger = logging.getLogger(__name__)
 
@@ -107,16 +108,34 @@ async def _forward_to_chatwoot_background(raw_body: bytes, whatsapp: str) -> Non
             f"[MetaWebhook] Chatwoot responded with status={response.status_code}"
         )
 
-    except httpx.TimeoutException:
+    except httpx.TimeoutException as e:
         logger.error(
             f"[MetaWebhook] Timeout forwarding to Chatwoot for whatsapp={whatsapp}"
+        )
+        send_critical_alert(
+            "META_FORWARD_TIMEOUT",
+            "meta.py:_forward_to_chatwoot_background",
+            str(e) if str(e) else f"Timeout forwarding for whatsapp={whatsapp}",
+            extra=f"whatsapp={whatsapp}",
         )
     except httpx.HTTPError as e:
         logger.error(
             f"[MetaWebhook] HTTP error forwarding to Chatwoot: {e}"
         )
+        send_critical_alert(
+            "META_FORWARD_HTTP_ERROR",
+            "meta.py:_forward_to_chatwoot_background",
+            e,
+            extra=f"whatsapp={whatsapp}",
+        )
     except Exception as e:
         logger.exception(f"[MetaWebhook] Unexpected error in background: {e}")
+        send_critical_alert(
+            "META_FORWARD_UNHANDLED_ERROR",
+            "meta.py:_forward_to_chatwoot_background",
+            e,
+            extra=f"whatsapp={whatsapp}",
+        )
 
 
 # ---------------------------------------------------------------------------

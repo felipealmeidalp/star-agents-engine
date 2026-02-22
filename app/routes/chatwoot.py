@@ -16,6 +16,7 @@ from app.exceptions import (
     OpenAITimeoutError,
 )
 from app.repositories.company import CompanyRepository
+from app.utils.alerter import send_critical_alert
 
 logger = logging.getLogger(__name__)
 
@@ -127,18 +128,60 @@ async def process_webhook_background(
 
         except MaxIterationsExceededError as e:
             logger.error(f"[ChatwootWebhook] MaxIterations in background: {e}")
+            send_critical_alert(
+                "MAX_ITERATIONS_EXCEEDED",
+                "chatwoot.py:process_webhook_background",
+                e,
+                contact_id=payload.sender.id,
+            )
         except OpenAIAuthenticationError as e:
             logger.error(f"[ChatwootWebhook] OpenAI Auth in background: {e}")
+            send_critical_alert(
+                "OPENAI_AUTH_ERROR",
+                "chatwoot.py:process_webhook_background",
+                e,
+                contact_id=payload.sender.id,
+            )
         except OpenAIRateLimitError as e:
             logger.error(f"[ChatwootWebhook] OpenAI RateLimit in background: {e}")
+            send_critical_alert(
+                "OPENAI_RATE_LIMIT",
+                "chatwoot.py:process_webhook_background",
+                e,
+                contact_id=payload.sender.id,
+            )
         except OpenAITimeoutError as e:
             logger.error(f"[ChatwootWebhook] OpenAI Timeout in background: {e}")
+            send_critical_alert(
+                "OPENAI_TIMEOUT",
+                "chatwoot.py:process_webhook_background",
+                e,
+                contact_id=payload.sender.id,
+            )
         except OpenAIError as e:
             logger.error(f"[ChatwootWebhook] OpenAI Error in background: {e}")
+            send_critical_alert(
+                "OPENAI_GENERIC_ERROR",
+                "chatwoot.py:process_webhook_background",
+                e,
+                contact_id=payload.sender.id,
+            )
         except ValueError as e:
             logger.error(f"[ChatwootWebhook] ValueError in background: {e}")
+            send_critical_alert(
+                "WEBHOOK_VALUE_ERROR",
+                "chatwoot.py:process_webhook_background",
+                e,
+                contact_id=payload.sender.id,
+            )
         except Exception as e:
             logger.exception(f"[ChatwootWebhook] Unexpected error in background: {e}")
+            send_critical_alert(
+                "WEBHOOK_UNHANDLED_ERROR",
+                "chatwoot.py:process_webhook_background",
+                e,
+                contact_id=payload.sender.id,
+            )
 
 
 @router.post("/chatwoot/{token}")

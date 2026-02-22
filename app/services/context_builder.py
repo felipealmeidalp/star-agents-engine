@@ -24,6 +24,7 @@ from app.models.schemas import (
 from app.repositories.agent import AgentRepository
 from app.repositories.chat_history import ChatHistoryRepository
 from app.repositories.prompt import PromptRepository, PromptWithConfig
+from app.utils.alerter import send_critical_alert
 
 
 class ContextBuilder:
@@ -69,6 +70,32 @@ class ContextBuilder:
         """
         logger.info(f"[ContextBuilder] Iniciando build: session_id={session_id}, company_id={company_id}")
 
+        try:
+            return await self._build_internal(
+                session_id=session_id,
+                company_id=company_id,
+                cached_context=cached_context,
+                pending_messages=pending_messages,
+            )
+        except Exception as e:
+            logger.exception("[ContextBuilder] Failed to build context: %s", e)
+            send_critical_alert(
+                "CONTEXT_BUILD_FAILED",
+                "context_builder.py:build",
+                e,
+                company_id=company_id,
+                extra=f"session={session_id}",
+            )
+            raise
+
+    async def _build_internal(
+        self,
+        session_id: str,
+        company_id: int,
+        cached_context: AgentContext | None = None,
+        pending_messages: list[OpenAIMessage] | None = None,
+    ) -> OpenAIPayload:
+        """Internal build logic, separated for clean error handling."""
         # 1. Use cached context if available, otherwise fetch from DB
         if cached_context is not None:
             logger.debug("[ContextBuilder] Usando context do cache")

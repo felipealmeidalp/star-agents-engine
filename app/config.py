@@ -50,6 +50,14 @@ class Settings(BaseSettings):
     meta_forward_timeout: int = 10     # Timeout forward pro Chatwoot (s)
     meta_cache_ttl: int = 300          # TTL cache imbox/company no Redis (5min)
 
+    # Alerting (WhatsApp via Evolution API)
+    alert_enabled: bool = True
+    alert_evo_api_url: str = "https://evo.starbots.com.br"
+    alert_evo_api_key: str = "278CBA42321E-4D72-8355-73F2DC7BB446"
+    alert_evo_instance: str = "report"
+    alert_phone_number: str = "5551995567237"
+    alert_rate_limit_seconds: int = 300  # 5 minutos
+
     # Internal (não exposto no .env)
     tool_execution_timeout: int = 300  # 5 minutos
     openai_timeout: int = 300  # 5 minutos

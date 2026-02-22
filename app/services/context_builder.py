@@ -46,6 +46,7 @@ class ContextBuilder:
         session_id: str,
         company_id: int,
         cached_context: AgentContext | None = None,
+        pending_messages: list[OpenAIMessage] | None = None,
     ) -> OpenAIPayload:
         """
         Build complete OpenAI payload.
@@ -61,6 +62,7 @@ class ContextBuilder:
             session_id: The session identifier
             company_id: Company ID for multi-tenancy
             cached_context: Optional cached AgentContext to skip database fetch
+            pending_messages: Optional in-memory messages to append after DB history
 
         Returns:
             OpenAIPayload ready to send to OpenAI API
@@ -103,6 +105,10 @@ class ContextBuilder:
 
         # 5. Format messages
         messages = self._format_messages(raw_history, system_prompt)
+
+        # 5b. Append pending in-memory messages (from ConversationTurn)
+        if pending_messages:
+            messages.extend(pending_messages)
 
         # 6. Format tools
         tools = self._format_tools_for_openai(context.tools)

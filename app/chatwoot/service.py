@@ -15,8 +15,21 @@ from app.repositories.chat_history import ChatHistoryRepository
 from app.repositories.company import CompanyRepository
 from app.repositories.customer import CustomerRepository
 from app.services.chat_processor import process_chat
+from app.services.request_manager import RequestManager
 
 logger = logging.getLogger(__name__)
+
+# Module-level singleton so all ChatwootService instances share the same
+# RequestManager (and its locks/active_requests state).
+_request_manager: RequestManager | None = None
+
+
+def get_request_manager() -> RequestManager:
+    """Get the singleton RequestManager instance."""
+    global _request_manager
+    if _request_manager is None:
+        _request_manager = RequestManager()
+    return _request_manager
 
 
 class ChatwootService:
@@ -33,6 +46,7 @@ class ChatwootService:
         self.chat_history_repo = ChatHistoryRepository(db)
         self.buffer = MessageBuffer()
         self.client = ChatwootClient()
+        self.request_manager = get_request_manager()
 
     async def process_webhook(
         self,
@@ -100,26 +114,8 @@ class ChatwootService:
             is_new=is_new,
         )
 
-        # 4. Buffer message and check if we should process
-        should_process = await self.buffer.should_process_message(
-            message=message,
-            contact_id=payload.sender.id,
-        )
-
-        # If not the last message in buffer, discard
-        if not should_process:
-            logger.info(
-                f"[ChatwootService] Discarding message for contact {payload.sender.id} "
-                "(newer message in buffer)"
-            )
-            return {
-                "status": "buffered",
-                "reason": "newer_message_pending",
-                "session_id": customer.sessionId,
-            }
-
-        # 5. Process through chat processor
-        logger.info("[ChatwootService] Calling process_chat...")
+        # 4. Delegate to RequestManager (handles buffering + cancellation)
+        logger.info("[ChatwootService] Delegating to RequestManager...")
 
         async def send_messages_to_lead(messages: list[str]) -> None:
             """Callback to send messages to lead before tool execution."""
@@ -131,17 +127,30 @@ class ChatwootService:
                 api_key=company.cw_apikey,
             )
 
-        response = await process_chat(
-            session_id=customer.sessionId,
+        response = await self.request_manager.on_new_message(
+            contact_id=payload.sender.id,
             message=message,
+            session_id=customer.sessionId,
             company_id=company.id,
             db=self.db,
             on_send_messages=send_messages_to_lead,
         )
 
+        # If None, message was discarded (newer message in buffer)
+        if response is None:
+            logger.info(
+                f"[ChatwootService] Message discarded for contact {payload.sender.id} "
+                "(newer message in buffer or task cancelled)"
+            )
+            return {
+                "status": "buffered",
+                "reason": "newer_message_pending",
+                "session_id": customer.sessionId,
+            }
+
         logger.info(f"[ChatwootService] Chat response: {response}")
 
-        # 6. Send responses back to Chatwoot
+        # 5. Send responses back to Chatwoot
         messages = response.get("resposta", [])
         if messages:
             await self._send_responses(

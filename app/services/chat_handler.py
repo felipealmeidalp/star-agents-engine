@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 from app.models.schemas import AgentContext, OpenAIMessage, OpenAIPayload, ToolExecutionContext
 from app.repositories.chat_history import ChatHistoryRepository
 from app.services.context_builder import ContextBuilder
+from app.services.conversation_turn import ConversationTurn
 from app.services.openai import OpenAIService
 from app.services.tool_handler import ToolHandler
 from app.utils.content_formatter import format_content_for_storage
@@ -35,6 +36,7 @@ class ChatHandler:
         db: "AsyncSession",
         openai_api_key: str,
         on_send_messages: MessageSenderCallback | None = None,
+        conversation_turn: ConversationTurn | None = None,
     ) -> None:
         """
         Initialize the chat handler.
@@ -47,6 +49,7 @@ class ChatHandler:
             db: Database session for internal tools
             openai_api_key: OpenAI API key for internal tools
             on_send_messages: Optional callback to send messages to the lead
+            conversation_turn: Optional ConversationTurn for in-memory accumulation
         """
         self.context_builder = context_builder
         self.openai_service = openai_service
@@ -55,6 +58,7 @@ class ChatHandler:
         self.db = db
         self.openai_api_key = openai_api_key
         self.on_send_messages = on_send_messages
+        self.conversation_turn = conversation_turn
 
     async def process(
         self,
@@ -103,10 +107,17 @@ class ChatHandler:
             )
 
             # 1. Build payload (with cache after first iteration)
+            # Pass pending messages from ConversationTurn so context includes
+            # in-memory user message + prior tool history + current tool loop state
+            pending = None
+            if self.conversation_turn:
+                pending = self.conversation_turn.get_pending_as_openai_messages()
+
             payload = await self.context_builder.build(
                 session_id=session_id,
                 company_id=company_id,
                 cached_context=cached_context,
+                pending_messages=pending,
             )
 
             # Cache context for subsequent iterations
@@ -175,6 +186,9 @@ class ChatHandler:
         """
         Handle final response (finish_reason == 'stop').
 
+        If a ConversationTurn is available, accumulates in memory.
+        Otherwise, saves directly to the database (legacy behavior).
+
         Args:
             response: OpenAI response
             session_id: Session identifier
@@ -188,17 +202,24 @@ class ChatHandler:
         # Format for storage
         formatted_content = format_content_for_storage(content)
 
-        # Save to database
-        await self.chat_repo.insert_assistant_message(
-            session_id=session_id,
-            content=formatted_content,
-            company_id=company_id,
-        )
-
-        logger.info(
-            "[ChatHandler] ========== REQUISIÇÃO FINALIZADA ========== "
-            "resposta salva no banco"
-        )
+        if self.conversation_turn:
+            # Accumulate in memory - will be saved atomically later
+            self.conversation_turn.add_assistant_message(formatted_content)
+            logger.info(
+                "[ChatHandler] ========== REQUISIÇÃO FINALIZADA ========== "
+                "resposta acumulada em memória"
+            )
+        else:
+            # Legacy: save directly to database
+            await self.chat_repo.insert_assistant_message(
+                session_id=session_id,
+                content=formatted_content,
+                company_id=company_id,
+            )
+            logger.info(
+                "[ChatHandler] ========== REQUISIÇÃO FINALIZADA ========== "
+                "resposta salva no banco"
+            )
 
         # Parse and return response
         return self._parse_response(content)
@@ -306,15 +327,22 @@ class ChatHandler:
                     len(messages),
                 )
 
-        # 1. Save assistant message with tool_calls (and content if sent)
-        await self.chat_repo.insert_assistant_with_tool_calls(
-            session_id=session_id,
-            company_id=company_id,
-            agent_id=agent_id,
-            sub_agent_id=sub_agent_id,
-            tool_calls=tool_calls_raw,
-            content=content_to_save,
-        )
+        if self.conversation_turn:
+            # Accumulate in memory
+            self.conversation_turn.add_assistant_with_tool_calls(
+                tool_calls=tool_calls_raw,
+                content=content_to_save,
+            )
+        else:
+            # Legacy: save directly to database
+            await self.chat_repo.insert_assistant_with_tool_calls(
+                session_id=session_id,
+                company_id=company_id,
+                agent_id=agent_id,
+                sub_agent_id=sub_agent_id,
+                tool_calls=tool_calls_raw,
+                content=content_to_save,
+            )
 
         # 2. Fetch chat history for tools that need conversation context
         chat_history = await self.chat_repo.get_history_with_orphan_handling(
@@ -337,15 +365,24 @@ class ChatHandler:
         results = await self.tool_handler.execute_all(tool_calls, execution_context)
 
         # 4. Save tool results
-        for result in results:
-            await self.chat_repo.insert_tool_result(
-                session_id=session_id,
-                company_id=company_id,
-                agent_id=agent_id,
-                sub_agent_id=sub_agent_id,
-                tool_call_id=result.tool_call_id,
-                content=result.content,
-            )
+        if self.conversation_turn:
+            # Accumulate in memory
+            for result in results:
+                self.conversation_turn.add_tool_result(
+                    tool_call_id=result.tool_call_id,
+                    content=result.content,
+                )
+        else:
+            # Legacy: save directly to database
+            for result in results:
+                await self.chat_repo.insert_tool_result(
+                    session_id=session_id,
+                    company_id=company_id,
+                    agent_id=agent_id,
+                    sub_agent_id=sub_agent_id,
+                    tool_call_id=result.tool_call_id,
+                    content=result.content,
+                )
 
         # 5. Check if any tool requested cache invalidation
         return any(result.invalidate_cache for result in results)

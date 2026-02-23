@@ -55,6 +55,12 @@ class OpenAITimeoutError(OpenAIError):
     pass
 
 
+class OpenAIBadRequestError(OpenAIError):
+    """Bad request error (400) - typically invalid message sequence."""
+
+    pass
+
+
 class ToolExecutionError(AgentOrchestratorError):
     """Tool execution errors."""
 

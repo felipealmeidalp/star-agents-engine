@@ -9,6 +9,7 @@ import httpx
 from openai import (
     AsyncOpenAI,
     APIError,
+    BadRequestError,
     RateLimitError,
     AuthenticationError,
     APITimeoutError,
@@ -17,6 +18,7 @@ from openai import (
 from app.config import settings
 from app.exceptions import (
     OpenAIError,
+    OpenAIBadRequestError,
     OpenAIRateLimitError,
     OpenAIAuthenticationError,
     OpenAITimeoutError,
@@ -108,6 +110,9 @@ class OpenAIService:
         except AuthenticationError as e:
             logger.error("[OpenAI] Erro de autenticação: API key inválida")
             raise OpenAIAuthenticationError(f"Invalid OpenAI API key: {e}") from e
+        except BadRequestError as e:
+            logger.error("[OpenAI] Bad request (400): %s", e)
+            raise OpenAIBadRequestError(f"OpenAI bad request: {e}") from e
         except RateLimitError as e:
             logger.error("[OpenAI] Rate limit excedido")
             raise OpenAIRateLimitError(f"OpenAI rate limit exceeded: {e}") from e

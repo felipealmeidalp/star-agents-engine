@@ -151,7 +151,7 @@ class ChatHistoryRepository:
                 FROM chat_history
                 WHERE "sessionId" = :session_id
                   AND company_id = :company_id
-                ORDER BY created_at DESC
+                ORDER BY created_at DESC, id DESC
                 LIMIT 10
             ),
             has_orphan_tool AS (
@@ -169,7 +169,7 @@ class ChatHistoryRepository:
                   AND ch.created_at < (SELECT MIN(created_at) FROM base_messages)
                   AND ch.role = 'assistant'
                   AND ch.tool_calls IS NOT NULL
-                ORDER BY ch.created_at DESC
+                ORDER BY ch.created_at DESC, ch.id DESC
                 LIMIT 1
             )
             SELECT * FROM (
@@ -177,7 +177,7 @@ class ChatHistoryRepository:
                 UNION ALL
                 SELECT * FROM base_messages
             ) final
-            ORDER BY created_at ASC
+            ORDER BY created_at ASC, id ASC
         """)
 
         result = await self.db.execute(

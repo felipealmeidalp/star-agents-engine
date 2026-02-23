@@ -434,7 +434,92 @@ class ContextBuilder:
 
             messages.append(msg)
 
+        # Pre-flight validation: if sequence is still invalid, strip all tool messages
+        if not self._validate_messages_for_openai(messages):
+            logger.warning(
+                "[ContextBuilder] Validação pre-flight falhou - removendo todas mensagens de tool"
+            )
+            send_critical_alert(
+                "CONTEXT_BUILDER_TOOL_SEQUENCE_INVALID",
+                "context_builder.py:_format_messages",
+                Exception("Tool message sequence invalid after sanitize + reorder"),
+                extra=f"messages_count={len(messages)}",
+            )
+            messages = [
+                msg for msg in messages
+                if msg.role not in ("tool",)
+                and not (msg.role == "assistant" and msg.tool_calls)
+            ]
+
         return messages
+
+    def _validate_messages_for_openai(
+        self,
+        messages: list[OpenAIMessage],
+    ) -> bool:
+        """
+        Validate that tool message sequence is correct for OpenAI API.
+
+        Rules:
+        - Every assistant message with tool_calls must be immediately followed by
+          tool messages for ALL of those tool_call_ids.
+        - Every tool message must have a preceding assistant with matching tool_call_id.
+
+        Returns:
+            True if valid, False if sequence is broken.
+        """
+        i = 0
+        while i < len(messages):
+            msg = messages[i]
+
+            if msg.role == "assistant" and msg.tool_calls:
+                # Extract expected tool_call_ids
+                expected_ids = []
+                for tc in msg.tool_calls:
+                    if isinstance(tc, dict):
+                        cid = tc.get("id") or tc.get("tool_call_id")
+                    else:
+                        cid = getattr(tc, "id", None) or getattr(tc, "tool_call_id", None)
+                    if cid:
+                        expected_ids.append(cid)
+
+                # Check that the next N messages are tool responses for these IDs
+                found_ids = set()
+                for j in range(i + 1, i + 1 + len(expected_ids)):
+                    if j >= len(messages):
+                        logger.warning(
+                            "[ContextBuilder] Validação: faltam tool responses após assistant "
+                            "(esperado %d, encontrou %d)",
+                            len(expected_ids),
+                            len(found_ids),
+                        )
+                        return False
+                    next_msg = messages[j]
+                    if next_msg.role != "tool" or not next_msg.tool_call_id:
+                        logger.warning(
+                            "[ContextBuilder] Validação: esperava tool response na posição %d, "
+                            "encontrou role=%s",
+                            j,
+                            next_msg.role,
+                        )
+                        return False
+                    found_ids.add(next_msg.tool_call_id)
+
+                if set(expected_ids) != found_ids:
+                    logger.warning(
+                        "[ContextBuilder] Validação: tool_call_ids não correspondem. "
+                        "Esperado=%s, Encontrado=%s",
+                        expected_ids,
+                        found_ids,
+                    )
+                    return False
+
+                # Skip past the tool responses
+                i += 1 + len(expected_ids)
+            else:
+                i += 1
+
+        return True
 
     def _sanitize_tool_pairs(
         self,
@@ -494,7 +579,65 @@ class ContextBuilder:
 
             sanitized.append(row)
 
-        return sanitized
+        # 4. Reorder: ensure tool responses immediately follow their assistant message
+        reordered = self._reorder_tool_messages(sanitized)
+
+        return reordered
+
+    def _reorder_tool_messages(
+        self,
+        messages: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """
+        Reorder messages so tool responses immediately follow their assistant+tool_calls.
+
+        OpenAI requires tool messages right after the assistant message that requested them.
+        If the DB returned them out of order (same timestamp), this fixes the sequence.
+        """
+        # Index tool messages by tool_call_id
+        tool_msgs_by_id: dict[str, dict[str, Any]] = {}
+        for row in messages:
+            if row.get("role") == "tool" and row.get("tool_call_id"):
+                tool_msgs_by_id[row["tool_call_id"]] = row
+
+        if not tool_msgs_by_id:
+            return messages  # No tool messages, nothing to reorder
+
+        # Build reordered list: skip tool messages (insert them after their assistant)
+        reordered: list[dict[str, Any]] = []
+        placed_tool_ids: set[str] = set()
+
+        for row in messages:
+            if row.get("role") == "tool" and row.get("tool_call_id"):
+                # Skip - will be placed after corresponding assistant
+                continue
+
+            reordered.append(row)
+
+            # If this is an assistant with tool_calls, insert tool responses right after
+            if row.get("role") == "assistant" and row.get("tool_calls"):
+                call_ids = self._extract_tool_call_ids(row["tool_calls"])
+                for cid in call_ids:
+                    if cid in tool_msgs_by_id:
+                        reordered.append(tool_msgs_by_id[cid])
+                        placed_tool_ids.add(cid)
+
+        # Safety: append any tool messages that weren't placed (shouldn't happen after sanitize)
+        for cid, msg in tool_msgs_by_id.items():
+            if cid not in placed_tool_ids:
+                logger.warning(
+                    "[ContextBuilder] Tool message não associada, adicionando ao final: %s",
+                    cid,
+                )
+                reordered.append(msg)
+
+        if placed_tool_ids:
+            logger.info(
+                "[ContextBuilder] Reordenando tool messages: %d tools reposicionadas",
+                len(placed_tool_ids),
+            )
+
+        return reordered
 
     @staticmethod
     def _extract_tool_call_ids(tool_calls: Any) -> list[str]:

@@ -5,7 +5,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
-from app.exceptions import MaxIterationsExceededError
+from app.exceptions import MaxIterationsExceededError, OpenAIBadRequestError
 
 logger = logging.getLogger(__name__)
 from app.models.schemas import (
@@ -138,7 +138,38 @@ class ChatHandler:
 
             # 3. Call OpenAI
             logger.info("[ChatHandler] Chamando OpenAI...")
-            response = await self.openai_service.chat_completion(payload)
+            try:
+                response = await self.openai_service.chat_completion(payload)
+            except OpenAIBadRequestError as e:
+                logger.error(
+                    "[ChatHandler] OpenAI 400 BadRequest - tentando fallback sem tools: %s", e
+                )
+                send_critical_alert(
+                    "OPENAI_400_HISTORY_FALLBACK",
+                    "chat_handler.py:process",
+                    e,
+                    company_id=company_id,
+                    extra=f"session={session_id}, iteration={iteration}",
+                )
+                # Fallback: strip all tool-related messages and tools, retry once
+                clean_messages = [
+                    msg for msg in payload.messages
+                    if msg.role not in ("tool",)
+                    and not (msg.role == "assistant" and msg.tool_calls)
+                ]
+                fallback_payload = OpenAIPayload(
+                    model=payload.model,
+                    temperature=payload.temperature,
+                    messages=clean_messages,
+                    tools=None,
+                    response_format=payload.response_format,
+                )
+                logger.info(
+                    "[ChatHandler] Fallback payload: %d messages (was %d), sem tools",
+                    len(clean_messages),
+                    len(payload.messages),
+                )
+                response = await self.openai_service.chat_completion(fallback_payload)
 
             finish_reason = response.choices[0].finish_reason if response.choices else "unknown"
             logger.info("[ChatHandler] OpenAI respondeu: finish_reason=%s", finish_reason)

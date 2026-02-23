@@ -45,6 +45,16 @@ class ChatwootInbox(BaseModel):
     name: str | None = None
 
 
+class ChatwootAttachment(BaseModel):
+    """Attachment from Chatwoot webhook message."""
+
+    id: int
+    message_id: int | None = None
+    file_type: str | None = None  # "audio", "image", "video", "file"
+    data_url: str | None = None
+    file_size: int | None = None
+
+
 class ChatwootWebhookPayload(BaseModel):
     """Chatwoot webhook payload - received directly without wrapper."""
 
@@ -57,3 +67,4 @@ class ChatwootWebhookPayload(BaseModel):
     event: str  # "message_created"
     inbox: ChatwootInbox | None = None
     private: bool = False
+    attachments: list[ChatwootAttachment] | None = None

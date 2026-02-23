@@ -1,9 +1,11 @@
 """OpenAI integration service."""
 
+import io
 import logging
 import time
 from typing import Any
 
+import httpx
 from openai import (
     AsyncOpenAI,
     APIError,
@@ -247,3 +249,78 @@ class OpenAIService:
             )
             for tc in message.tool_calls
         ]
+
+    async def transcribe_audio(self, audio_url: str) -> str:
+        """
+        Download audio from URL and transcribe via Whisper API.
+
+        Args:
+            audio_url: Public URL of the audio file
+
+        Returns:
+            Transcribed text
+
+        Raises:
+            OpenAIError: If download or transcription fails
+        """
+        try:
+            # Download audio (follow_redirects for CDN redirects like Facebook)
+            async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as http:
+                resp = await http.get(audio_url)
+                resp.raise_for_status()
+
+            audio_bytes = resp.content
+            content_type = resp.headers.get("content-type", "")
+
+            # Determine file extension from content type
+            ext = "ogg"
+            if "mpeg" in content_type or "mp3" in content_type:
+                ext = "mp3"
+            elif "mp4" in content_type or "m4a" in content_type:
+                ext = "m4a"
+            elif "wav" in content_type:
+                ext = "wav"
+            elif "webm" in content_type:
+                ext = "webm"
+
+            logger.info(
+                "[OpenAI] Transcribing audio: url=%s, size=%d bytes, type=%s",
+                audio_url[:80],
+                len(audio_bytes),
+                content_type,
+            )
+
+            start_time = time.perf_counter()
+            audio_file = io.BytesIO(audio_bytes)
+            audio_file.name = f"audio.{ext}"
+
+            transcription = await self.client.audio.transcriptions.create(
+                model="whisper-1",
+                file=audio_file,
+                language="pt",
+            )
+            elapsed_ms = (time.perf_counter() - start_time) * 1000
+
+            text = transcription.text.strip()
+            logger.info(
+                "[OpenAI] Transcription done in %.0fms: %d chars",
+                elapsed_ms,
+                len(text),
+            )
+            return text
+
+        except httpx.HTTPError as e:
+            logger.error("[OpenAI] Failed to download audio from %s: %s", audio_url[:80], e)
+            raise OpenAIError(f"Failed to download audio: {e}") from e
+        except AuthenticationError as e:
+            logger.error("[OpenAI] Whisper auth error: invalid API key")
+            raise OpenAIAuthenticationError(f"Invalid OpenAI API key: {e}") from e
+        except RateLimitError as e:
+            logger.error("[OpenAI] Whisper rate limit exceeded")
+            raise OpenAIRateLimitError(f"OpenAI rate limit exceeded: {e}") from e
+        except APITimeoutError as e:
+            logger.error("[OpenAI] Whisper timeout")
+            raise OpenAITimeoutError(f"OpenAI request timeout: {e}") from e
+        except APIError as e:
+            logger.error("[OpenAI] Whisper API error: %s", e)
+            raise OpenAIError(f"OpenAI Whisper API error: {e}") from e

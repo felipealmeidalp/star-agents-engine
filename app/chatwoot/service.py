@@ -8,13 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.chatwoot.buffer import MessageBuffer
 from app.chatwoot.client import ChatwootClient
-from app.chatwoot.schemas import ChatwootWebhookPayload
+from app.chatwoot.schemas import ChatwootAttachment, ChatwootWebhookPayload
 from app.models.tables import Agent, Company, Customer
 from app.rabbitmq import get_follow_up_publisher
 from app.repositories.chat_history import ChatHistoryRepository
 from app.repositories.company import CompanyRepository
 from app.repositories.customer import CustomerRepository
 from app.services.chat_processor import process_chat
+from app.services.openai import OpenAIService
 from app.services.request_manager import RequestManager
 from app.utils.alerter import send_critical_alert
 
@@ -60,8 +61,9 @@ class ChatwootService:
         Flow:
         1. Get or create customer (WITHOUT updating follow-up)
         2. If existing customer: check dev commands FIRST
-        3. Update follow-up + schedule RabbitMQ (only if not dev command)
-        4. Buffer, process chat, send responses
+        3. Handle attachments (audio transcription, unsupported rejection)
+        4. Update follow-up + schedule RabbitMQ (only if not dev command)
+        5. Buffer, process chat, send responses
 
         Args:
             payload: Validated webhook payload
@@ -107,7 +109,19 @@ class ChatwootService:
                 )
                 return dev_command_result
 
-        # 3. Update follow-up + schedule RabbitMQ (only reaches here if not dev command)
+        # 3. Handle attachments (audio transcription, unsupported types)
+        message, should_continue = await self._handle_attachments(
+            message=message,
+            payload=payload,
+            company=company,
+        )
+        if not should_continue:
+            return {
+                "status": "attachment_handled",
+                "session_id": customer.sessionId,
+            }
+
+        # 4. Update follow-up + schedule RabbitMQ (only reaches here if not dev command)
         await self._update_follow_up_and_schedule(
             customer=customer,
             company=company,
@@ -115,7 +129,7 @@ class ChatwootService:
             is_new=is_new,
         )
 
-        # 4. Delegate to RequestManager (handles buffering + cancellation)
+        # 5. Delegate to RequestManager (handles buffering + cancellation)
         logger.info("[ChatwootService] Delegating to RequestManager...")
 
         async def send_messages_to_lead(messages: list[str]) -> None:
@@ -151,7 +165,7 @@ class ChatwootService:
 
         logger.info(f"[ChatwootService] Chat response: {response}")
 
-        # 5. Send responses back to Chatwoot
+        # 6. Send responses back to Chatwoot
         messages = response.get("resposta", [])
         if messages:
             await self._send_responses(
@@ -344,6 +358,197 @@ class ChatwootService:
                 contact_id=customer.id,
                 company_id=company.id,
             )
+
+    async def _handle_attachments(
+        self,
+        message: str,
+        payload: ChatwootWebhookPayload,
+        company: Company,
+    ) -> tuple[str, bool]:
+        """
+        Handle message attachments (audio transcription, unsupported types).
+
+        Args:
+            message: Current message text (may be empty)
+            payload: Webhook payload with attachments
+            company: Company for API keys and Chatwoot config
+
+        Returns:
+            Tuple of (message_text, should_continue).
+            should_continue=False means caller should return early.
+        """
+        # Text has precedence — if there's content, process normally
+        if message.strip():
+            return message, True
+
+        attachments = payload.attachments or []
+
+        # No content AND no attachments → skip silently
+        if not attachments:
+            logger.warning(
+                "[ChatwootService] Empty message with no attachments, skipping. "
+                "sender=%s, company=%s",
+                payload.sender.id if payload.sender else "?",
+                company.id,
+            )
+            return message, False
+
+        # Check for audio attachment (use the first one found)
+        audio_attachment: ChatwootAttachment | None = None
+        non_audio_attachment: ChatwootAttachment | None = None
+
+        for att in attachments:
+            if att.file_type == "audio":
+                audio_attachment = att
+                break
+            elif non_audio_attachment is None:
+                non_audio_attachment = att
+
+        # Case 1: Audio attachment → transcribe
+        if audio_attachment:
+            transcribed = await self._transcribe_audio_attachment(
+                attachment=audio_attachment,
+                payload=payload,
+                company=company,
+            )
+            if transcribed:
+                return transcribed, True
+            # Transcription failed or empty — error message already sent to client
+            return message, False
+
+        # Case 2: Non-audio attachment → reject with message
+        if non_audio_attachment:
+            logger.info(
+                "[ChatwootService] Unsupported attachment type '%s' from sender=%s, company=%s",
+                non_audio_attachment.file_type,
+                payload.sender.id if payload.sender else "?",
+                company.id,
+            )
+
+            await self._send_responses(
+                messages=[
+                    "Desculpa, não consigo processar esse tipo de mensagem. "
+                    "Você consegue me enviar em texto?"
+                ],
+                base_url=company.cw_base_url,
+                account_id=payload.account.id,
+                conversation_id=payload.conversation.id,
+                api_key=company.cw_apikey,
+            )
+
+            # Build Chatwoot link for alert
+            cw_link = (
+                f"{company.cw_base_url}/app/accounts/{payload.account.id}"
+                f"/conversations/{payload.conversation.id}"
+            ) if company.cw_base_url else "N/A"
+
+            send_critical_alert(
+                "UNSUPPORTED_ATTACHMENT",
+                "chatwoot/service.py:_handle_attachments",
+                f"Attachment type '{non_audio_attachment.file_type}' not supported",
+                contact_id=payload.sender.id if payload.sender else None,
+                company_id=company.id,
+                extra=cw_link,
+            )
+            return message, False
+
+        return message, False
+
+    async def _transcribe_audio_attachment(
+        self,
+        attachment: ChatwootAttachment,
+        payload: ChatwootWebhookPayload,
+        company: Company,
+    ) -> str | None:
+        """
+        Transcribe an audio attachment using Whisper API.
+
+        Args:
+            attachment: Audio attachment with data_url
+            payload: Webhook payload for context
+            company: Company for API key
+
+        Returns:
+            Transcribed text, or None if transcription failed/empty
+        """
+        if not attachment.data_url:
+            logger.warning(
+                "[ChatwootService] Audio attachment has no data_url, sender=%s",
+                payload.sender.id if payload.sender else "?",
+            )
+            await self._send_responses(
+                messages=[
+                    "Desculpa, tive um problema ao processar seu áudio. "
+                    "Você pode tentar enviar novamente ou digitar a mensagem?"
+                ],
+                base_url=company.cw_base_url,
+                account_id=payload.account.id,
+                conversation_id=payload.conversation.id,
+                api_key=company.cw_apikey,
+            )
+            return None
+
+        try:
+            api_key = await self.company_repo.get_openai_api_key(company.id)
+            openai_service = OpenAIService(api_key=api_key)
+            text = await openai_service.transcribe_audio(attachment.data_url)
+
+            if not text.strip():
+                logger.warning(
+                    "[ChatwootService] Audio transcription returned empty text, sender=%s",
+                    payload.sender.id if payload.sender else "?",
+                )
+                await self._send_responses(
+                    messages=[
+                        "Não consegui entender o áudio. Você pode tentar enviar "
+                        "novamente ou digitar a mensagem?"
+                    ],
+                    base_url=company.cw_base_url,
+                    account_id=payload.account.id,
+                    conversation_id=payload.conversation.id,
+                    api_key=company.cw_apikey,
+                )
+                return None
+
+            logger.info(
+                "[ChatwootService] Audio transcribed successfully: %d chars, sender=%s",
+                len(text),
+                payload.sender.id if payload.sender else "?",
+            )
+            return text
+
+        except Exception as e:
+            logger.error(
+                "[ChatwootService] Audio transcription failed: %s, sender=%s",
+                e,
+                payload.sender.id if payload.sender else "?",
+            )
+
+            await self._send_responses(
+                messages=[
+                    "Desculpa, tive um problema ao processar seu áudio. "
+                    "Você pode tentar enviar novamente ou digitar a mensagem?"
+                ],
+                base_url=company.cw_base_url,
+                account_id=payload.account.id,
+                conversation_id=payload.conversation.id,
+                api_key=company.cw_apikey,
+            )
+
+            cw_link = (
+                f"{company.cw_base_url}/app/accounts/{payload.account.id}"
+                f"/conversations/{payload.conversation.id}"
+            ) if company.cw_base_url else "N/A"
+
+            send_critical_alert(
+                "AUDIO_TRANSCRIPTION_FAILED",
+                "chatwoot/service.py:_transcribe_audio_attachment",
+                e,
+                contact_id=payload.sender.id if payload.sender else None,
+                company_id=company.id,
+                extra=cw_link,
+            )
+            return None
 
     async def _handle_dev_command(
         self,

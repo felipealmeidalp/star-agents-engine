@@ -21,12 +21,21 @@ class ChatwootSender(BaseModel):
     type: str | None = None  # "contact" or "user"
 
 
+class ChatwootContactInbox(BaseModel):
+    """Contact inbox info - used to get contact_id from outgoing messages."""
+
+    contact_id: int
+    inbox_id: int | None = None
+    source_id: str | None = None
+
+
 class ChatwootConversation(BaseModel):
     """Conversation information from Chatwoot webhook."""
 
     id: int
     inbox_id: int | None = None
     status: str | None = None
+    contact_inbox: ChatwootContactInbox | None = None
 
 
 class ChatwootInbox(BaseModel):
@@ -44,7 +53,7 @@ class ChatwootWebhookPayload(BaseModel):
     content_type: str | None = None  # "text", "image", etc.
     conversation: ChatwootConversation
     message_type: str  # "incoming" or "outgoing"
-    sender: ChatwootSender
+    sender: ChatwootSender | None = None
     event: str  # "message_created"
     inbox: ChatwootInbox | None = None
     private: bool = False

@@ -8,7 +8,14 @@ from typing import TYPE_CHECKING, Any
 from app.exceptions import MaxIterationsExceededError
 
 logger = logging.getLogger(__name__)
-from app.models.schemas import AgentContext, OpenAIMessage, OpenAIPayload, ToolExecutionContext
+from app.models.schemas import (
+    AgentContext,
+    OpenAIMessage,
+    OpenAIPayload,
+    TokenUsage,
+    ToolExecutionContext,
+    extract_token_usage,
+)
 from app.repositories.chat_history import ChatHistoryRepository
 from app.services.context_builder import ContextBuilder
 from app.services.conversation_turn import ConversationTurn
@@ -199,13 +206,16 @@ class ChatHandler:
             Parsed response content
         """
         content = response.choices[0].message.content
+        token_usage = extract_token_usage(response)
 
         # Format for storage
         formatted_content = format_content_for_storage(content)
 
         if self.conversation_turn:
             # Accumulate in memory - will be saved atomically later
-            self.conversation_turn.add_assistant_message(formatted_content)
+            self.conversation_turn.add_assistant_message(
+                formatted_content, token_usage=token_usage,
+            )
             logger.info(
                 "[ChatHandler] ========== REQUISIÇÃO FINALIZADA ========== "
                 "resposta acumulada em memória"
@@ -217,6 +227,10 @@ class ChatHandler:
                     session_id=session_id,
                     content=formatted_content,
                     company_id=company_id,
+                    input_tokens=token_usage.input_tokens,
+                    input_cached_tokens=token_usage.input_cached_tokens,
+                    output_tokens=token_usage.output_tokens,
+                    model=token_usage.model,
                 )
             except Exception as e:
                 logger.exception("[ChatHandler] Failed to save assistant message: %s", e)
@@ -252,11 +266,14 @@ class ChatHandler:
         self,
         payload: OpenAIPayload,
         tool_names: list[str],
-    ) -> str | None:
+    ) -> tuple[str | None, TokenUsage]:
         """Chamada extra à OpenAI SEM tools para forçar geração de texto.
 
         Usada quando send_content_before_execution=true e o modelo
         retornou content=null com tool_calls (comportamento do GPT-4.1).
+
+        Returns:
+            Tuple of (generated content, token usage from extra call)
         """
         messages = list(payload.messages)
         messages.append(OpenAIMessage(
@@ -281,11 +298,12 @@ class ChatHandler:
         response = await self.openai_service.chat_completion(text_payload)
 
         content = response.choices[0].message.content if response.choices else None
+        extra_usage = extract_token_usage(response)
         logger.info(
             "[ChatHandler] Content forçado recebido: %s",
             content[:200] if content else "None",
         )
-        return content
+        return content, extra_usage
 
     async def _handle_tool_calls(
         self,
@@ -319,6 +337,9 @@ class ChatHandler:
         agent_id = cached_context.customer.agent_id
         sub_agent_id = cached_context.customer.sub_agent_id
 
+        # Extract token usage from the main response
+        token_usage = extract_token_usage(response)
+
         content_to_save = None
         should_send = self._should_send_content_before_tools(tool_calls_raw, cached_context)
 
@@ -327,7 +348,11 @@ class ChatHandler:
             # Chamada extra sem tools para forçar o texto.
             tool_names = [tc["function"]["name"] for tc in tool_calls_raw]
             try:
-                forced_content = await self._generate_pre_tool_content(payload, tool_names)
+                forced_content, extra_usage = await self._generate_pre_tool_content(
+                    payload, tool_names,
+                )
+                # Merge tokens from both calls
+                token_usage = token_usage.merge(extra_usage)
             except Exception as e:
                 logger.exception("[ChatHandler] Extra OpenAI call failed: %s", e)
                 send_critical_alert(
@@ -354,6 +379,7 @@ class ChatHandler:
             self.conversation_turn.add_assistant_with_tool_calls(
                 tool_calls=tool_calls_raw,
                 content=content_to_save,
+                token_usage=token_usage,
             )
         else:
             # Legacy: save directly to database
@@ -365,6 +391,10 @@ class ChatHandler:
                     sub_agent_id=sub_agent_id,
                     tool_calls=tool_calls_raw,
                     content=content_to_save,
+                    input_tokens=token_usage.input_tokens,
+                    input_cached_tokens=token_usage.input_cached_tokens,
+                    output_tokens=token_usage.output_tokens,
+                    model=token_usage.model,
                 )
             except Exception as e:
                 logger.exception("[ChatHandler] Failed to save tool_calls: %s", e)

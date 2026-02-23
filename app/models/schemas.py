@@ -181,6 +181,43 @@ class OpenAIResponse(BaseModel):
     system_fingerprint: str | None = None
 
 
+class TokenUsage(BaseModel):
+    """Token usage data from an OpenAI response."""
+
+    input_tokens: int = 0
+    input_cached_tokens: int = 0
+    output_tokens: int = 0
+    model: str = ""
+
+    def merge(self, other: "TokenUsage") -> "TokenUsage":
+        """Sum tokens from two calls (e.g. send_content_before_execution)."""
+        return TokenUsage(
+            input_tokens=self.input_tokens + other.input_tokens,
+            input_cached_tokens=self.input_cached_tokens + other.input_cached_tokens,
+            output_tokens=self.output_tokens + other.output_tokens,
+            model=self.model or other.model,
+        )
+
+
+def extract_token_usage(response: "OpenAIResponse") -> TokenUsage:
+    """Extract token usage data from an OpenAI response."""
+    usage = response.usage
+    if not usage:
+        return TokenUsage(model=response.model)
+
+    cached = 0
+    details = usage.get("prompt_tokens_details")
+    if details:
+        cached = details.get("cached_tokens", 0)
+
+    return TokenUsage(
+        input_tokens=usage.get("prompt_tokens", 0),
+        input_cached_tokens=cached,
+        output_tokens=usage.get("completion_tokens", 0),
+        model=response.model,
+    )
+
+
 class ChatResponse(BaseModel):
     """Response schema for POST /chat endpoint."""
 

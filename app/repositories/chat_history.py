@@ -72,6 +72,11 @@ class ChatHistoryRepository:
         session_id: str,
         content: str,
         company_id: int,
+        *,
+        input_tokens: int | None = None,
+        input_cached_tokens: int | None = None,
+        output_tokens: int | None = None,
+        model: str | None = None,
     ) -> ChatHistory:
         """
         Insert an assistant message into chat_history.
@@ -109,6 +114,10 @@ class ChatHistoryRepository:
             agent_id=customer.agent_id,
             sub_agent_id=customer.sub_agent_id,
             company_id=company_id,
+            input_tokens=input_tokens,
+            input_cached_tokens=input_cached_tokens,
+            output_tokens=output_tokens,
+            model=model,
         )
 
         self.db.add(chat_record)
@@ -186,6 +195,11 @@ class ChatHistoryRepository:
         sub_agent_id: int,
         tool_calls: list[dict],
         content: str | None = None,
+        *,
+        input_tokens: int | None = None,
+        input_cached_tokens: int | None = None,
+        output_tokens: int | None = None,
+        model: str | None = None,
     ) -> ChatHistory:
         """
         Insert assistant message with tool_calls.
@@ -209,6 +223,10 @@ class ChatHistoryRepository:
             sub_agent_id=sub_agent_id,
             company_id=company_id,
             tool_calls=tool_calls,
+            input_tokens=input_tokens,
+            input_cached_tokens=input_cached_tokens,
+            output_tokens=output_tokens,
+            model=model,
         )
 
         self.db.add(chat_record)

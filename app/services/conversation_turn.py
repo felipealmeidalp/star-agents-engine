@@ -10,7 +10,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.schemas import OpenAIMessage
+from app.models.schemas import OpenAIMessage, TokenUsage
 from app.repositories.chat_history import ChatHistoryRepository
 
 logger = logging.getLogger(__name__)
@@ -42,18 +42,24 @@ class ConversationTurn:
         self.pending_messages: list[dict[str, Any]] = []
         self._final_response: str | None = None
 
-    def add_assistant_message(self, content: str) -> None:
+    def add_assistant_message(
+        self, content: str, token_usage: TokenUsage | None = None,
+    ) -> None:
         """Record the final assistant response (no tool_calls)."""
         self._final_response = content
-        self.pending_messages.append({
+        msg: dict[str, Any] = {
             "role": "assistant",
             "content": content,
-        })
+        }
+        if token_usage is not None:
+            msg["_token_usage"] = token_usage
+        self.pending_messages.append(msg)
 
     def add_assistant_with_tool_calls(
         self,
         tool_calls: list[dict[str, Any]],
         content: str | None = None,
+        token_usage: TokenUsage | None = None,
     ) -> None:
         """Record an assistant message that includes tool_calls."""
         msg: dict[str, Any] = {
@@ -62,6 +68,8 @@ class ConversationTurn:
         }
         if content is not None:
             msg["content"] = content
+        if token_usage is not None:
+            msg["_token_usage"] = token_usage
         self.pending_messages.append(msg)
 
     def add_tool_result(
@@ -148,7 +156,8 @@ class ConversationTurn:
 
         # 3. Current pending messages (accumulated during this turn)
         for msg in self.pending_messages:
-            result.append(OpenAIMessage(**msg))
+            filtered = {k: v for k, v in msg.items() if not k.startswith("_")}
+            result.append(OpenAIMessage(**filtered))
 
         return result
 
@@ -199,6 +208,7 @@ class ConversationTurn:
 
         # 2. Save prior tool history
         for msg in self.prior_tool_history:
+            tu: TokenUsage | None = msg.get("_token_usage")
             record = ChatHistory(
                 sessionId=session_id,
                 role=msg["role"],
@@ -208,11 +218,16 @@ class ConversationTurn:
                 company_id=company_id,
                 tool_calls=msg.get("tool_calls"),
                 tool_call_id=msg.get("tool_call_id"),
+                input_tokens=tu.input_tokens if tu else None,
+                input_cached_tokens=tu.input_cached_tokens if tu else None,
+                output_tokens=tu.output_tokens if tu else None,
+                model=tu.model if tu else None,
             )
             db.add(record)
 
         # 3. Save pending messages
         for msg in self.pending_messages:
+            tu = msg.get("_token_usage")
             record = ChatHistory(
                 sessionId=session_id,
                 role=msg["role"],
@@ -222,6 +237,10 @@ class ConversationTurn:
                 company_id=company_id,
                 tool_calls=msg.get("tool_calls"),
                 tool_call_id=msg.get("tool_call_id"),
+                input_tokens=tu.input_tokens if tu else None,
+                input_cached_tokens=tu.input_cached_tokens if tu else None,
+                output_tokens=tu.output_tokens if tu else None,
+                model=tu.model if tu else None,
             )
             db.add(record)
 

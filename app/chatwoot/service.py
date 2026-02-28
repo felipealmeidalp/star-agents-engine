@@ -416,41 +416,44 @@ class ChatwootService:
             # Transcription failed or empty — error message already sent to client
             return message, False
 
-        # Case 2: Non-audio attachment → reject with message
+        # Case 2: Non-audio attachment → describe for AI
         if non_audio_attachment:
+            file_type = non_audio_attachment.file_type or "file"
+
+            # Map file_type to descriptive message
+            type_labels = {
+                "image": "uma imagem",
+                "video": "um vídeo",
+            }
+
+            if file_type in type_labels:
+                description = type_labels[file_type]
+            else:
+                # Try to extract extension from data_url for more specific description
+                ext = ""
+                if non_audio_attachment.data_url:
+                    from urllib.parse import urlparse
+                    path = urlparse(non_audio_attachment.data_url).path
+                    if "." in path:
+                        ext = path.rsplit(".", 1)[-1].upper()
+
+                if ext and len(ext) <= 5:
+                    description = f"um arquivo {ext}"
+                else:
+                    description = "um arquivo"
+
+            descriptive_message = f"O usuário enviou {description}"
+
             logger.info(
-                "[ChatwootService] Unsupported attachment type '%s' from sender=%s, company=%s",
-                non_audio_attachment.file_type,
+                "[ChatwootService] Non-audio attachment '%s' → forwarding as AI input: '%s'. "
+                "sender=%s, company=%s",
+                file_type,
+                descriptive_message,
                 payload.sender.id if payload.sender else "?",
                 company.id,
             )
 
-            await self._send_responses(
-                messages=[
-                    "Desculpa, não consigo processar esse tipo de mensagem. "
-                    "Você consegue me enviar em texto?"
-                ],
-                base_url=company.cw_base_url,
-                account_id=payload.account.id,
-                conversation_id=payload.conversation.id,
-                api_key=company.cw_apikey,
-            )
-
-            # Build Chatwoot link for alert
-            cw_link = (
-                f"{company.cw_base_url}/app/accounts/{payload.account.id}"
-                f"/conversations/{payload.conversation.id}"
-            ) if company.cw_base_url else "N/A"
-
-            send_critical_alert(
-                "UNSUPPORTED_ATTACHMENT",
-                "chatwoot/service.py:_handle_attachments",
-                f"Attachment type '{non_audio_attachment.file_type}' not supported",
-                contact_id=payload.sender.id if payload.sender else None,
-                company_id=company.id,
-                extra=cw_link,
-            )
-            return message, False
+            return descriptive_message, True
 
         return message, False
 

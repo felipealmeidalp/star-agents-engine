@@ -18,7 +18,7 @@ from app.repositories.prompt import PromptRepository
 from app.services.chat_handler import ChatHandler, MessageSenderCallback
 from app.services.context_builder import ContextBuilder
 from app.services.conversation_turn import ConversationTurn
-from app.services.openai import OpenAIService
+from app.services.openai import OpenAIService   
 from app.services.tool_handler import ToolHandler
 from app.utils.alerter import send_critical_alert
 

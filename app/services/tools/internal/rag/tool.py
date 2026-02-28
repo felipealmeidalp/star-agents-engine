@@ -5,8 +5,8 @@ from typing import Any
 
 from openai import AsyncOpenAI
 
-from app.config import settings
 from app.models.schemas import ToolExecutionContext, ToolResult
+from app.repositories.agent import AgentRepository
 from app.repositories.company import CompanyRepository
 from app.repositories.customer import CustomerRepository
 from app.repositories.objection import ObjectionRepository
@@ -73,6 +73,17 @@ class RagTool(BaseTool):
             prompt_repo = PromptRepository(context.db)
             company_repo = CompanyRepository(context.db)
             openai_client = AsyncOpenAI(api_key=context.openai_api_key)
+
+            # --- Roteamento por sub-agente ---
+            routing_result = await self._route_to_sub_agent(
+                context=context,
+                question=question,
+                openai_client=openai_client,
+                prompt_repo=prompt_repo,
+            )
+            if routing_result is not None:
+                return routing_result
+            # --- Fim do roteamento ---
 
             # 3. Fetch classification prompt with config (model, temperature)
             classification_config = await prompt_repo.get_prompt_with_config(
@@ -190,6 +201,126 @@ class RagTool(BaseTool):
                 success=False,
                 content=f"Erro na execucao do RAG: {str(e)}",
             )
+
+    async def _route_to_sub_agent(
+        self,
+        context: ToolExecutionContext,
+        question: str,
+        openai_client: AsyncOpenAI,
+        prompt_repo: PromptRepository,
+    ) -> ToolResult | None:
+        """
+        Verifica se a pergunta deve ser roteada para outro sub-agente.
+
+        Retorna ToolResult se roteado, None se deve continuar no fluxo RAG.
+        """
+        # 1. Buscar sub-agentes irmãos
+        agent_repo = AgentRepository(context.db)
+        siblings = await agent_repo.get_sibling_sub_agents(
+            agent_id=context.agent_id,
+            current_sub_agent_id=context.sub_agent_id,
+            company_id=context.company_id,
+        )
+
+        if not siblings:
+            return None
+
+        # 2. Buscar prompt de roteamento
+        routing_config = await prompt_repo.get_prompt_with_config(
+            company_id=context.company_id,
+            name="rag_sub_agent_routing",
+            reason="rag_routing",
+        )
+
+        if not routing_config:
+            return None
+
+        # 3. Montar texto com sub-agentes
+        sub_agents_text = "\n".join(
+            f'Sub-agente ID {s["id"]} - "{s["name"]}": {s.get("mission") or s["name"]}'
+            for s in siblings
+        )
+
+        # 4. Substituir placeholders
+        formatted_history = self._format_chat_history(context.chat_history)
+        filled_prompt = (
+            routing_config.prompt
+            .replace("[SUB_AGENTS]", sub_agents_text)
+            .replace("[CHAT_HISTORY]", formatted_history)
+            .replace("[QUESTION]", question)
+        )
+
+        # 5. Chamar OpenAI com JSON Schema
+        response = await openai_client.chat.completions.create(
+            model=routing_config.model,
+            temperature=routing_config.temperature,
+            messages=[{"role": "user", "content": filled_prompt}],
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "routing_decision",
+                    "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "action": {
+                                "type": "string",
+                                "enum": ["route", "continue"],
+                            },
+                            "sub_agent_id": {
+                                "type": "integer",
+                            },
+                            "instruction": {
+                                "type": "string",
+                            },
+                        },
+                        "required": ["action", "sub_agent_id", "instruction"],
+                        "additionalProperties": False,
+                    },
+                },
+            },
+        )
+
+        content = response.choices[0].message.content
+        if not content:
+            return None
+
+        decision = json.loads(content)
+
+        if decision.get("action") != "route":
+            return None
+
+        # 6. Validar sub_agent_id contra lista de irmãos
+        target_id = decision.get("sub_agent_id", 0)
+        valid_ids = {s["id"] for s in siblings}
+        if target_id not in valid_ids:
+            return None
+
+        # 7. Atualizar sub_agent do customer
+        customer_repo = CustomerRepository(context.db)
+        await customer_repo.update_sub_agent(
+            session_id=context.session_id,
+            company_id=context.company_id,
+            new_sub_agent_id=target_id,
+        )
+
+        # 8. Encontrar nome do sub-agente alvo
+        target_name = next(
+            (s["name"] for s in siblings if s["id"] == target_id), str(target_id)
+        )
+        instruction = decision.get("instruction", "")
+        transfer_msg = f"Transferido para o sub-agente {target_name}."
+        if instruction:
+            transfer_msg += f" {instruction}"
+
+        return ToolResult(
+            tool_call_id="",
+            tool_name=self.name,
+            tool_type="interna",
+            success=True,
+            content=transfer_msg,
+            invalidate_cache=True,
+        )
 
     async def _handle_objection(
         self,
@@ -311,14 +442,14 @@ class RagTool(BaseTool):
         # 6. Parse response JSON
         generated = json.loads(content)
 
-        # 7. Insert generated prompt in prompts table (using model/temp from .env)
+        # 7. Insert generated prompt in prompts table
         prompt_id = await prompt_repo.insert_variable_prompt(
             company_id=context.company_id,
             name=generated["name"],
             prompt=generated["prompt"],
             reason=generated["reason"],
-            model=settings.objection_agent_generated_model,
-            temperature=settings.objection_agent_generated_temperature,
+            model=objection_prompt_config.model,
+            temperature=objection_prompt_config.temperature,
         )
 
         # 8. Update customer with variable_prompt_id

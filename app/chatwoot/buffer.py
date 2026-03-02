@@ -106,6 +106,14 @@ return #msgs
 """
 
 
+_LUA_GET_AND_CLEAR_OBJECTION_PENDING = """
+local key = KEYS[1]
+local msgs = redis.call('LRANGE', key, 0, -1)
+redis.call('DEL', key)
+return msgs
+"""
+
+
 class MessageBuffer:
     """
     Redis-based buffer for batching incoming messages.
@@ -333,6 +341,48 @@ class MessageBuffer:
         redis = await self._get_redis()
         processing_key = self._get_processing_key(contact_id)
         await redis.delete(processing_key)
+
+    def _get_objection_pending_key(self, contact_id: int) -> str:
+        """Generate Redis key for contact's objection-pending messages."""
+        return f"objection_pending:{contact_id}"
+
+    async def add_objection_pending(self, message: str, contact_id: int) -> None:
+        """Buffer a message that arrived during objection generation.
+
+        Args:
+            message: The message content
+            contact_id: Contact ID
+        """
+        redis = await self._get_redis()
+        key = self._get_objection_pending_key(contact_id)
+        _, encoded = self._encode_entry(message)
+        await redis.rpush(key, encoded)
+        await redis.expire(key, 600)  # TTL 10min safety net
+        logger.info("[MessageBuffer] Buffered objection-pending for contact %d", contact_id)
+
+    async def get_and_clear_objection_pending(self, contact_id: int) -> list[str]:
+        """Atomically get and clear objection-pending messages.
+
+        Uses a Lua script to ensure atomicity.
+
+        Args:
+            contact_id: Contact ID
+
+        Returns:
+            List of message contents, ordered chronologically
+        """
+        redis = await self._get_redis()
+        key = self._get_objection_pending_key(contact_id)
+        script = redis.register_script(_LUA_GET_AND_CLEAR_OBJECTION_PENDING)
+        entries = await script(keys=[key])
+        if not entries:
+            return []
+        messages = [self._decode_entry(e)[1] for e in entries]
+        logger.info(
+            "[MessageBuffer] Retrieved %d objection-pending for contact %d",
+            len(messages), contact_id,
+        )
+        return messages
 
     async def should_process_message(
         self,

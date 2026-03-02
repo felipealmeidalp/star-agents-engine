@@ -14,22 +14,21 @@ from app.rabbitmq import get_follow_up_publisher
 from app.repositories.chat_history import ChatHistoryRepository
 from app.repositories.company import CompanyRepository
 from app.repositories.customer import CustomerRepository
-from app.services.chat_processor import process_chat
 from app.services.openai import OpenAIService
-from app.services.request_manager import RequestManager
 from app.utils.alerter import send_critical_alert
 
 logger = logging.getLogger(__name__)
 
 # Module-level singleton so all ChatwootService instances share the same
 # RequestManager (and its locks/active_requests state).
-_request_manager: RequestManager | None = None
+_request_manager: Any = None
 
 
-def get_request_manager() -> RequestManager:
+def get_request_manager() -> Any:
     """Get the singleton RequestManager instance."""
     global _request_manager
     if _request_manager is None:
+        from app.services.request_manager import RequestManager
         _request_manager = RequestManager()
     return _request_manager
 
@@ -75,6 +74,11 @@ class ChatwootService:
         Raises:
             ValueError: If configuration not found
         """
+        # Extrair atributos ORM em variáveis locais ANTES de qualquer operação async,
+        # para evitar lazy load fora do greenlet context do SQLAlchemy.
+        cw_base_url = company.cw_base_url
+        cw_api_key = company.cw_apikey
+
         logger.info(
             f"[ChatwootService] Processing webhook: event={payload.event}, "
             f"message_type={payload.message_type}, sender_id={payload.sender.id}, "
@@ -105,7 +109,7 @@ class ChatwootService:
             if dev_command_result:
                 # Dev command executed - return early WITHOUT scheduling follow-up
                 logger.info(
-                    f"[ChatwootService] Dev command executed, skipping follow-up"
+                    "[ChatwootService] Dev command executed, skipping follow-up"
                 )
                 return dev_command_result
 
@@ -136,10 +140,10 @@ class ChatwootService:
             """Callback to send messages to lead before tool execution."""
             await self._send_responses(
                 messages=messages,
-                base_url=company.cw_base_url,
+                base_url=cw_base_url,
                 account_id=payload.account.id,
                 conversation_id=payload.conversation.id,
-                api_key=company.cw_apikey,
+                api_key=cw_api_key,
             )
 
         response = await self.request_manager.on_new_message(
@@ -170,10 +174,10 @@ class ChatwootService:
         if messages:
             await self._send_responses(
                 messages=messages,
-                base_url=company.cw_base_url,
+                base_url=cw_base_url,
                 account_id=payload.account.id,
                 conversation_id=payload.conversation.id,
-                api_key=company.cw_apikey,
+                api_key=cw_api_key,
             )
 
         return {
@@ -199,18 +203,7 @@ class ChatwootService:
         """
         cw_contact_id = payload.sender.id
 
-        # Try to find existing customer
-        customer = await self.customer_repo.get_by_cw_contact_id(cw_contact_id)
-
-        if customer:
-            return customer, False
-
-        # Create new customer
-        logger.info(
-            f"[ChatwootService] Creating new customer for contact {cw_contact_id}"
-        )
-
-        customer = await self.customer_repo.create_from_chatwoot(
+        customer, is_new = await self.customer_repo.get_or_create_from_chatwoot(
             cw_contact_id=cw_contact_id,
             cw_conversation_id=payload.conversation.id,
             company_id=company.id,
@@ -220,7 +213,13 @@ class ChatwootService:
             avatar=payload.sender.thumbnail,
         )
 
-        return customer, True
+        if is_new:
+            logger.info(
+                "[ChatwootService] Created new customer for contact %d",
+                cw_contact_id,
+            )
+
+        return customer, is_new
 
     async def _update_follow_up_and_schedule(
         self,

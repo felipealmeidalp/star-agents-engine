@@ -117,11 +117,20 @@ class RequestManager:
 
         # Phase 1: Cancel active request + add to buffer (under lock)
         async with lock:
-            tool_history = await self._cancel_active_if_exists(contact_id)
-            if tool_history:
-                # Accumulate tool history (may already have some from previous cancels)
+            cancel_result = await self._cancel_active_if_exists(contact_id)
+
+            if cancel_result == "OBJECTION_IN_PROGRESS":
+                await self._buffer.add_objection_pending(message, contact_id)
+                logger.info(
+                    "[RequestManager] Message buffered as objection-pending "
+                    "for contact %d",
+                    contact_id,
+                )
+                return None
+
+            if cancel_result:  # tool_history (list)
                 existing = self._pending_tool_history.get(contact_id, [])
-                existing.extend(tool_history)
+                existing.extend(cancel_result)
                 self._pending_tool_history[contact_id] = existing
 
             msg_uuid = await self._buffer.add_to_buffer(message, contact_id)
@@ -165,10 +174,17 @@ class RequestManager:
                 concatenated[:200],
             )
 
+            # Create callback for ChatHandler to check pending messages mid-loop
+            async def _check_pending(
+                _cid: int = contact_id,
+            ) -> list[str] | None:
+                return await self._buffer.get_and_clear_objection_pending(_cid)
+
             # Create ConversationTurn for the new task
             conversation_turn = ConversationTurn(
                 user_message=concatenated,
                 prior_tool_history=prior_tool_history,
+                pending_checker=_check_pending,
             )
 
             # Create the processing task
@@ -219,7 +235,7 @@ class RequestManager:
     async def _cancel_active_if_exists(
         self,
         contact_id: int,
-    ) -> list[dict[str, Any]] | None:
+    ) -> list[dict[str, Any]] | None | str:
         """Cancel the active request for a contact if one exists.
 
         Must be called under the contact's lock.
@@ -228,11 +244,24 @@ class RequestManager:
             contact_id: Contact ID
 
         Returns:
-            Completed tool history from the cancelled task, or None
+            - Completed tool history (list) from the cancelled task
+            - "OBJECTION_IN_PROGRESS" if objection generation is active
+            - None if no active request
         """
-        active = self._active_requests.pop(contact_id, None)
+        active = self._active_requests.get(contact_id)
         if active is None:
             return None
+
+        # If generating objection, do NOT cancel
+        if active.conversation_turn.objection_generating:
+            logger.info(
+                "[RequestManager] Contact %d in objection generation - NOT cancelling",
+                contact_id,
+            )
+            return "OBJECTION_IN_PROGRESS"
+
+        # Normal cancellation flow
+        self._active_requests.pop(contact_id)
 
         logger.info(
             "[RequestManager] Cancelling active task for contact %d",
@@ -306,6 +335,7 @@ class RequestManager:
             Processing result dict
         """
         try:
+            # 1. Process (defer save so we can interject pending msgs)
             response = await process_chat_in_memory(
                 session_id=session_id,
                 message=message,
@@ -313,7 +343,59 @@ class RequestManager:
                 db=db,
                 conversation_turn=conversation_turn,
                 on_send_messages=on_send_messages,
+                skip_save=True,
             )
+
+            # 2. Check for messages that arrived during objection generation
+            pending_messages = await self._buffer.get_and_clear_objection_pending(
+                contact_id,
+            )
+
+            if pending_messages:
+                # Edge case: messages arrived during the LAST OpenAI call
+                # (after the ChatHandler loop finished). Save with correct
+                # ordering — no second LLM call needed.
+                logger.info(
+                    "[RequestManager] %d objection-pending for contact %d"
+                    " — saving with interjected ordering (no extra LLM call)",
+                    len(pending_messages), contact_id,
+                )
+                try:
+                    await asyncio.shield(
+                        conversation_turn.deferred_save_with_interjected_users(
+                            pending_messages,
+                        )
+                    )
+                except Exception as e:
+                    logger.exception(
+                        "[RequestManager] Failed to save with interjected users "
+                        "for contact %d: %s",
+                        contact_id, e,
+                    )
+                    send_critical_alert(
+                        "CONVERSATION_SAVE_FAILED",
+                        "request_manager.py:_process_task",
+                        e,
+                        contact_id=contact_id,
+                        company_id=company_id,
+                    )
+            else:
+                # No pending — save normally (deferred)
+                try:
+                    await asyncio.shield(conversation_turn.deferred_save())
+                except Exception as e:
+                    logger.exception(
+                        "[RequestManager] Failed to save conversation "
+                        "for contact %d: %s",
+                        contact_id, e,
+                    )
+                    send_critical_alert(
+                        "CONVERSATION_SAVE_FAILED",
+                        "request_manager.py:_process_task",
+                        e,
+                        contact_id=contact_id,
+                        company_id=company_id,
+                    )
 
             # Clean up processing key
             await self._buffer.clear_processing(contact_id)

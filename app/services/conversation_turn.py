@@ -6,6 +6,7 @@ orphaned records in the database when a request is cancelled mid-processing.
 """
 
 import logging
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,6 +29,9 @@ class ConversationTurn:
         self,
         user_message: str,
         prior_tool_history: list[dict[str, Any]] | None = None,
+        *,
+        user_message_already_saved: bool = False,
+        pending_checker: Callable[[], Awaitable[list[str] | None]] | None = None,
     ) -> None:
         """
         Initialize a conversation turn.
@@ -36,11 +40,27 @@ class ConversationTurn:
             user_message: The concatenated user message(s)
             prior_tool_history: Tool history preserved from a cancelled task
                 (list of dicts with role, content, tool_calls, tool_call_id)
+            user_message_already_saved: If True, skip saving/including user message
+                (it was already persisted by a previous save operation)
+            pending_checker: Async callback that checks for messages that arrived
+                during tool execution. Returns list of strings or None.
         """
         self.user_message = user_message
         self.prior_tool_history = prior_tool_history or []
         self.pending_messages: list[dict[str, Any]] = []
         self._final_response: str | None = None
+        self.objection_generating: bool = False
+        self.user_message_already_saved = user_message_already_saved
+        self.pending_checker = pending_checker
+        self._save_context: dict[str, Any] | None = None
+
+    def set_save_context(self, **kwargs: Any) -> None:
+        """Store save parameters for deferred saving.
+
+        Called by chat_processor when skip_save=True so that the caller
+        (RequestManager) can trigger the save later with correct ordering.
+        """
+        self._save_context = kwargs
 
     def add_assistant_message(
         self, content: str, token_usage: TokenUsage | None = None,
@@ -76,13 +96,17 @@ class ConversationTurn:
         self,
         tool_call_id: str,
         content: str,
+        rag_result: list[dict] | None = None,
     ) -> None:
         """Record a tool execution result."""
-        self.pending_messages.append({
+        msg: dict[str, Any] = {
             "role": "tool",
             "tool_call_id": tool_call_id,
             "content": content,
-        })
+        }
+        if rag_result is not None:
+            msg["_rag_result"] = rag_result
+        self.pending_messages.append(msg)
 
     def get_completed_tool_history(self) -> list[dict[str, Any]]:
         """Extract completed tool call pairs (assistant+tool_calls with their results).
@@ -142,13 +166,17 @@ class ConversationTurn:
         Returns user message + prior_tool_history + pending_messages
         as a list of OpenAIMessage objects for the context builder.
 
+        When user_message_already_saved=True, the user message is skipped
+        (it's already in the database and will be loaded from chat history).
+
         Returns:
             List of OpenAIMessage objects
         """
         result: list[OpenAIMessage] = []
 
-        # 1. User message
-        result.append(OpenAIMessage(role="user", content=self.user_message))
+        # 1. User message (skip if already saved to DB — it'll come from history)
+        if not self.user_message_already_saved:
+            result.append(OpenAIMessage(role="user", content=self.user_message))
 
         # 2. Prior tool history (from cancelled task)
         for msg in self.prior_tool_history:
@@ -190,21 +218,23 @@ class ConversationTurn:
         db = chat_repo.db
 
         logger.info(
-            "[ConversationTurn] Saving all messages: user=1, "
+            "[ConversationTurn] Saving all messages: user=%s, "
             "prior_tool_history=%d, pending=%d",
+            "skip" if self.user_message_already_saved else "1",
             len(self.prior_tool_history),
             len(self.pending_messages),
         )
 
-        # 1. Save user message
-        db.add(ChatHistory(
-            sessionId=session_id,
-            role="user",
-            content=self.user_message,
-            agent_id=agent_id,
-            sub_agent_id=sub_agent_id,
-            company_id=company_id,
-        ))
+        # 1. Save user message (skip if already persisted)
+        if not self.user_message_already_saved:
+            db.add(ChatHistory(
+                sessionId=session_id,
+                role="user",
+                content=self.user_message,
+                agent_id=agent_id,
+                sub_agent_id=sub_agent_id,
+                company_id=company_id,
+            ))
 
         # 2. Save prior tool history
         for msg in self.prior_tool_history:
@@ -241,6 +271,7 @@ class ConversationTurn:
                 input_cached_tokens=tu.input_cached_tokens if tu else None,
                 output_tokens=tu.output_tokens if tu else None,
                 model=tu.model if tu else None,
+                rag_result=msg.get("_rag_result"),
             )
             db.add(record)
 
@@ -250,4 +281,132 @@ class ConversationTurn:
         logger.info(
             "[ConversationTurn] All messages saved successfully for session=%s",
             session_id,
+        )
+
+    async def save_with_interjected_users(
+        self,
+        interjected_user_messages: list[str],
+        chat_repo: ChatHistoryRepository,
+        session_id: str,
+        company_id: int,
+        agent_id: int,
+        sub_agent_id: int,
+    ) -> None:
+        """Persist messages with user messages inserted BEFORE the final assistant response.
+
+        Saves in order:
+        1. User message (original)
+        2. Prior tool history
+        3. Pending messages EXCEPT the last one (tool_calls + results)
+        4. Interjected user messages (from objection-pending buffer)
+        5. Last pending message (the assistant's final response / pitch)
+
+        This ensures the LLM sees pending user messages BEFORE the pitch
+        in subsequent turns.
+
+        Args:
+            interjected_user_messages: Messages that arrived during generation
+            chat_repo: Chat history repository
+            session_id: Session identifier
+            company_id: Company ID
+            agent_id: Agent ID
+            sub_agent_id: Sub-agent ID
+        """
+        from app.models.tables import ChatHistory
+
+        db = chat_repo.db
+
+        logger.info(
+            "[ConversationTurn] Saving with interjected users: user=1, "
+            "prior_tool_history=%d, pending=%d, interjected=%d",
+            len(self.prior_tool_history),
+            len(self.pending_messages),
+            len(interjected_user_messages),
+        )
+
+        def _add_record(msg: dict[str, Any]) -> None:
+            tu: TokenUsage | None = msg.get("_token_usage")
+            db.add(ChatHistory(
+                sessionId=session_id,
+                role=msg["role"],
+                content=msg.get("content"),
+                agent_id=agent_id,
+                sub_agent_id=sub_agent_id,
+                company_id=company_id,
+                tool_calls=msg.get("tool_calls"),
+                tool_call_id=msg.get("tool_call_id"),
+                input_tokens=tu.input_tokens if tu else None,
+                input_cached_tokens=tu.input_cached_tokens if tu else None,
+                output_tokens=tu.output_tokens if tu else None,
+                model=tu.model if tu else None,
+                rag_result=msg.get("_rag_result"),
+            ))
+
+        # 1. Save user message
+        db.add(ChatHistory(
+            sessionId=session_id,
+            role="user",
+            content=self.user_message,
+            agent_id=agent_id,
+            sub_agent_id=sub_agent_id,
+            company_id=company_id,
+        ))
+
+        # 2. Save prior tool history
+        for msg in self.prior_tool_history:
+            _add_record(msg)
+
+        # 3. Save pending messages EXCEPT the last one
+        for msg in self.pending_messages[:-1]:
+            _add_record(msg)
+
+        # 4. Save interjected user messages
+        concatenated = "\n".join(interjected_user_messages)
+        db.add(ChatHistory(
+            sessionId=session_id,
+            role="user",
+            content=concatenated,
+            agent_id=agent_id,
+            sub_agent_id=sub_agent_id,
+            company_id=company_id,
+        ))
+
+        # 5. Save the last pending message (assistant final response)
+        if self.pending_messages:
+            _add_record(self.pending_messages[-1])
+
+        # Atomic commit
+        await db.commit()
+
+        logger.info(
+            "[ConversationTurn] Messages saved with interjected users "
+            "for session=%s",
+            session_id,
+        )
+
+    async def deferred_save(self) -> None:
+        """Execute save_all() using previously stored save context.
+
+        Raises ValueError if set_save_context() was not called.
+        """
+        if self._save_context is None:
+            raise ValueError("set_save_context() must be called before deferred_save()")
+        await self.save_all(**self._save_context)
+
+    async def deferred_save_with_interjected_users(
+        self,
+        interjected_user_messages: list[str],
+    ) -> None:
+        """Execute save_with_interjected_users() using previously stored save context.
+
+        Raises ValueError if set_save_context() was not called.
+        """
+        if self._save_context is None:
+            raise ValueError(
+                "set_save_context() must be called before "
+                "deferred_save_with_interjected_users()"
+            )
+        await self.save_with_interjected_users(
+            interjected_user_messages=interjected_user_messages,
+            **self._save_context,
         )

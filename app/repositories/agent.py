@@ -117,6 +117,18 @@ class AgentRepository:
         result = await self.db.execute(query, {"company_id": company_id})
         return [{"id": r.id, "name": r.title} for r in result.fetchall()]
 
+    async def get_sub_agent_info(self, sub_agent_id: int) -> dict[str, Any] | None:
+        """Busca nome e missão de um sub-agente específico."""
+        query = text("""
+            SELECT id, title as name, mission
+            FROM sub_agents
+            WHERE id = :sub_agent_id
+              AND deleted_at IS NULL
+        """)
+        result = await self.db.execute(query, {"sub_agent_id": sub_agent_id})
+        row = result.fetchone()
+        return dict(row._mapping) if row else None
+
     async def get_sibling_sub_agents(
         self,
         agent_id: int,
@@ -125,7 +137,7 @@ class AgentRepository:
     ) -> list[dict[str, Any]]:
         """Busca sub-agentes irmãos (mesmo agent_id, excluindo o atual)."""
         query = text("""
-            SELECT id, name, mission
+            SELECT id, title as name, mission
             FROM sub_agents
             WHERE agent_id = :agent_id
               AND company_id = :company_id

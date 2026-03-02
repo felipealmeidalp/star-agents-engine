@@ -30,6 +30,32 @@ from app.utils.alerter import send_critical_alert
 class ContextBuilder:
     """Builds complete agent context for OpenAI API calls."""
 
+    FINISH_OBJECTION_BREAKER_TOOL_DEF = {
+        "type": "function",
+        "function": {
+            "name": "finish_objection_breaker",
+            "description": "Encerra o modo de quebra de objecao e retorna ao fluxo normal.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "summary": {
+                        "type": "string",
+                        "description": "Resumo de como a objecao foi tratada e o estado atual da conversa.",
+                    }
+                },
+                "required": ["summary"],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+    FINISH_OBJECTION_INSTRUCTION = (
+        "\n\n## Ferramenta de Saida\n"
+        "Quando voce resolver a objecao do lead com sucesso, chame a ferramenta "
+        "`finish_objection_breaker` passando um resumo do que aconteceu. "
+        "Esta e a UNICA ferramenta disponivel para voce neste modo."
+    )
+
     def __init__(
         self,
         agent_repo: AgentRepository,
@@ -126,7 +152,12 @@ class ContextBuilder:
 
         # 4. Build system prompt (use variable prompt if available)
         if variable_prompt:
-            system_prompt = variable_prompt.prompt
+            output_fmt = context.agent.output_instructions or ""
+            system_prompt = (
+                variable_prompt.prompt
+                + (f"\n\n## Formatacao de Saida\n{output_fmt}" if output_fmt else "")
+                + self.FINISH_OBJECTION_INSTRUCTION
+            )
         else:
             system_prompt = self._build_system_prompt(context)
 
@@ -137,11 +168,15 @@ class ContextBuilder:
         if pending_messages:
             messages.extend(pending_messages)
 
-        # 6. Format tools
-        tools = self._format_tools_for_openai(context.tools)
-        if tools:
-            tool_names = [t["function"]["name"] for t in tools]
-            logger.info(f"[ContextBuilder] Tools formatadas: {tool_names}")
+        # 6. Format tools (override with finish_objection_breaker when in objection mode)
+        if variable_prompt:
+            tools = [self.FINISH_OBJECTION_BREAKER_TOOL_DEF]
+            logger.info("[ContextBuilder] Modo objecao ativo: tools substituidas por [finish_objection_breaker]")
+        else:
+            tools = self._format_tools_for_openai(context.tools)
+            if tools:
+                tool_names = [t["function"]["name"] for t in tools]
+                logger.info(f"[ContextBuilder] Tools formatadas: {tool_names}")
 
         # 7. Get response format if needed
         response_format = self._get_response_format(context.agent.output_type)

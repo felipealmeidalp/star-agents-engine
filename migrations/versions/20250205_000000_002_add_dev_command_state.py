@@ -23,11 +23,19 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Add dev_command_state column to customers table."""
-    op.add_column(
-        "customers",
-        sa.Column("dev_command_state", JSON, nullable=True),
+    """Add dev_command_state column to customers table (idempotent)."""
+    conn = op.get_bind()
+    result = conn.execute(
+        sa.text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_name = 'customers' AND column_name = 'dev_command_state'"
+        )
     )
+    if not result.fetchone():
+        op.add_column(
+            "customers",
+            sa.Column("dev_command_state", JSON, nullable=True),
+        )
 
 
 def downgrade() -> None:

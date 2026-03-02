@@ -93,6 +93,8 @@ async def process_chat_in_memory(
     db: AsyncSession,
     conversation_turn: ConversationTurn,
     on_send_messages: MessageSenderCallback | None = None,
+    *,
+    skip_save: bool = False,
 ) -> dict[str, Any]:
     """
     Process a chat message with in-memory accumulation.
@@ -110,6 +112,9 @@ async def process_chat_in_memory(
         db: Async database session.
         conversation_turn: ConversationTurn to accumulate messages into.
         on_send_messages: Optional callback to send messages to the lead.
+        skip_save: If True, store save context in ConversationTurn instead of
+            saving. The caller (RequestManager) is responsible for calling
+            deferred_save() or deferred_save_with_interjected_users() later.
 
     Returns:
         Response dict from the assistant.
@@ -151,17 +156,27 @@ async def process_chat_in_memory(
     agent_id = context.customer.agent_id if context else None
     sub_agent_id = context.customer.sub_agent_id if context else None
 
-    # 8. Atomic save - protected from cancellation
-    try:
-        await asyncio.shield(
-            conversation_turn.save_all(
-                chat_repo=chat_repo,
-                session_id=session_id,
-                company_id=company_id,
-                agent_id=agent_id,
-                sub_agent_id=sub_agent_id,
-            )
+    save_kwargs = dict(
+        chat_repo=chat_repo,
+        session_id=session_id,
+        company_id=company_id,
+        agent_id=agent_id,
+        sub_agent_id=sub_agent_id,
+    )
+
+    # 8. Save or defer
+    if skip_save:
+        # Store context for the caller to save later (with correct ordering)
+        conversation_turn.set_save_context(**save_kwargs)
+        logger.info(
+            "[ChatProcessor] skip_save=True — save deferred for session=%s",
+            session_id,
         )
+        return response
+
+    # Atomic save - protected from cancellation
+    try:
+        await asyncio.shield(conversation_turn.save_all(**save_kwargs))
     except Exception as e:
         logger.exception(
             "[ChatProcessor] Failed to save conversation for session=%s: %s",

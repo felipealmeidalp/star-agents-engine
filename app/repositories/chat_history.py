@@ -243,6 +243,7 @@ class ChatHistoryRepository:
         sub_agent_id: int,
         tool_call_id: str,
         content: str,
+        rag_result: list[dict] | None = None,
     ) -> ChatHistory:
         """
         Insert tool result message (role='tool').
@@ -266,6 +267,7 @@ class ChatHistoryRepository:
             sub_agent_id=sub_agent_id,
             company_id=company_id,
             tool_call_id=tool_call_id,
+            rag_result=rag_result,
         )
 
         self.db.add(chat_record)

@@ -23,16 +23,24 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Add send_content_before_execution column to tools table."""
-    op.add_column(
-        "tools",
-        sa.Column(
-            "send_content_before_execution",
-            sa.Boolean,
-            nullable=True,
-            server_default=sa.text("false"),
-        ),
+    """Add send_content_before_execution column to tools table (idempotent)."""
+    conn = op.get_bind()
+    result = conn.execute(
+        sa.text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_name = 'tools' AND column_name = 'send_content_before_execution'"
+        )
     )
+    if not result.fetchone():
+        op.add_column(
+            "tools",
+            sa.Column(
+                "send_content_before_execution",
+                sa.Boolean,
+                nullable=True,
+                server_default=sa.text("false"),
+            ),
+        )
 
 
 def downgrade() -> None:

@@ -114,6 +114,23 @@ class ChatHandler:
                 self.MAX_ITERATIONS + 1,
             )
 
+            # 0. Check for messages that arrived during tool execution
+            if (
+                iteration > 0
+                and self.conversation_turn
+                and self.conversation_turn.pending_checker
+            ):
+                injected = await self.conversation_turn.pending_checker()
+                if injected:
+                    concatenated = "\n".join(injected)
+                    self.conversation_turn.pending_messages.append(
+                        {"role": "user", "content": concatenated}
+                    )
+                    logger.info(
+                        "[ChatHandler] Injected %d pending user messages into context",
+                        len(injected),
+                    )
+
             # 1. Build payload (with cache after first iteration)
             # Pass pending messages from ConversationTurn so context includes
             # in-memory user message + prior tool history + current tool loop state
@@ -453,9 +470,18 @@ class ChatHandler:
             db=self.db,
             openai_api_key=self.openai_api_key,
             chat_history=chat_history,
+            on_send_messages=self.on_send_messages,
+            conversation_turn=self.conversation_turn,
         )
 
         results = await self.tool_handler.execute_all(tool_calls, execution_context)
+
+        # 3.1 Rollback defensivo se alguma tool falhou (evita InFailedSQLTransactionError)
+        if any(not r.success for r in results):
+            try:
+                await self.db.rollback()
+            except Exception:
+                pass
 
         # 4. Save tool results
         if self.conversation_turn:
@@ -464,6 +490,7 @@ class ChatHandler:
                 self.conversation_turn.add_tool_result(
                     tool_call_id=result.tool_call_id,
                     content=result.content,
+                    rag_result=result.rag_result,
                 )
         else:
             # Legacy: save directly to database
@@ -476,6 +503,7 @@ class ChatHandler:
                         sub_agent_id=sub_agent_id,
                         tool_call_id=result.tool_call_id,
                         content=result.content,
+                        rag_result=result.rag_result,
                     )
                 except Exception as e:
                     logger.exception(

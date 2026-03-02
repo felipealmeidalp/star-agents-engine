@@ -1,12 +1,16 @@
 """Repository for customer operations."""
 
 import json
+import logging
 from typing import Any
 
 from sqlalchemy import select, text, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.tables import Customer
+
+logger = logging.getLogger(__name__)
 
 
 class CustomerRepository:
@@ -211,6 +215,70 @@ class CustomerRepository:
         await self.db.commit()
         await self.db.refresh(customer)
         return customer
+
+    async def get_or_create_from_chatwoot(
+        self,
+        cw_contact_id: int,
+        cw_conversation_id: int,
+        company_id: int,
+        agent_id: int,
+        sub_agent_id: int,
+        name: str | None = None,
+        avatar: str | None = None,
+    ) -> tuple[Customer, bool]:
+        """
+        Busca customer existente ou cria novo a partir de dados do Chatwoot.
+
+        Protegido contra race condition: se duas tasks tentarem criar
+        simultaneamente, a segunda detecta o IntegrityError e busca
+        o registro criado pela primeira.
+
+        Args:
+            cw_contact_id: Chatwoot contact ID (sender.id)
+            cw_conversation_id: Chatwoot conversation ID
+            company_id: Company ID para multi-tenancy
+            agent_id: Agent ID padrao da company
+            sub_agent_id: Sub-agent ID padrao da company
+            name: Nome do contato
+            avatar: URL do avatar
+
+        Returns:
+            Tuple (Customer, is_new: bool)
+        """
+        # 1. Tentar buscar existente
+        existing = await self.get_by_cw_contact_id(cw_contact_id)
+        if existing:
+            return existing, False
+
+        # 2. Tentar criar — IntegrityError significa que outra task criou primeiro
+        try:
+            customer = Customer(
+                company_id=company_id,
+                sessionId=str(cw_contact_id),
+                cw_contact_id=cw_contact_id,
+                cw_conversation_id=cw_conversation_id,
+                name=name,
+                avatar=avatar,
+                agent_id=agent_id,
+                sub_agent_id=sub_agent_id,
+                follow_up=0,
+            )
+            self.db.add(customer)
+            await self.db.commit()
+            await self.db.refresh(customer)
+            return customer, True
+        except IntegrityError:
+            await self.db.rollback()
+            logger.warning(
+                "[CustomerRepository] Race condition detectada para "
+                "cw_contact_id=%d, buscando registro vencedor",
+                cw_contact_id,
+            )
+            existing = await self.get_by_cw_contact_id(cw_contact_id)
+            if existing:
+                return existing, False
+            # Se nao encontrou (ex: soft-deleted), propaga o erro
+            raise
 
     async def update_follow_up_on_message(
         self,

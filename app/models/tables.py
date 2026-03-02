@@ -14,8 +14,10 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Boolean,
+    Index,
+    text,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -293,6 +295,14 @@ class Customer(Base):
     """Customer table - user sessions."""
 
     __tablename__ = "customers"
+    __table_args__ = (
+        Index(
+            "ix_customers_cw_contact_id_unique",
+            "cw_contact_id",
+            unique=True,
+            postgresql_where=text("cw_contact_id IS NOT NULL AND deleted_at IS NULL"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     company_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("companies.id"))
@@ -362,6 +372,7 @@ class ChatHistory(Base):
     input_cached_tokens: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     output_tokens: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     model: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    rag_result: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP, default=datetime.utcnow, nullable=False, index=True
     )

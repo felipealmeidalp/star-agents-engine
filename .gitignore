@@ -82,3 +82,5 @@ Thumbs.db
 CLAUDE.md
 docker-compose.yml
 .dockerignore
+
+tasks

@@ -211,7 +211,7 @@ def extract_token_usage(response: "OpenAIResponse") -> TokenUsage:
         cached = details.get("cached_tokens", 0)
 
     return TokenUsage(
-        input_tokens=usage.get("prompt_tokens", 0),
+        input_tokens=usage.get("prompt_tokens", 0) - cached,
         input_cached_tokens=cached,
         output_tokens=usage.get("completion_tokens", 0),
         model=response.model,
@@ -241,6 +241,7 @@ class ToolResult(BaseModel):
     success: bool
     content: str
     invalidate_cache: bool = False  # Se True, força rebuild do context na próxima iteração
+    rag_result: list[dict[str, Any]] | None = None  # Raw Qdrant search results (FAQ path)
 
 
 class ToolExecutionContext(BaseModel):
@@ -258,6 +259,12 @@ class ToolExecutionContext(BaseModel):
 
     # Chat history for tools that need conversation context
     chat_history: list[dict[str, Any]] | None = None
+
+    # Callback to send messages to the lead (e.g., "Um momento por favor")
+    on_send_messages: Any | None = None
+
+    # Reference to ConversationTurn for objection_generating flag
+    conversation_turn: Any | None = None
 
     model_config = {"arbitrary_types_allowed": True}
 

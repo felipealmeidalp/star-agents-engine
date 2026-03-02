@@ -118,33 +118,36 @@ async def _add_contact_background(
             )
 
             # 2. Create customer if doesn't exist
-            customer_repo = CustomerRepository(db)
-            existing = await customer_repo.get_by_cw_contact_id(contact_id)
-
-            if existing:
-                logger.info(
-                    f"[ChatwootWebhook] Customer already exists for contact {contact_id}, "
-                    f"skipping creation and seed"
-                )
-                return
-
             if not company.standard_agent_id or not company.standard_sub_agent_id:
                 logger.error(
-                    f"[ChatwootWebhook] Company {company.id} missing "
-                    f"standard_agent_id or standard_sub_agent_id"
+                    "[ChatwootWebhook] Company %d missing "
+                    "standard_agent_id or standard_sub_agent_id",
+                    company.id,
                 )
                 return
 
-            customer = await customer_repo.create_from_chatwoot(
+            customer_repo = CustomerRepository(db)
+            customer, is_new = await customer_repo.get_or_create_from_chatwoot(
                 cw_contact_id=contact_id,
                 cw_conversation_id=conversation_id,
                 company_id=company.id,
                 agent_id=company.standard_agent_id,
                 sub_agent_id=company.standard_sub_agent_id,
             )
+
+            if not is_new:
+                logger.info(
+                    "[ChatwootWebhook] Customer already exists for contact %d, "
+                    "skipping seed",
+                    contact_id,
+                )
+                return
+
             logger.info(
-                f"[ChatwootWebhook] Created customer {customer.id} "
-                f"for contact {contact_id}, company {company.id}"
+                "[ChatwootWebhook] Created customer %d for contact %d, company %d",
+                customer.id,
+                contact_id,
+                company.id,
             )
 
             # 3. Seed chat history with initial messages

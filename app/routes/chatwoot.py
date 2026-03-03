@@ -16,6 +16,7 @@ from app.exceptions import (
     OpenAITimeoutError,
 )
 from app.models.tables import ChatHistory
+from app.repositories.chat_history import ChatHistoryRepository
 from app.repositories.company import CompanyRepository
 from app.repositories.customer import CustomerRepository
 from app.utils.alerter import send_critical_alert
@@ -172,6 +173,69 @@ async def _add_contact_background(
         except Exception as e:
             logger.exception(
                 f"[ChatwootWebhook] Error in _add_contact_background: {e}"
+            )
+
+
+async def _save_outgoing_if_ai_off(
+    token: str,
+    conversation_id: int,
+    content: str,
+) -> None:
+    """
+    Background task to save outgoing (human agent) messages when AI is deactivated.
+
+    Only saves if customer.status is False. If status is True/None,
+    outgoing messages are from the AI itself and already saved.
+
+    Args:
+        token: Chatwoot webhook token for company lookup
+        conversation_id: Chatwoot conversation ID to find customer
+        content: Message content to save as assistant message
+    """
+    async with AsyncSessionLocal() as db:
+        try:
+            company_repo = CompanyRepository(db)
+            company = await company_repo.get_by_cw_token(token)
+
+            if not company:
+                logger.warning(
+                    "[ChatwootWebhook] _save_outgoing_if_ai_off: "
+                    "Company not found for token"
+                )
+                return
+
+            customer_repo = CustomerRepository(db)
+            customer = await customer_repo.get_by_cw_conversation_id(conversation_id)
+
+            if not customer:
+                logger.debug(
+                    "[ChatwootWebhook] _save_outgoing_if_ai_off: "
+                    "Customer not found for conversation %d",
+                    conversation_id,
+                )
+                return
+
+            if customer.status is not False:
+                # AI is active — outgoing is from AI, already saved
+                return
+
+            chat_history_repo = ChatHistoryRepository(db)
+            await chat_history_repo.insert_assistant_message(
+                session_id=customer.sessionId,
+                content=content,
+                company_id=company.id,
+            )
+
+            logger.info(
+                "[ChatwootWebhook] Saved outgoing message as assistant "
+                "for AI-off customer %d, conversation %d",
+                customer.id,
+                conversation_id,
+            )
+
+        except Exception as e:
+            logger.exception(
+                "[ChatwootWebhook] Error in _save_outgoing_if_ai_off: %s", e
             )
 
 
@@ -394,7 +458,15 @@ async def chatwoot_webhook(
                 logger.warning(
                     "[ChatwootWebhook] Trigger message but no contact_inbox in conversation"
                 )
-        logger.info("[ChatwootWebhook] Ignoring outgoing message")
+        # Save outgoing message as assistant if AI is deactivated for this customer
+        if content:
+            background_tasks.add_task(
+                _save_outgoing_if_ai_off,
+                token=token,
+                conversation_id=payload.conversation.id,
+                content=content,
+            )
+        logger.info("[ChatwootWebhook] Outgoing message handled")
         return {"status": "ignored", "reason": "outgoing_message"}
 
     # Filter 1: Ignore EvolutionAPI connection updates (sender.id == 1)

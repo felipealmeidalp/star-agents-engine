@@ -99,6 +99,123 @@ class ChatwootClient:
             response.raise_for_status()
             return response.json()
 
+    async def assign_conversation_to_team(
+        self,
+        base_url: str,
+        account_id: int,
+        conversation_id: int,
+        team_id: int,
+        api_key: str,
+    ) -> dict[str, Any]:
+        """
+        Assign a conversation to a team in Chatwoot.
+
+        Args:
+            base_url: Chatwoot instance base URL
+            account_id: Chatwoot account ID
+            conversation_id: Conversation ID to assign
+            team_id: Team ID to assign the conversation to
+            api_key: API key for authentication
+
+        Returns:
+            Dict with API response
+
+        Raises:
+            httpx.TimeoutException: If request times out
+            httpx.RequestError: If connection fails
+        """
+        url = (
+            f"{base_url}/api/v1/accounts/{account_id}"
+            f"/conversations/{conversation_id}/assignments"
+        )
+
+        headers = {
+            "api_access_token": api_key,
+            "Content-Type": "application/json",
+        }
+
+        payload = {"team_id": team_id}
+
+        logger.info(
+            "[ChatwootClient] Assigning conversation %d to team %d",
+            conversation_id,
+            team_id,
+        )
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(
+                url,
+                json=payload,
+                headers=headers,
+            )
+
+            logger.info(
+                "[ChatwootClient] Assignment response: status=%d",
+                response.status_code,
+            )
+
+            response.raise_for_status()
+            return response.json()
+
+    async def add_label_to_conversation(
+        self,
+        base_url: str,
+        account_id: int,
+        conversation_id: int,
+        label: str,
+        api_key: str,
+    ) -> None:
+        """
+        Add a label to a Chatwoot conversation (idempotent).
+
+        The Chatwoot API replaces all labels on POST, so this method
+        first GETs existing labels and appends the new one if missing.
+
+        Args:
+            base_url: Chatwoot instance base URL
+            account_id: Chatwoot account ID
+            conversation_id: Conversation ID
+            label: Label to add
+            api_key: API key for authentication
+        """
+        url = (
+            f"{base_url}/api/v1/accounts/{account_id}"
+            f"/conversations/{conversation_id}/labels"
+        )
+        headers = {
+            "api_access_token": api_key,
+            "Content-Type": "application/json",
+        }
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            # GET current labels
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            current_labels: list[str] = response.json().get("payload", [])
+
+            if label in current_labels:
+                logger.info(
+                    "[ChatwootClient] Label '%s' already exists on conversation %d",
+                    label,
+                    conversation_id,
+                )
+                return
+
+            # POST with new label appended
+            updated_labels = current_labels + [label]
+            response = await client.post(
+                url,
+                json={"labels": updated_labels},
+                headers=headers,
+            )
+            response.raise_for_status()
+
+            logger.info(
+                "[ChatwootClient] Label '%s' added to conversation %d",
+                label,
+                conversation_id,
+            )
+
     async def send_messages(
         self,
         base_url: str,

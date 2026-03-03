@@ -44,6 +44,30 @@ class CustomerRepository:
         )
         return result.scalar_one_or_none()
 
+    async def update_status(
+        self,
+        session_id: str,
+        company_id: int,
+        new_status: bool,
+    ) -> None:
+        """
+        Atualizar status do customer.
+
+        Args:
+            session_id: The session identifier
+            company_id: Company ID for multi-tenancy
+            new_status: New status value (False = IA bloqueada)
+        """
+        await self.db.execute(
+            update(Customer)
+            .where(
+                Customer.sessionId == session_id,
+                Customer.company_id == company_id,
+            )
+            .values(status=new_status)
+        )
+        await self.db.commit()
+
     async def update_sub_agent(
         self,
         session_id: str,
@@ -150,6 +174,27 @@ class CustomerRepository:
         result = await self.db.execute(
             select(Customer).where(
                 Customer.cw_contact_id == cw_contact_id,
+                Customer.deleted_at.is_(None),
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def get_by_cw_conversation_id(
+        self,
+        cw_conversation_id: int,
+    ) -> Customer | None:
+        """
+        Find customer by Chatwoot conversation ID.
+
+        Args:
+            cw_conversation_id: Chatwoot conversation ID
+
+        Returns:
+            Customer or None if not found
+        """
+        result = await self.db.execute(
+            select(Customer).where(
+                Customer.cw_conversation_id == cw_conversation_id,
                 Customer.deleted_at.is_(None),
             )
         )

@@ -109,6 +109,7 @@ class Agent(Base):
     negative_rules: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     output_instructions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     output_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    responsible_team: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP, default=datetime.utcnow, nullable=False
     )
@@ -315,6 +316,7 @@ class Customer(Base):
     )
     name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     avatar: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    status: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True, default=True)
     agent_id: Mapped[Optional[int]] = mapped_column(
         BigInteger, ForeignKey("agents.id"), nullable=True
     )

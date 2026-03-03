@@ -98,6 +98,23 @@ class ChatwootService:
             f"session={customer.sessionId}, is_new={is_new}"
         )
 
+        # 1.5. Check customer status — if False, save message and skip AI
+        if customer.status is False:
+            logger.info(
+                "[ChatwootService] AI deactivated for customer %d (status=False), "
+                "saving user message only",
+                customer.id,
+            )
+            await self.chat_history_repo.insert_user_message(
+                session_id=customer.sessionId,
+                message=message,
+                company_id=company.id,
+            )
+            return {
+                "status": "ai_deactivated",
+                "session_id": customer.sessionId,
+            }
+
         # 2. If existing customer, check dev commands FIRST (before follow-up)
         if not is_new:
             dev_command_result = await self._handle_dev_command(

@@ -313,6 +313,44 @@ class ChatHistoryRepository:
 
         return chat_record
 
+    async def has_recent_follow_up(
+        self,
+        session_id: str,
+        company_id: int,
+        minutes: int = 2,
+    ) -> bool:
+        """
+        Check if a follow-up message was saved recently for this session.
+
+        Used to prevent duplicate saves when the follow-up consumer already
+        saved the message and Chatwoot sends back an outgoing webhook.
+
+        Args:
+            session_id: The session identifier
+            company_id: Company ID for multi-tenancy
+            minutes: Time window in minutes to check
+
+        Returns:
+            True if a recent follow-up message exists
+        """
+        query = text("""
+            SELECT EXISTS (
+                SELECT 1
+                FROM chat_history
+                WHERE "sessionId" = :session_id
+                  AND company_id = :company_id
+                  AND is_follow_up = true
+                  AND created_at >= NOW() - INTERVAL ':minutes minutes'
+            ) AS has_recent
+        """.replace(":minutes", str(int(minutes))))
+
+        result = await self.db.execute(
+            query,
+            {"session_id": session_id, "company_id": company_id},
+        )
+        row = result.fetchone()
+        return bool(row and row.has_recent)
+
     async def delete_by_session(
         self,
         session_id: str,

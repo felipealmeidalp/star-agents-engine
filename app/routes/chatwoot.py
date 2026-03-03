@@ -220,6 +220,21 @@ async def _save_outgoing_if_ai_off(
                 return
 
             chat_history_repo = ChatHistoryRepository(db)
+
+            # Skip if a follow-up message was recently saved by the consumer
+            # to avoid duplicate entries in chat_history
+            if await chat_history_repo.has_recent_follow_up(
+                session_id=customer.sessionId,
+                company_id=company.id,
+            ):
+                logger.debug(
+                    "[ChatwootWebhook] Skipping outgoing save — recent follow-up "
+                    "already saved for customer %d, conversation %d",
+                    customer.id,
+                    conversation_id,
+                )
+                return
+
             await chat_history_repo.insert_assistant_message(
                 session_id=customer.sessionId,
                 content=content,

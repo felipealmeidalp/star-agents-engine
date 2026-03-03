@@ -98,17 +98,25 @@ class ChatwootService:
             f"session={customer.sessionId}, is_new={is_new}"
         )
 
-        # 1.5. Check customer status — if False, save message and skip AI
+        # 1.5. Check customer status — if False, save message, update follow-up and skip AI
         if customer.status is False:
             logger.info(
                 "[ChatwootService] AI deactivated for customer %d (status=False), "
-                "saving user message only",
+                "saving user message and updating follow-up tracking",
                 customer.id,
             )
             await self.chat_history_repo.insert_user_message(
                 session_id=customer.sessionId,
                 message=message,
                 company_id=company.id,
+            )
+            # Continue updating last_message=NOW() and follow_up=0
+            # so follow-up timers reset on each customer message
+            await self._update_follow_up_and_schedule(
+                customer=customer,
+                company=company,
+                payload=payload,
+                is_new=is_new,
             )
             return {
                 "status": "ai_deactivated",

@@ -86,6 +86,60 @@ async def process_chat(
     )
 
 
+async def reprocess_chat(
+    session_id: str,
+    company_id: int,
+    db: AsyncSession,
+    on_send_messages: MessageSenderCallback | None = None,
+) -> dict[str, Any]:
+    """
+    Reprocess a chat using existing history (no new user message inserted).
+
+    Used when AI is re-enabled for a customer — runs the full AI pipeline
+    on the existing chat history and returns the assistant's response.
+
+    Args:
+        session_id: Unique session identifier for the conversation.
+        company_id: Company ID for multi-tenancy isolation.
+        db: Async database session.
+        on_send_messages: Optional callback to send messages to the lead.
+
+    Returns:
+        Dict with the assistant's response.
+    """
+    # 1. Setup repositories
+    chat_repo = ChatHistoryRepository(db)
+    agent_repo = AgentRepository(db)
+    company_repo = CompanyRepository(db)
+    prompt_repo = PromptRepository(db)
+
+    # NO insert_user_message — messages are already in history
+
+    # 2. Get company API key
+    api_key = await company_repo.get_openai_api_key(company_id)
+
+    # 3. Setup services
+    context_builder = ContextBuilder(agent_repo, chat_repo, prompt_repo)
+    openai_service = OpenAIService(api_key)
+    tool_handler = ToolHandler()
+
+    # 4. Create handler and process
+    handler = ChatHandler(
+        context_builder=context_builder,
+        openai_service=openai_service,
+        tool_handler=tool_handler,
+        chat_repo=chat_repo,
+        db=db,
+        openai_api_key=api_key,
+        on_send_messages=on_send_messages,
+    )
+
+    return await handler.process(
+        session_id=session_id,
+        company_id=company_id,
+    )
+
+
 async def process_chat_in_memory(
     session_id: str,
     message: str,

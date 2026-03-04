@@ -18,6 +18,12 @@ class ChatRequest(BaseModel):
     company_id: int = Field(..., description="Company ID for multi-tenancy")
 
 
+class ReprocessRequest(BaseModel):
+    """Request schema for POST /chat/reprocess endpoint."""
+
+    customer_id: int = Field(..., description="Customer ID to reprocess")
+
+
 # =============================================================================
 # Agent Context Schemas
 # =============================================================================

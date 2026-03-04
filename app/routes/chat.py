@@ -1,9 +1,13 @@
 """Chat endpoints for message orchestration."""
 
+import asyncio
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.database import get_db
+from app.chatwoot.client import ChatwootClient
+from app.db.database import AsyncSessionLocal, get_db
 from app.exceptions import (
     MaxIterationsExceededError,
     OpenAIAuthenticationError,
@@ -11,8 +15,12 @@ from app.exceptions import (
     OpenAIRateLimitError,
     OpenAITimeoutError,
 )
-from app.models.schemas import ChatRequest
-from app.services.chat_processor import process_chat
+from app.models.schemas import ChatRequest, ReprocessRequest
+from app.repositories.company import CompanyRepository
+from app.repositories.customer import CustomerRepository
+from app.services.chat_processor import process_chat, reprocess_chat
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -76,3 +84,93 @@ async def chat(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=str(e),
         )
+
+
+@router.post("/chat/reprocess")
+async def reprocess(
+    request: ReprocessRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Reprocess chat for a customer using existing history.
+
+    Used when AI is re-enabled — validates customer/company synchronously,
+    then fires off the AI pipeline + Chatwoot send in the background.
+    Returns immediately with 202 Accepted.
+    """
+    # 1. Fetch customer (sync validation)
+    customer_repo = CustomerRepository(db)
+    customer = await customer_repo.get_by_id(request.customer_id)
+    if not customer:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Customer not found",
+        )
+
+    # 2. Fetch company (sync validation)
+    company_repo = CompanyRepository(db)
+    company = await company_repo.get_by_id(customer.company_id)
+    if not company:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Company not found",
+        )
+
+    # Capture values before the request DB session closes
+    session_id = customer.sessionId
+    company_id = customer.company_id
+    cw_base_url = company.cw_base_url
+    cw_account_id = company.cw_account_id
+    cw_conversation_id = customer.cw_conversation_id
+    cw_apikey = company.cw_apikey
+
+    # 3. Fire background task with its own DB session
+    asyncio.create_task(
+        _reprocess_background(
+            session_id=session_id,
+            company_id=company_id,
+            cw_base_url=cw_base_url,
+            cw_account_id=cw_account_id,
+            cw_conversation_id=cw_conversation_id,
+            cw_apikey=cw_apikey,
+        )
+    )
+
+    return {"status": "accepted", "session_id": session_id}
+
+
+async def _reprocess_background(
+    session_id: str,
+    company_id: int,
+    cw_base_url: str | None,
+    cw_account_id: int | None,
+    cw_conversation_id: int | None,
+    cw_apikey: str | None,
+) -> None:
+    """Run AI pipeline and send to Chatwoot in background."""
+    try:
+        async with AsyncSessionLocal() as db:
+            response = await reprocess_chat(
+                session_id=session_id,
+                company_id=company_id,
+                db=db,
+            )
+
+            messages = response.get("resposta", [])
+            if messages and cw_base_url and cw_apikey:
+                client = ChatwootClient()
+                await client.send_messages(
+                    base_url=cw_base_url,
+                    account_id=cw_account_id,
+                    conversation_id=cw_conversation_id,
+                    messages=messages,
+                    api_key=cw_apikey,
+                )
+
+        logger.info(
+            "[Reprocess] Done for session=%s, sent %d messages",
+            session_id,
+            len(messages),
+        )
+    except Exception:
+        logger.exception("[Reprocess] Background task failed for session=%s", session_id)

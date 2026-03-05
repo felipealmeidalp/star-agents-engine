@@ -231,7 +231,8 @@ class CustomerRepository:
         """
         Create a new customer from Chatwoot contact.
 
-        Uses the cw_contact_id as the sessionId for the customer.
+        Uses the cw_conversation_id as the sessionId so each conversation
+        is independent (even for the same contact).
 
         Args:
             cw_contact_id: Chatwoot contact ID (sender.id)
@@ -247,7 +248,7 @@ class CustomerRepository:
         """
         customer = Customer(
             company_id=company_id,
-            sessionId=str(cw_contact_id),
+            sessionId=str(cw_conversation_id),
             cw_contact_id=cw_contact_id,
             cw_conversation_id=cw_conversation_id,
             name=name,
@@ -274,6 +275,7 @@ class CustomerRepository:
         """
         Busca customer existente ou cria novo a partir de dados do Chatwoot.
 
+        Lookup por cw_conversation_id (cada conversa é independente).
         Protegido contra race condition: se duas tasks tentarem criar
         simultaneamente, a segunda detecta o IntegrityError e busca
         o registro criado pela primeira.
@@ -290,16 +292,31 @@ class CustomerRepository:
         Returns:
             Tuple (Customer, is_new: bool)
         """
-        # 1. Tentar buscar existente
-        existing = await self.get_by_cw_contact_id(cw_contact_id)
+        # 1. Tentar buscar existente por conversation_id (mesma conversa)
+        existing = await self.get_by_cw_conversation_id(cw_conversation_id)
         if existing:
             return existing, False
 
-        # 2. Tentar criar — IntegrityError significa que outra task criou primeiro
+        # 2. Contato já existe mas abriu nova conversa → atualizar sessionId e conversation
+        existing_contact = await self.get_by_cw_contact_id(cw_contact_id)
+        if existing_contact:
+            existing_contact.sessionId = str(cw_conversation_id)
+            existing_contact.cw_conversation_id = cw_conversation_id
+            await self.db.commit()
+            await self.db.refresh(existing_contact)
+            logger.info(
+                "[CustomerRepository] Contato %d abriu nova conversa %d, "
+                "sessionId atualizado",
+                cw_contact_id,
+                cw_conversation_id,
+            )
+            return existing_contact, True
+
+        # 3. Contato novo — criar customer
         try:
             customer = Customer(
                 company_id=company_id,
-                sessionId=str(cw_contact_id),
+                sessionId=str(cw_conversation_id),
                 cw_contact_id=cw_contact_id,
                 cw_conversation_id=cw_conversation_id,
                 name=name,
@@ -316,13 +333,16 @@ class CustomerRepository:
             await self.db.rollback()
             logger.warning(
                 "[CustomerRepository] Race condition detectada para "
-                "cw_contact_id=%d, buscando registro vencedor",
-                cw_contact_id,
+                "cw_conversation_id=%d, buscando registro vencedor",
+                cw_conversation_id,
             )
-            existing = await self.get_by_cw_contact_id(cw_contact_id)
+            existing = await self.get_by_cw_conversation_id(cw_conversation_id)
             if existing:
                 return existing, False
-            # Se nao encontrou (ex: soft-deleted), propaga o erro
+            # Pode ser race no cw_contact_id
+            existing_contact = await self.get_by_cw_contact_id(cw_contact_id)
+            if existing_contact:
+                return existing_contact, False
             raise
 
     async def update_follow_up_on_message(

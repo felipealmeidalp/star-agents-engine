@@ -143,6 +143,7 @@ class ChatHandler:
                 company_id=company_id,
                 cached_context=cached_context,
                 pending_messages=pending,
+                dev_mode=self.conversation_turn.dev_mode if self.conversation_turn else False,
             )
 
             # Cache context for subsequent iterations
@@ -519,7 +520,33 @@ class ChatHandler:
                         extra=f"session={session_id}, tool_call_id={result.tool_call_id}",
                     )
 
-        # 5. Check if any tool requested cache invalidation
+        # 5. Send tool results as private notes in dev mode
+        if (
+            self.conversation_turn
+            and self.conversation_turn.dev_mode
+            and self.on_send_messages
+            and results
+        ):
+            tool_summaries = []
+            for result in results:
+                tool_summaries.append(f"🔧 *{result.tool_name}*\n{result.content}")
+            await self.on_send_messages(tool_summaries)
+
+            # 5.1 Send RAG results as a separate private note
+            for result in results:
+                if result.rag_result:
+                    rag_lines = []
+                    for entry in result.rag_result:
+                        payload = entry.get("payload", {})
+                        text = payload.get("text") or payload.get("content", "")
+                        score = entry.get("score", "?")
+                        if text:
+                            rag_lines.append(f"• (score: {score}) {text[:300]}")
+                    if rag_lines:
+                        rag_note = f"📚 *RAG results*\n" + "\n".join(rag_lines)
+                        await self.on_send_messages([rag_note])
+
+        # 6. Check if any tool requested cache invalidation
         return any(result.invalidate_cache for result in results)
 
     def _parse_response(self, content: str | None) -> dict[str, Any]:

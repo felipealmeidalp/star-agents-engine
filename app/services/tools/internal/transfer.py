@@ -135,12 +135,13 @@ class TransferToHumanTool(BaseTool):
                 responsible_team,
             )
 
-            # 6. Add "atendimento-humano" label
-            await chatwoot_client.add_label_to_conversation(
+            # 6. Swap labels: add "atendimento-humano", remove "atendimento-ia"
+            await chatwoot_client.swap_label(
                 base_url=company.cw_base_url,
                 account_id=company.cw_account_id,
                 conversation_id=customer.cw_conversation_id,
-                label="atendimento-humano",
+                add="atendimento-humano",
+                remove="atendimento-ia",
                 api_key=company.cw_apikey,
             )
             logger.info(

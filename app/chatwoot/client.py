@@ -47,6 +47,7 @@ class ChatwootClient:
         conversation_id: int,
         message: str,
         api_key: str,
+        private: bool = False,
     ) -> dict[str, Any]:
         """
         Send a message to a Chatwoot conversation.
@@ -57,6 +58,7 @@ class ChatwootClient:
             conversation_id: Conversation ID to send message to
             message: Message content
             api_key: API key for authentication
+            private: If True, send as private note (invisible to contact)
 
         Returns:
             Dict with API response
@@ -78,7 +80,7 @@ class ChatwootClient:
         payload = {
             "content": message,
             "message_type": "outgoing",
-            "private": False,
+            "private": private,
         }
 
         logger.info(
@@ -216,6 +218,56 @@ class ChatwootClient:
                 conversation_id,
             )
 
+    async def swap_label(
+        self,
+        base_url: str,
+        account_id: int,
+        conversation_id: int,
+        add: str,
+        remove: str,
+        api_key: str,
+    ) -> None:
+        """
+        Add a label and remove another atomically (idempotent).
+
+        GETs current labels, removes `remove` if present, appends `add` if missing,
+        then POSTs the updated list only if it changed.
+
+        Args:
+            base_url: Chatwoot instance base URL
+            account_id: Chatwoot account ID
+            conversation_id: Conversation ID
+            add: Label to add
+            remove: Label to remove
+            api_key: API key for authentication
+        """
+        url = (
+            f"{base_url}/api/v1/accounts/{account_id}"
+            f"/conversations/{conversation_id}/labels"
+        )
+        headers = {
+            "api_access_token": api_key,
+            "Content-Type": "application/json",
+        }
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            current_labels: list[str] = response.json().get("payload", [])
+
+            updated = [label for label in current_labels if label != remove]
+            if add not in updated:
+                updated.append(add)
+
+            if updated != current_labels:
+                await client.post(url, json={"labels": updated}, headers=headers)
+                logger.info(
+                    "[ChatwootClient] swap_label: added '%s', removed '%s' on conversation %d",
+                    add,
+                    remove,
+                    conversation_id,
+                )
+
     async def send_messages(
         self,
         base_url: str,
@@ -223,6 +275,7 @@ class ChatwootClient:
         conversation_id: int,
         messages: list[str],
         api_key: str,
+        private: bool = False,
     ) -> list[dict[str, Any]]:
         """
         Send multiple messages to a Chatwoot conversation with humanized delays.
@@ -262,6 +315,7 @@ class ChatwootClient:
                     conversation_id=conversation_id,
                     message=message,
                     api_key=api_key,
+                    private=private,
                 )
                 results.append(result)
             except Exception as e:

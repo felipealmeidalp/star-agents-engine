@@ -151,6 +151,7 @@ class ChatHistoryRepository:
                 FROM chat_history
                 WHERE "sessionId" = :session_id
                   AND company_id = :company_id
+                  AND role != 'dev'
                 ORDER BY created_at DESC, id DESC
                 LIMIT 10
             ),

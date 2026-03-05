@@ -74,6 +74,7 @@ class ContextBuilder:
         company_id: int,
         cached_context: AgentContext | None = None,
         pending_messages: list[OpenAIMessage] | None = None,
+        dev_mode: bool = False,
     ) -> OpenAIPayload:
         """
         Build complete OpenAI payload.
@@ -102,6 +103,7 @@ class ContextBuilder:
                 company_id=company_id,
                 cached_context=cached_context,
                 pending_messages=pending_messages,
+                dev_mode=dev_mode,
             )
         except Exception as e:
             logger.exception("[ContextBuilder] Failed to build context: %s", e)
@@ -120,6 +122,7 @@ class ContextBuilder:
         company_id: int,
         cached_context: AgentContext | None = None,
         pending_messages: list[OpenAIMessage] | None = None,
+        dev_mode: bool = False,
     ) -> OpenAIPayload:
         """Internal build logic, separated for clean error handling."""
         # 1. Use cached context if available, otherwise fetch from DB
@@ -174,6 +177,8 @@ class ContextBuilder:
             logger.info("[ContextBuilder] Modo objecao ativo: tools substituidas por [finish_objection_breaker]")
         else:
             tools = self._format_tools_for_openai(context.tools)
+            if dev_mode and tools:
+                tools = [t for t in tools if t["function"]["name"] != "transferir_para_humano"]
             if tools:
                 tool_names = [t["function"]["name"] for t in tools]
                 logger.info(f"[ContextBuilder] Tools formatadas: {tool_names}")

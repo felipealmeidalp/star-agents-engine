@@ -3,6 +3,7 @@
 from typing import Any
 
 from app.models.schemas import ToolExecutionContext, ToolResult
+from app.repositories.agent import AgentRepository
 from app.repositories.customer import CustomerRepository
 from app.repositories.prompt import PromptRepository
 from app.services.tool_handler import BaseTool
@@ -58,11 +59,23 @@ class NextStepTool(BaseTool):
                 target_sub_agent_id,
             )
 
+        # Fetch target sub-agent info for context
+        content = "Lead transferido para o próximo agente com sucesso!"
+        if target_sub_agent_id and target_sub_agent_id > 0:
+            agent_repo = AgentRepository(context.db)
+            sub_agent_info = await agent_repo.get_sub_agent_info(target_sub_agent_id)
+            if sub_agent_info:
+                content = (
+                    f"Lead transferido para o sub-agente "
+                    f"'{sub_agent_info['name']}' (id: {sub_agent_info['id']}) "
+                    f"com sucesso!"
+                )
+
         return ToolResult(
             tool_call_id="",  # Set by handler
             tool_name=self.name,
             tool_type="interna",
             success=True,
-            content="Lead transferido para o próximo agente com sucesso!",
+            content=content,
             invalidate_cache=True,  # Force context rebuild (sub-agent or variable_prompt changed)
         )

@@ -32,6 +32,7 @@ class ConversationTurn:
         *,
         user_message_already_saved: bool = False,
         pending_checker: Callable[[], Awaitable[list[str] | None]] | None = None,
+        dev_mode: bool = False,
     ) -> None:
         """
         Initialize a conversation turn.
@@ -44,6 +45,9 @@ class ConversationTurn:
                 (it was already persisted by a previous save operation)
             pending_checker: Async callback that checks for messages that arrived
                 during tool execution. Returns list of strings or None.
+            dev_mode: If True, save assistant/tool messages with role="dev"
+                instead of their original role. Preserves history and tokens
+                but keeps them invisible to the AI context.
         """
         self.user_message = user_message
         self.prior_tool_history = prior_tool_history or []
@@ -53,6 +57,7 @@ class ConversationTurn:
         self.user_message_already_saved = user_message_already_saved
         self.pending_checker = pending_checker
         self._save_context: dict[str, Any] | None = None
+        self.dev_mode = dev_mode
 
     def set_save_context(self, **kwargs: Any) -> None:
         """Store save parameters for deferred saving.
@@ -236,12 +241,28 @@ class ConversationTurn:
                 company_id=company_id,
             ))
 
+        def _resolve_role(original_role: str, msg: dict[str, Any]) -> str:
+            """In dev mode, only remap final assistant response to 'dev'.
+
+            Tool-calling assistant messages and tool results keep their
+            original role so the OpenAI context stays valid.
+            """
+            if not self.dev_mode:
+                return original_role
+            if original_role == "assistant" and msg.get("tool_calls"):
+                return "assistant"
+            if original_role == "tool":
+                return "tool"
+            if original_role == "assistant":
+                return "dev"
+            return original_role
+
         # 2. Save prior tool history
         for msg in self.prior_tool_history:
             tu: TokenUsage | None = msg.get("_token_usage")
             record = ChatHistory(
                 sessionId=session_id,
-                role=msg["role"],
+                role=_resolve_role(msg["role"], msg),
                 content=msg.get("content"),
                 agent_id=agent_id,
                 sub_agent_id=sub_agent_id,
@@ -260,7 +281,7 @@ class ConversationTurn:
             tu = msg.get("_token_usage")
             record = ChatHistory(
                 sessionId=session_id,
-                role=msg["role"],
+                role=_resolve_role(msg["role"], msg),
                 content=msg.get("content"),
                 agent_id=agent_id,
                 sub_agent_id=sub_agent_id,
@@ -324,11 +345,23 @@ class ConversationTurn:
             len(interjected_user_messages),
         )
 
+        def _resolve_role(original_role: str, msg: dict[str, Any]) -> str:
+            """In dev mode, only remap final assistant response to 'dev'."""
+            if not self.dev_mode:
+                return original_role
+            if original_role == "assistant" and msg.get("tool_calls"):
+                return "assistant"
+            if original_role == "tool":
+                return "tool"
+            if original_role == "assistant":
+                return "dev"
+            return original_role
+
         def _add_record(msg: dict[str, Any]) -> None:
             tu: TokenUsage | None = msg.get("_token_usage")
             db.add(ChatHistory(
                 sessionId=session_id,
-                role=msg["role"],
+                role=_resolve_role(msg["role"], msg),
                 content=msg.get("content"),
                 agent_id=agent_id,
                 sub_agent_id=sub_agent_id,

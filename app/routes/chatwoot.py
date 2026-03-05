@@ -15,7 +15,9 @@ from app.exceptions import (
     OpenAIRateLimitError,
     OpenAITimeoutError,
 )
-from app.models.tables import ChatHistory
+from sqlalchemy import select
+
+from app.models.tables import Agent, ChatHistory
 from app.repositories.chat_history import ChatHistoryRepository
 from app.repositories.company import CompanyRepository
 from app.repositories.customer import CustomerRepository
@@ -216,8 +218,22 @@ async def _save_outgoing_if_ai_off(
                 return
 
             if customer.status is not False:
-                # AI is active — outgoing is from AI, already saved
-                return
+                # AI is active — check if agent is in dev mode
+                if customer.agent_id:
+                    result = await db.execute(
+                        select(Agent.status).where(
+                            Agent.id == customer.agent_id,
+                            Agent.deleted_at.is_(None),
+                        )
+                    )
+                    agent_status = result.scalar_one_or_none()
+                    if agent_status != "dev":
+                        # AI active and not dev mode — outgoing is from AI, already saved
+                        return
+                    # Dev mode: fall through to save as assistant
+                else:
+                    # AI active, no agent — outgoing is from AI, already saved
+                    return
 
             chat_history_repo = ChatHistoryRepository(db)
 
@@ -443,6 +459,11 @@ async def chatwoot_webhook(
 
     # Handle outgoing messages: check for trigger messages to auto-add contacts
     if payload.message_type == "outgoing":
+        # Ignore private notes (AI dev mode or human notes)
+        if payload.private:
+            logger.info("[ChatwootWebhook] Ignoring private note")
+            return {"status": "ignored", "reason": "private_note"}
+
         content = (payload.content or "").strip()
         inbox_id = payload.inbox.id if payload.inbox else payload.conversation.inbox_id
         trigger_config = INBOX_TRIGGER_CONFIGS.get((payload.account.id, inbox_id))

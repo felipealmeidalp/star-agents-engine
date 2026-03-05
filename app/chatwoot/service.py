@@ -1,5 +1,6 @@
 """Main service for Chatwoot webhook processing."""
 
+import asyncio
 import logging
 from typing import Any
 
@@ -123,13 +124,27 @@ class ChatwootService:
                 "session_id": customer.sessionId,
             }
 
-        # 2. If existing customer, check dev commands FIRST (before follow-up)
+        # 2. Load agent status for dev mode check
+        agent_status = None
+        if customer.agent_id:
+            result = await self.db.execute(
+                select(Agent.status).where(
+                    Agent.id == customer.agent_id,
+                    Agent.deleted_at.is_(None),
+                )
+            )
+            agent_status = result.scalar_one_or_none()
+
+        is_dev_agent = agent_status == "dev"
+
+        # 2b. If existing customer, check dev commands FIRST (before follow-up)
         if not is_new:
             dev_command_result = await self._handle_dev_command(
                 message=message,
                 customer=customer,
                 company=company,
                 payload=payload,
+                agent_status=agent_status,
             )
             if dev_command_result:
                 # Dev command executed - return early WITHOUT scheduling follow-up
@@ -169,6 +184,7 @@ class ChatwootService:
                 account_id=payload.account.id,
                 conversation_id=payload.conversation.id,
                 api_key=cw_api_key,
+                private=is_dev_agent,
             )
 
         response = await self.request_manager.on_new_message(
@@ -178,6 +194,7 @@ class ChatwootService:
             company_id=company.id,
             db=self.db,
             on_send_messages=send_messages_to_lead,
+            dev_mode=is_dev_agent,
         )
 
         # If None, message was discarded (newer message in buffer)
@@ -192,6 +209,15 @@ class ChatwootService:
                 "session_id": customer.sessionId,
             }
 
+        # Add "atendimento-ia" label (background, best-effort)
+        if payload.conversation.id:
+            asyncio.create_task(self._apply_ia_label(
+                base_url=cw_base_url,
+                account_id=payload.account.id,
+                conversation_id=payload.conversation.id,
+                api_key=cw_api_key,
+            ))
+
         logger.info(f"[ChatwootService] Chat response: {response}")
 
         # 6. Send responses back to Chatwoot
@@ -203,6 +229,7 @@ class ChatwootService:
                 account_id=payload.account.id,
                 conversation_id=payload.conversation.id,
                 api_key=cw_api_key,
+                private=is_dev_agent,
             )
 
         return {
@@ -312,6 +339,7 @@ class ChatwootService:
         account_id: int,
         conversation_id: int,
         api_key: str | None,
+        private: bool = False,
     ) -> None:
         """Send response messages to Chatwoot."""
         if not api_key:
@@ -322,8 +350,13 @@ class ChatwootService:
             logger.error("[ChatwootService] No Chatwoot base URL configured")
             return
 
+        # Dev mode: consolidate into single private note, no delays needed
+        if private and len(messages) > 1:
+            messages = ["\n\n".join(messages)]
+
         logger.info(
             f"[ChatwootService] Sending {len(messages)} messages to Chatwoot"
+            f"{' (private note)' if private else ''}"
         )
 
         try:
@@ -333,6 +366,7 @@ class ChatwootService:
                 conversation_id=conversation_id,
                 messages=messages,
                 api_key=api_key,
+                private=private,
             )
         except Exception as e:
             logger.error(f"[ChatwootService] Failed to send to Chatwoot: {e}")
@@ -583,6 +617,7 @@ class ChatwootService:
         customer: Customer,
         company: Company,
         payload: ChatwootWebhookPayload,
+        agent_status: str | None = None,
     ) -> dict[str, Any] | None:
         """
         Handle dev commands when agent is in dev mode.
@@ -597,6 +632,7 @@ class ChatwootService:
             customer: Customer instance
             company: Company instance
             payload: Webhook payload for sending responses
+            agent_status: Pre-loaded agent status (avoids extra DB query)
 
         Returns:
             Dict with result if command was handled, None otherwise
@@ -605,13 +641,15 @@ class ChatwootService:
         if not customer.agent_id:
             return None
 
-        result = await self.db.execute(
-            select(Agent.status).where(
-                Agent.id == customer.agent_id,
-                Agent.deleted_at.is_(None),
+        # Use pre-loaded status if available, otherwise query DB
+        if agent_status is None:
+            result = await self.db.execute(
+                select(Agent.status).where(
+                    Agent.id == customer.agent_id,
+                    Agent.deleted_at.is_(None),
+                )
             )
-        )
-        agent_status = result.scalar_one_or_none()
+            agent_status = result.scalar_one_or_none()
 
         if agent_status != "dev":
             # Not in dev mode - if there was a pending state, clear it
@@ -724,6 +762,7 @@ class ChatwootService:
                 account_id=payload.account.id,
                 conversation_id=payload.conversation.id,
                 api_key=company.cw_apikey,
+                private=True,
             )
             return {
                 "status": "dev_command_executed",
@@ -758,6 +797,7 @@ class ChatwootService:
             account_id=payload.account.id,
             conversation_id=payload.conversation.id,
             api_key=company.cw_apikey,
+            private=True,
         )
 
         logger.info(
@@ -809,6 +849,7 @@ class ChatwootService:
                 account_id=payload.account.id,
                 conversation_id=payload.conversation.id,
                 api_key=company.cw_apikey,
+                private=True,
             )
             logger.info(
                 f"[ChatwootService] #mudar_agente cancelled for customer {customer.id}"
@@ -850,6 +891,7 @@ class ChatwootService:
                 account_id=payload.account.id,
                 conversation_id=payload.conversation.id,
                 api_key=company.cw_apikey,
+                private=True,
             )
             logger.info(
                 f"[ChatwootService] #mudar_agente invalid selection '{choice}' "
@@ -899,6 +941,7 @@ class ChatwootService:
             account_id=payload.account.id,
             conversation_id=payload.conversation.id,
             api_key=company.cw_apikey,
+            private=True,
         )
 
         logger.info(
@@ -913,6 +956,29 @@ class ChatwootService:
             "result": "changed",
             "new_agent_id": new_agent_id,
         }
+
+    async def _apply_ia_label(
+        self,
+        base_url: str | None,
+        account_id: int,
+        conversation_id: int,
+        api_key: str | None,
+    ) -> None:
+        """Add 'atendimento-ia' label and remove 'atendimento-humano' (best-effort)."""
+        if not base_url or not api_key:
+            return
+        try:
+            client = ChatwootClient()
+            await client.swap_label(
+                base_url=base_url,
+                account_id=account_id,
+                conversation_id=conversation_id,
+                add="atendimento-ia",
+                remove="atendimento-humano",
+                api_key=api_key,
+            )
+        except Exception as e:
+            logger.warning("[ChatwootService] Failed to apply atendimento-ia label: %s", e)
 
     async def _execute_reset_command(
         self,
@@ -966,6 +1032,7 @@ class ChatwootService:
             account_id=payload.account.id,
             conversation_id=payload.conversation.id,
             api_key=company.cw_apikey,
+            private=True,
         )
 
         return {

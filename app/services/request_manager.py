@@ -71,6 +71,7 @@ class RequestManager:
         company_id: int,
         db: AsyncSession,
         on_send_messages: MessageSenderCallback | None = None,
+        dev_mode: bool = False,
     ) -> dict[str, Any] | None:
         """Handle a new incoming message for a contact.
 
@@ -93,6 +94,7 @@ class RequestManager:
             company_id: Company ID for multi-tenancy
             db: Database session
             on_send_messages: Callback to send messages to lead
+            dev_mode: If True, save AI messages with role='dev' instead of 'assistant'
 
         Returns:
             Processing result dict, or None if message was discarded
@@ -185,6 +187,7 @@ class RequestManager:
                 user_message=concatenated,
                 prior_tool_history=prior_tool_history,
                 pending_checker=_check_pending,
+                dev_mode=dev_mode,
             )
 
             # Create the processing task

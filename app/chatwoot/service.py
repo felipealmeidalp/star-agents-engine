@@ -209,13 +209,43 @@ class ChatwootService:
                 "session_id": customer.sessionId,
             }
 
-        # Add "atendimento-ia" label (background, best-effort)
-        if payload.conversation.id:
-            asyncio.create_task(self._apply_ia_label(
+        # Apply labels + assignment (background, best-effort)
+        # Skip if transfer happened during this request (status set to False)
+        fresh_status = await self.customer_repo.get_status(
+            customer.sessionId, company.id
+        )
+        if payload.conversation.id and fresh_status is not False:
+            # Gather agent data while DB session is still alive
+            agent_team_label: str | None = None
+            agent_responsible_team: int | None = None
+            all_team_labels: list[str] = []
+            ai_agent_id: int | None = company.ai_agent_id
+
+            if customer.agent_id:
+                from app.repositories.agent import AgentRepository
+                agent_result = await self.db.execute(
+                    select(Agent.team_label, Agent.responsible_team).where(
+                        Agent.id == customer.agent_id,
+                        Agent.deleted_at.is_(None),
+                    )
+                )
+                agent_row = agent_result.one_or_none()
+                if agent_row:
+                    agent_team_label = agent_row.team_label
+                    agent_responsible_team = agent_row.responsible_team
+
+                agent_repo = AgentRepository(self.db)
+                all_team_labels = await agent_repo.get_all_team_labels(company.id)
+
+            asyncio.create_task(self._apply_ia_labels_and_assignment(
                 base_url=cw_base_url,
                 account_id=payload.account.id,
                 conversation_id=payload.conversation.id,
                 api_key=cw_api_key,
+                agent_team_label=agent_team_label,
+                agent_responsible_team=agent_responsible_team,
+                all_team_labels=all_team_labels,
+                ai_agent_id=ai_agent_id,
             ))
 
         logger.info(f"[ChatwootService] Chat response: {response}")
@@ -957,6 +987,63 @@ class ChatwootService:
             "new_agent_id": new_agent_id,
         }
 
+    async def _apply_ia_labels_and_assignment(
+        self,
+        base_url: str | None,
+        account_id: int,
+        conversation_id: int,
+        api_key: str | None,
+        agent_team_label: str | None = None,
+        agent_responsible_team: int | None = None,
+        all_team_labels: list[str] | None = None,
+        ai_agent_id: int | None = None,
+    ) -> None:
+        """Apply IA labels + sector label and ensure correct assignment (best-effort)."""
+        if not base_url or not api_key:
+            return
+
+        client = ChatwootClient()
+
+        # Part 1: Labels
+        try:
+            add_labels = ["atendimento-ia"]
+            if agent_team_label:
+                add_labels.append(agent_team_label)
+
+            await client.update_conversation_labels(
+                base_url=base_url,
+                account_id=account_id,
+                conversation_id=conversation_id,
+                api_key=api_key,
+                add_labels=add_labels,
+                remove_labels=["atendimento-humano"],
+                sector_labels=all_team_labels or [],
+            )
+        except Exception as e:
+            logger.warning("[ChatwootService] Failed to apply labels: %s", e)
+
+        # Part 2: Assignment (separate calls — Chatwoot ignores team_id when sent with assignee_id)
+        if not ai_agent_id:
+            return
+        try:
+            if agent_responsible_team:
+                await client.assign_conversation(
+                    base_url=base_url,
+                    account_id=account_id,
+                    conversation_id=conversation_id,
+                    api_key=api_key,
+                    team_id=agent_responsible_team,
+                )
+            await client.assign_conversation(
+                base_url=base_url,
+                account_id=account_id,
+                conversation_id=conversation_id,
+                api_key=api_key,
+                assignee_id=ai_agent_id,
+            )
+        except Exception as e:
+            logger.warning("[ChatwootService] Failed to assign conversation: %s", e)
+
     async def _apply_ia_label(
         self,
         base_url: str | None,
@@ -964,7 +1051,10 @@ class ChatwootService:
         conversation_id: int,
         api_key: str | None,
     ) -> None:
-        """Add 'atendimento-ia' label and remove 'atendimento-humano' (best-effort)."""
+        """Add 'atendimento-ia' label and remove 'atendimento-humano' (best-effort).
+
+        Kept as fallback for cases where agent_id is not available.
+        """
         if not base_url or not api_key:
             return
         try:

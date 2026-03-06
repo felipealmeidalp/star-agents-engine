@@ -177,8 +177,6 @@ class ContextBuilder:
             logger.info("[ContextBuilder] Modo objecao ativo: tools substituidas por [finish_objection_breaker]")
         else:
             tools = self._format_tools_for_openai(context.tools)
-            if dev_mode and tools:
-                tools = [t for t in tools if t["function"]["name"] != "transferir_para_humano"]
             if tools:
                 tool_names = [t["function"]["name"] for t in tools]
                 logger.info(f"[ContextBuilder] Tools formatadas: {tool_names}")

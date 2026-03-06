@@ -57,6 +57,7 @@ class Company(Base):
     standard_sub_agent_id: Mapped[Optional[int]] = mapped_column(
         BigInteger, ForeignKey("sub_agents.id"), nullable=True
     )
+    ai_agent_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP, default=datetime.utcnow, nullable=False
     )
@@ -110,6 +111,7 @@ class Agent(Base):
     output_instructions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     output_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     responsible_team: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    team_label: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP, default=datetime.utcnow, nullable=False
     )

@@ -159,6 +159,141 @@ class ChatwootClient:
             response.raise_for_status()
             return response.json()
 
+    async def get_conversation(
+        self,
+        base_url: str,
+        account_id: int,
+        conversation_id: int,
+        api_key: str,
+    ) -> dict[str, Any]:
+        """Get full conversation data from Chatwoot."""
+        url = (
+            f"{base_url}/api/v1/accounts/{account_id}"
+            f"/conversations/{conversation_id}"
+        )
+        headers = {"api_access_token": api_key}
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            return response.json()
+
+    async def assign_conversation(
+        self,
+        base_url: str,
+        account_id: int,
+        conversation_id: int,
+        api_key: str,
+        assignee_id: int | None = None,
+        team_id: int | None = None,
+    ) -> dict[str, Any]:
+        """Assign conversation to an agent and/or team."""
+        url = (
+            f"{base_url}/api/v1/accounts/{account_id}"
+            f"/conversations/{conversation_id}/assignments"
+        )
+        headers = {
+            "api_access_token": api_key,
+            "Content-Type": "application/json",
+        }
+
+        payload: dict[str, Any] = {}
+        if assignee_id is not None:
+            payload["assignee_id"] = assignee_id
+        if team_id is not None:
+            payload["team_id"] = team_id
+
+        logger.info(
+            "[ChatwootClient] Assigning conversation %d: assignee=%s, team=%s",
+            conversation_id,
+            assignee_id,
+            team_id,
+        )
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(url, json=payload, headers=headers)
+            logger.info(
+                "[ChatwootClient] Assignment response: status=%d, body=%s",
+                response.status_code,
+                response.text[:300],
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def get_team_members(
+        self,
+        base_url: str,
+        account_id: int,
+        team_id: int,
+        api_key: str,
+    ) -> list[dict[str, Any]]:
+        """Get list of members for a Chatwoot team."""
+        url = (
+            f"{base_url}/api/v1/accounts/{account_id}"
+            f"/teams/{team_id}/team_members"
+        )
+        headers = {"api_access_token": api_key}
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            return response.json()
+
+    async def update_conversation_labels(
+        self,
+        base_url: str,
+        account_id: int,
+        conversation_id: int,
+        api_key: str,
+        add_labels: list[str] | None = None,
+        remove_labels: list[str] | None = None,
+        sector_labels: list[str] | None = None,
+    ) -> None:
+        """
+        Smart label management: add, remove, and clean old sector labels in one operation.
+
+        Args:
+            add_labels: Labels to add
+            remove_labels: Labels to remove
+            sector_labels: All possible sector labels (old ones not in add_labels are removed)
+        """
+        url = (
+            f"{base_url}/api/v1/accounts/{account_id}"
+            f"/conversations/{conversation_id}/labels"
+        )
+        headers = {
+            "api_access_token": api_key,
+            "Content-Type": "application/json",
+        }
+
+        add_labels = add_labels or []
+        remove_labels = remove_labels or []
+        sector_labels = sector_labels or []
+
+        # Old sector labels to remove = all sectors minus the ones we're adding
+        add_set = set(add_labels)
+        old_sectors_to_remove = set(sector_labels) - add_set
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            current_labels: list[str] = response.json().get("payload", [])
+
+            # Build updated list
+            to_remove = set(remove_labels) | old_sectors_to_remove
+            updated = [l for l in current_labels if l not in to_remove]
+            for label in add_labels:
+                if label not in updated:
+                    updated.append(label)
+
+            if updated != current_labels:
+                await client.post(url, json={"labels": updated}, headers=headers)
+                logger.info(
+                    "[ChatwootClient] Labels updated on conversation %d: %s",
+                    conversation_id,
+                    updated,
+                )
+
     async def add_label_to_conversation(
         self,
         base_url: str,

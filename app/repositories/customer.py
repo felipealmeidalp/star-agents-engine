@@ -44,6 +44,17 @@ class CustomerRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_status(self, session_id: str, company_id: int) -> bool | None:
+        """Get current customer status (True=AI active, False=transferred)."""
+        result = await self.db.execute(
+            select(Customer.status).where(
+                Customer.sessionId == session_id,
+                Customer.company_id == company_id,
+                Customer.deleted_at.is_(None),
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def update_status(
         self,
         session_id: str,

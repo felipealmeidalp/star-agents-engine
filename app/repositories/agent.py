@@ -150,3 +150,16 @@ class AgentRepository:
             "company_id": company_id,
         })
         return [dict(row._mapping) for row in result.fetchall()]
+
+    async def get_all_team_labels(self, company_id: int) -> list[str]:
+        """Return all distinct team_labels for a company's active agents."""
+        query = text("""
+            SELECT DISTINCT team_label
+            FROM agents
+            WHERE company_id = :company_id
+              AND team_label IS NOT NULL
+              AND team_label != ''
+              AND deleted_at IS NULL
+        """)
+        result = await self.db.execute(query, {"company_id": company_id})
+        return [row.team_label for row in result.fetchall()]

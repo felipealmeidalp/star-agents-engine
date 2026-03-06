@@ -6,6 +6,7 @@ from typing import Any
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
 
 from app.chatwoot.schemas import ChatwootWebhookPayload
+from app.config import settings
 from app.chatwoot.service import ChatwootService
 from app.db.database import AsyncSessionLocal
 from app.exceptions import (
@@ -468,7 +469,7 @@ async def chatwoot_webhook(
         inbox_id = payload.inbox.id if payload.inbox else payload.conversation.inbox_id
         trigger_config = INBOX_TRIGGER_CONFIGS.get((payload.account.id, inbox_id))
         seed_messages = trigger_config.get(content) if trigger_config else None
-        if seed_messages is not None:
+        if seed_messages is not None and settings.auto_add_contacts:
             contact_inbox = payload.conversation.contact_inbox
             if contact_inbox:
                 if inbox_id is not None:

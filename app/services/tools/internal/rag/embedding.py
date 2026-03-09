@@ -18,7 +18,7 @@ class EmbeddingService:
     async def generate(
         self,
         text: str,
-        model: str = "text-embedding-ada-002",
+        model: str = "text-embedding-3-large",
     ) -> list[float]:
         """
         Generate embedding vector for the given text.
@@ -36,6 +36,7 @@ class EmbeddingService:
         response = await self.client.embeddings.create(
             model=model,
             input=text,
+            dimensions=1536,
         )
 
         return response.data[0].embedding

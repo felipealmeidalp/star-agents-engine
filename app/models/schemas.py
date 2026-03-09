@@ -247,7 +247,7 @@ class ToolResult(BaseModel):
     success: bool
     content: str
     invalidate_cache: bool = False  # Se True, força rebuild do context na próxima iteração
-    rag_result: list[dict[str, Any]] | None = None  # Raw Qdrant search results (FAQ path)
+    rag_result: list[dict[str, Any]] | None = None  # pgvector search results (FAQ path)
 
 
 class ToolExecutionContext(BaseModel):

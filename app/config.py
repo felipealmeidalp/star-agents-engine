@@ -23,9 +23,6 @@ class Settings(BaseSettings):
     # Security
     api_key: str
 
-    # Qdrant (RAG)
-    qdrant_url: str
-
     # Redis (para buffer de mensagens)
     redis_url: str = "redis://localhost:6379"
 

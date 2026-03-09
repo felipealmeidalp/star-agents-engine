@@ -8,14 +8,13 @@ from openai import AsyncOpenAI
 
 from app.models.schemas import ToolExecutionContext, ToolResult
 from app.repositories.agent import AgentRepository
-from app.repositories.company import CompanyRepository
 from app.repositories.customer import CustomerRepository
 from app.repositories.objection import ObjectionRepository
 from app.repositories.prompt import PromptRepository
 from app.services.tool_handler import BaseTool
 
 from .embedding import EmbeddingService
-from .qdrant import QdrantService
+from .vector_search import VectorSearchService
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +47,7 @@ class RagTool(BaseTool):
         2. Fetch filter_obj_faq prompt with config (model, temperature)
         3. Call OpenAI to classify as "obj" or "faq"
         4. If "obj": handle objection flow
-        5. If "faq": generate embeddings, search Qdrant, summarize
+        5. If "faq": generate embeddings, search via pgvector, summarize
         6. Return result
 
         Args:
@@ -82,7 +81,6 @@ class RagTool(BaseTool):
 
             # 2. Initialize repositories and services
             prompt_repo = PromptRepository(context.db)
-            company_repo = CompanyRepository(context.db)
             openai_client = AsyncOpenAI(api_key=context.openai_api_key)
 
             # --- Roteamento por sub-agente ---
@@ -215,27 +213,18 @@ class RagTool(BaseTool):
                         if context.conversation_turn:
                             context.conversation_turn.objection_generating = False
 
-            # 7. FAQ flow: Get company's RAG collection
-            rag_collection = await company_repo.get_rag_collection(context.company_id)
-            if not rag_collection:
-                return ToolResult(
-                    tool_call_id="",
-                    tool_name=self.name,
-                    tool_type="interna",
-                    success=False,
-                    content="Erro: RAG collection nao configurada para esta empresa",
-                )
-
-            # 8. Generate embeddings
+            # 7. FAQ flow: Generate embeddings
             embedding_service = EmbeddingService(context.openai_api_key)
             embedding = await embedding_service.generate(question)
 
-            # 9. Search Qdrant
-            qdrant_service = QdrantService()
-            search_results = await qdrant_service.search(
-                collection=rag_collection,
-                vector=embedding,
-                limit=10,
+            # 8. Search via pgvector (match_chunks)
+            vector_service = VectorSearchService(context.db)
+            search_results = await vector_service.search(
+                embedding=embedding,
+                company_id=context.company_id,
+                agent_id=context.agent_id,
+                sub_agent_id=context.sub_agent_id,
+                match_count=5,
             )
 
             # 10. Extract and combine text from results
@@ -804,19 +793,19 @@ class RagTool(BaseTool):
 
     def _combine_search_results(self, results: list[dict[str, Any]]) -> str:
         """
-        Extract and combine text from Qdrant search results.
+        Extract and combine text from pgvector search results.
 
         Args:
-            results: List of search results from Qdrant
+            results: List of search results from match_chunks()
 
         Returns:
             Combined text separated by dividers
         """
         texts = []
         for result in results:
-            payload = result.get("payload", {})
-            text = payload.get("text") or payload.get("content", "")
-            if text:
-                texts.append(text)
+            question = result.get("question", "")
+            answer = result.get("answer", "")
+            if question or answer:
+                texts.append(f"Pergunta: {question}\nResposta: {answer}")
 
         return "\n\n---\n\n".join(texts)

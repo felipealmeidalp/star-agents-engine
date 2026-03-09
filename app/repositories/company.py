@@ -48,23 +48,6 @@ class CompanyRepository:
 
         return row
 
-    async def get_rag_collection(self, company_id: int) -> str | None:
-        """
-        Fetch the Qdrant RAG collection name for a specific company.
-
-        Args:
-            company_id: Company ID for multi-tenancy
-
-        Returns:
-            RAG collection name or None if not configured
-        """
-        result = await self.db.execute(
-            select(Company.rag_collection).where(
-                Company.id == company_id,
-            )
-        )
-        return result.scalar_one_or_none()
-
     async def get_by_cw_account_id(
         self,
         cw_account_id: int,

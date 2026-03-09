@@ -37,7 +37,6 @@ class Company(Base):
     openai_api_key: Mapped[Optional[str]] = mapped_column(
         "openAi_apiKey", String, nullable=True
     )
-    rag_collection: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     # Chatwoot integration
     cw_account_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     cw_apikey: Mapped[Optional[str]] = mapped_column(String, nullable=True)

@@ -1,4 +1,4 @@
-"""RAG tool package with embedding and Qdrant services."""
+"""RAG tool package with embedding and pgvector search services."""
 
 from app.services.tools.internal.rag.tool import RagTool
 

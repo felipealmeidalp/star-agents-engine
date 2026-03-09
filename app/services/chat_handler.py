@@ -537,11 +537,13 @@ class ChatHandler:
                 if result.rag_result:
                     rag_lines = []
                     for entry in result.rag_result:
-                        payload = entry.get("payload", {})
-                        text = payload.get("text") or payload.get("content", "")
-                        score = entry.get("score", "?")
-                        if text:
-                            rag_lines.append(f"• (score: {score}) {text[:300]}")
+                        question = entry.get("question", "")
+                        answer = entry.get("answer", "")
+                        similarity = entry.get("similarity", "?")
+                        if answer:
+                            rag_lines.append(
+                                f"• (similarity: {similarity}) {question}: {answer[:300]}"
+                            )
                     if rag_lines:
                         rag_note = f"📚 *RAG results*\n" + "\n".join(rag_lines)
                         await self.on_send_messages([rag_note])

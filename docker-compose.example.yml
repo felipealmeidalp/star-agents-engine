@@ -9,7 +9,6 @@ services:
       # REQUIRED
       - DATABASE_URL=postgresql+asyncpg://user:password@host:5432/database
       - API_KEY=your-api-key-here
-      - QDRANT_URL=http://qdrant:6333
       - REDIS_URL=redis://redis:6379
       - RABBIT_URL=amqp://rabbitmq:5672/
       - RABBIT_USER=guest

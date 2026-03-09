@@ -372,6 +372,7 @@ class ChatHistory(Base):
     tool_calls: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
     tool_call_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     is_follow_up: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True, default=False)
+    isHuman: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     input_tokens: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     input_cached_tokens: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     output_tokens: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)

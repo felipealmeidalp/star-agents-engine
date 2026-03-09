@@ -239,6 +239,7 @@ class ConversationTurn:
                 agent_id=agent_id,
                 sub_agent_id=sub_agent_id,
                 company_id=company_id,
+                isHuman=True,
             ))
 
         def _resolve_role(original_role: str, msg: dict[str, Any]) -> str:
@@ -383,6 +384,7 @@ class ConversationTurn:
             agent_id=agent_id,
             sub_agent_id=sub_agent_id,
             company_id=company_id,
+            isHuman=True,
         ))
 
         # 2. Save prior tool history
@@ -402,6 +404,7 @@ class ConversationTurn:
             agent_id=agent_id,
             sub_agent_id=sub_agent_id,
             company_id=company_id,
+            isHuman=True,
         ))
 
         # 5. Save the last pending message (assistant final response)

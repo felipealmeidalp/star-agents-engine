@@ -59,6 +59,7 @@ class ChatHistoryRepository:
             agent_id=customer.agent_id,
             sub_agent_id=customer.sub_agent_id,
             company_id=company_id,
+            isHuman=True,
         )
 
         self.db.add(chat_record)
@@ -77,6 +78,7 @@ class ChatHistoryRepository:
         input_cached_tokens: int | None = None,
         output_tokens: int | None = None,
         model: str | None = None,
+        is_human: bool = False,
     ) -> ChatHistory:
         """
         Insert an assistant message into chat_history.
@@ -118,6 +120,7 @@ class ChatHistoryRepository:
             input_cached_tokens=input_cached_tokens,
             output_tokens=output_tokens,
             model=model,
+            isHuman=is_human,
         )
 
         self.db.add(chat_record)

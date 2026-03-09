@@ -256,6 +256,7 @@ async def _save_outgoing_if_ai_off(
                 session_id=customer.sessionId,
                 content=content,
                 company_id=company.id,
+                is_human=True,
             )
 
             logger.info(

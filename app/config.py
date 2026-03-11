@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     rabbit_connection_timeout: int = 10
     rabbit_heartbeat: int = 60
     rabbit_follow_up_queue: str = "follow_ups"
+    rabbit_webhook_retry_queue: str = "webhook_retries"
 
     # App behavior
     debug: bool = False

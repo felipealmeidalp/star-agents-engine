@@ -18,7 +18,9 @@ from app.rabbitmq import (
     close_rabbitmq_connection,
     get_rabbitmq_connection,
     init_follow_up_queues,
+    init_webhook_retry_queue,
 )
+from app.webhookRetry import start_webhook_retry_consumer
 
 # Configure logging to show in terminal
 logging.basicConfig(
@@ -73,6 +75,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Start follow-up consumer
         await start_follow_up_consumer()
         print(f"✅ FollowUp consumer started (queue: {settings.rabbit_follow_up_queue})")
+
+        # Initialize webhook retry queue and consumer
+        await init_webhook_retry_queue()
+        await start_webhook_retry_consumer()
+        print(f"✅ WebhookRetry consumer started (queue: {settings.rabbit_webhook_retry_queue})")
     except Exception as e:
         print(f"⚠️ RabbitMQ connection failed: {e}")
         await send_critical_alert_sync(

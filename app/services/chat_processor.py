@@ -31,6 +31,7 @@ async def process_chat(
     company_id: int,
     db: AsyncSession,
     on_send_messages: MessageSenderCallback | None = None,
+    on_send_private_notes: MessageSenderCallback | None = None,
 ) -> dict[str, Any]:
     """
     Process a chat message through the full orchestration pipeline (legacy).
@@ -78,6 +79,7 @@ async def process_chat(
         db=db,
         openai_api_key=api_key,
         on_send_messages=on_send_messages,
+        on_send_private_notes=on_send_private_notes,
     )
 
     return await handler.process(
@@ -91,6 +93,7 @@ async def reprocess_chat(
     company_id: int,
     db: AsyncSession,
     on_send_messages: MessageSenderCallback | None = None,
+    on_send_private_notes: MessageSenderCallback | None = None,
 ) -> dict[str, Any]:
     """
     Reprocess a chat using existing history (no new user message inserted).
@@ -132,6 +135,7 @@ async def reprocess_chat(
         db=db,
         openai_api_key=api_key,
         on_send_messages=on_send_messages,
+        on_send_private_notes=on_send_private_notes,
     )
 
     return await handler.process(
@@ -147,6 +151,7 @@ async def process_chat_in_memory(
     db: AsyncSession,
     conversation_turn: ConversationTurn,
     on_send_messages: MessageSenderCallback | None = None,
+    on_send_private_notes: MessageSenderCallback | None = None,
     *,
     skip_save: bool = False,
 ) -> dict[str, Any]:
@@ -196,6 +201,7 @@ async def process_chat_in_memory(
         db=db,
         openai_api_key=api_key,
         on_send_messages=on_send_messages,
+        on_send_private_notes=on_send_private_notes,
         conversation_turn=conversation_turn,
     )
 

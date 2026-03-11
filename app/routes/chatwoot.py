@@ -19,12 +19,42 @@ from app.exceptions import (
 from sqlalchemy import select
 
 from app.models.tables import Agent, ChatHistory
+from app.rabbitmq import get_webhook_retry_publisher
 from app.repositories.chat_history import ChatHistoryRepository
 from app.repositories.company import CompanyRepository
 from app.repositories.customer import CustomerRepository
 from app.utils.alerter import send_critical_alert
 
 logger = logging.getLogger(__name__)
+
+MAX_WEBHOOK_RETRY_COUNT = 5
+
+
+_POOL_EXHAUSTION_KEYWORDS = (
+    "max client connections reached",
+    "max clients reached",
+    "too many connections",
+    "remaining connection slots are reserved",
+    "connection pool exhausted",
+)
+
+
+def _is_pool_exhaustion_error(exc: Exception) -> bool:
+    """Check if exception is a DB pool exhaustion error (Supavisor/asyncpg).
+
+    Walks the full exception chain (__cause__) because SQLAlchemy wraps
+    asyncpg errors in DBAPIError — the original message lives in the cause.
+    """
+    current: BaseException | None = exc
+    while current is not None:
+        error_str = str(current).lower()
+        exc_type = type(current).__name__.lower()
+        if any(kw in error_str for kw in _POOL_EXHAUSTION_KEYWORDS):
+            return True
+        if "maxclientsinsessionmode" in exc_type:
+            return True
+        current = current.__cause__
+    return False
 
 router = APIRouter()
 
@@ -291,6 +321,7 @@ async def chatwoot_webhook_debug(
 async def process_webhook_background(
     payload: ChatwootWebhookPayload,
     token: str,
+    retry_count: int = 0,
 ) -> None:
     """
     Process Chatwoot webhook in background.
@@ -300,105 +331,198 @@ async def process_webhook_background(
 
     All DB operations happen here (company lookup, allowed_entries validation, etc.)
 
+    If DB pool exhaustion is detected, the webhook is re-enqueued to RabbitMQ
+    for retry with exponential backoff.
+
     Args:
         payload: Validated webhook payload
         token: Chatwoot webhook token for company lookup
+        retry_count: Number of retry attempts (0 = first attempt)
     """
     sender_id = payload.sender.id if payload.sender else None
     logger.info(
         f"[ChatwootWebhook] Background processing started for contact {sender_id}"
+        + (f" (retry {retry_count})" if retry_count > 0 else "")
     )
 
-    async with AsyncSessionLocal() as db:
-        try:
-            # 1. Fetch company by token
-            company_repo = CompanyRepository(db)
-            company = await company_repo.get_by_cw_token(token)
+    pool_error: Exception | None = None
+    try:
+        async with AsyncSessionLocal() as db:
+            try:
+                # 1. Fetch company by token
+                company_repo = CompanyRepository(db)
+                company = await company_repo.get_by_cw_token(token)
 
-            if not company:
-                logger.error(
-                    f"[ChatwootWebhook] Company not found for token {token}"
-                )
-                return
+                if not company:
+                    logger.error(
+                        f"[ChatwootWebhook] Company not found for token {token}"
+                    )
+                    return
 
-            logger.info(f"[ChatwootWebhook] Found company: {company.id} - {company.name}")
-
-            # 2. Validate allowed_entries (inbox + contact)
-            inbox_id = payload.inbox.id if payload.inbox else payload.conversation.inbox_id
-            contact_id = sender_id
-
-            logger.info(
-                f"[ChatwootWebhook] Validating entry: inbox={inbox_id}, contact={contact_id}, "
-                f"allowed_contacts={company.allowed_contacts}"
-            )
-
-            if not _is_entry_allowed(company.allowed_contacts, inbox_id, contact_id):
                 logger.info(
-                    f"[ChatwootWebhook] BLOCKED: inbox={inbox_id}, contact={contact_id} "
-                    f"not in allowed_entries for company {company.id}"
+                    f"[ChatwootWebhook] Found company: {company.id} - {company.name}"
                 )
-                return
 
-            # 3. Process webhook
-            service = ChatwootService(db)
-            result = await service.process_webhook(payload, company)
+                # 2. Validate allowed_entries (inbox + contact)
+                inbox_id = (
+                    payload.inbox.id if payload.inbox else payload.conversation.inbox_id
+                )
+                contact_id = sender_id
 
-            logger.info(f"[ChatwootWebhook] Background processing complete: {result}")
+                logger.info(
+                    f"[ChatwootWebhook] Validating entry: inbox={inbox_id}, "
+                    f"contact={contact_id}, "
+                    f"allowed_contacts={company.allowed_contacts}"
+                )
 
-        except MaxIterationsExceededError as e:
-            logger.error(f"[ChatwootWebhook] MaxIterations in background: {e}")
+                if not _is_entry_allowed(
+                    company.allowed_contacts, inbox_id, contact_id
+                ):
+                    logger.info(
+                        f"[ChatwootWebhook] BLOCKED: inbox={inbox_id}, "
+                        f"contact={contact_id} "
+                        f"not in allowed_entries for company {company.id}"
+                    )
+                    return
+
+                # 3. Process webhook
+                service = ChatwootService(db)
+                result = await service.process_webhook(payload, company)
+
+                logger.info(
+                    f"[ChatwootWebhook] Background processing complete: {result}"
+                )
+
+            except MaxIterationsExceededError as e:
+                logger.error(
+                    f"[ChatwootWebhook] MaxIterations in background: {e}"
+                )
+                send_critical_alert(
+                    "MAX_ITERATIONS_EXCEEDED",
+                    "chatwoot.py:process_webhook_background",
+                    e,
+                    contact_id=sender_id,
+                )
+            except OpenAIAuthenticationError as e:
+                logger.error(
+                    f"[ChatwootWebhook] OpenAI Auth in background: {e}"
+                )
+                send_critical_alert(
+                    "OPENAI_AUTH_ERROR",
+                    "chatwoot.py:process_webhook_background",
+                    e,
+                    contact_id=sender_id,
+                )
+            except OpenAIRateLimitError as e:
+                logger.error(
+                    f"[ChatwootWebhook] OpenAI RateLimit in background: {e}"
+                )
+                send_critical_alert(
+                    "OPENAI_RATE_LIMIT",
+                    "chatwoot.py:process_webhook_background",
+                    e,
+                    contact_id=sender_id,
+                )
+            except OpenAITimeoutError as e:
+                logger.error(
+                    f"[ChatwootWebhook] OpenAI Timeout in background: {e}"
+                )
+                send_critical_alert(
+                    "OPENAI_TIMEOUT",
+                    "chatwoot.py:process_webhook_background",
+                    e,
+                    contact_id=sender_id,
+                )
+            except OpenAIError as e:
+                logger.error(
+                    f"[ChatwootWebhook] OpenAI Error in background: {e}"
+                )
+                send_critical_alert(
+                    "OPENAI_GENERIC_ERROR",
+                    "chatwoot.py:process_webhook_background",
+                    e,
+                    contact_id=sender_id,
+                )
+            except ValueError as e:
+                logger.error(
+                    f"[ChatwootWebhook] ValueError in background: {e}"
+                )
+                send_critical_alert(
+                    "WEBHOOK_VALUE_ERROR",
+                    "chatwoot.py:process_webhook_background",
+                    e,
+                    contact_id=sender_id,
+                )
+            except Exception as e:
+                if _is_pool_exhaustion_error(e):
+                    # Captura sem re-raise — evita que __aexit__ engula
+                    # a exceção ao tentar rollback com pool esgotado
+                    pool_error = e
+                else:
+                    logger.exception(
+                        f"[ChatwootWebhook] Unexpected error in background: {e}"
+                    )
+                    send_critical_alert(
+                        "WEBHOOK_UNHANDLED_ERROR",
+                        "chatwoot.py:process_webhook_background",
+                        e,
+                        contact_id=sender_id,
+                    )
+
+    except Exception as e:
+        # Session acquisition failed OR rollback failed
+        if _is_pool_exhaustion_error(e):
+            pool_error = e
+        else:
+            logger.exception(
+                f"[ChatwootWebhook] Connection error (non-pool) for contact "
+                f"{sender_id}: {e}"
+            )
             send_critical_alert(
-                "MAX_ITERATIONS_EXCEEDED",
+                "WEBHOOK_CONNECTION_ERROR",
                 "chatwoot.py:process_webhook_background",
                 e,
                 contact_id=sender_id,
             )
-        except OpenAIAuthenticationError as e:
-            logger.error(f"[ChatwootWebhook] OpenAI Auth in background: {e}")
+
+    # Tratar pool exhaustion fora do session CM para garantir re-enqueue
+    if pool_error:
+        next_retry = retry_count + 1
+        if next_retry > MAX_WEBHOOK_RETRY_COUNT:
+            logger.error(
+                f"[ChatwootWebhook] Pool exhaustion: max retries "
+                f"({MAX_WEBHOOK_RETRY_COUNT}) reached for contact "
+                f"{sender_id}, discarding webhook"
+            )
             send_critical_alert(
-                "OPENAI_AUTH_ERROR",
+                "WEBHOOK_POOL_EXHAUSTION_MAX_RETRIES",
                 "chatwoot.py:process_webhook_background",
-                e,
+                pool_error,
                 contact_id=sender_id,
             )
-        except OpenAIRateLimitError as e:
-            logger.error(f"[ChatwootWebhook] OpenAI RateLimit in background: {e}")
-            send_critical_alert(
-                "OPENAI_RATE_LIMIT",
-                "chatwoot.py:process_webhook_background",
-                e,
-                contact_id=sender_id,
+            return
+
+        logger.warning(
+            f"[ChatwootWebhook] Pool exhaustion detected for contact "
+            f"{sender_id}, enqueuing retry {next_retry}/{MAX_WEBHOOK_RETRY_COUNT}"
+        )
+        try:
+            publisher = get_webhook_retry_publisher()
+            await publisher.publish_webhook_retry(
+                payload_dict=payload.model_dump(mode="json"),
+                token=token,
+                sender_id=sender_id,
+                retry_count=next_retry,
             )
-        except OpenAITimeoutError as e:
-            logger.error(f"[ChatwootWebhook] OpenAI Timeout in background: {e}")
-            send_critical_alert(
-                "OPENAI_TIMEOUT",
-                "chatwoot.py:process_webhook_background",
-                e,
-                contact_id=sender_id,
+        except Exception as pub_err:
+            logger.error(
+                f"[ChatwootWebhook] Failed to enqueue retry for contact "
+                f"{sender_id}: {pub_err}"
             )
-        except OpenAIError as e:
-            logger.error(f"[ChatwootWebhook] OpenAI Error in background: {e}")
             send_critical_alert(
-                "OPENAI_GENERIC_ERROR",
+                "WEBHOOK_RETRY_PUBLISH_FAILED",
                 "chatwoot.py:process_webhook_background",
-                e,
-                contact_id=sender_id,
-            )
-        except ValueError as e:
-            logger.error(f"[ChatwootWebhook] ValueError in background: {e}")
-            send_critical_alert(
-                "WEBHOOK_VALUE_ERROR",
-                "chatwoot.py:process_webhook_background",
-                e,
-                contact_id=sender_id,
-            )
-        except Exception as e:
-            logger.exception(f"[ChatwootWebhook] Unexpected error in background: {e}")
-            send_critical_alert(
-                "WEBHOOK_UNHANDLED_ERROR",
-                "chatwoot.py:process_webhook_background",
-                e,
+                pub_err,
                 contact_id=sender_id,
             )
 

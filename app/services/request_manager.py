@@ -71,6 +71,7 @@ class RequestManager:
         company_id: int,
         db: AsyncSession,
         on_send_messages: MessageSenderCallback | None = None,
+        on_send_private_notes: MessageSenderCallback | None = None,
         dev_mode: bool = False,
     ) -> dict[str, Any] | None:
         """Handle a new incoming message for a contact.
@@ -113,6 +114,7 @@ class RequestManager:
                 company_id=company_id,
                 db=db,
                 on_send_messages=on_send_messages,
+                on_send_private_notes=on_send_private_notes,
             )
 
         lock = self._get_lock(contact_id)
@@ -199,6 +201,7 @@ class RequestManager:
                     company_id=company_id,
                     db=db,
                     on_send_messages=on_send_messages,
+                    on_send_private_notes=on_send_private_notes,
                     conversation_turn=conversation_turn,
                 ),
                 name=f"chat-{contact_id}",
@@ -319,6 +322,7 @@ class RequestManager:
         company_id: int,
         db: AsyncSession,
         on_send_messages: MessageSenderCallback | None,
+        on_send_private_notes: MessageSenderCallback | None,
         conversation_turn: ConversationTurn,
     ) -> dict[str, Any]:
         """Execute the chat processing task.
@@ -346,6 +350,7 @@ class RequestManager:
                 db=db,
                 conversation_turn=conversation_turn,
                 on_send_messages=on_send_messages,
+                on_send_private_notes=on_send_private_notes,
                 skip_save=True,
             )
 

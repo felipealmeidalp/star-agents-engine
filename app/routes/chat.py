@@ -150,10 +150,40 @@ async def _reprocess_background(
     """Run AI pipeline and send to Chatwoot in background."""
     try:
         async with AsyncSessionLocal() as db:
+            async def _send_private_notes(messages: list[str]) -> None:
+                """Send tool results as private notes during reprocessing."""
+                if cw_base_url and cw_apikey and cw_conversation_id and cw_account_id:
+                    client = ChatwootClient()
+                    # Consolidate into single note
+                    if len(messages) > 1:
+                        messages = ["\n\n".join(messages)]
+                    await client.send_messages(
+                        base_url=cw_base_url,
+                        account_id=cw_account_id,
+                        conversation_id=cw_conversation_id,
+                        messages=messages,
+                        api_key=cw_apikey,
+                        private=True,
+                    )
+
+            async def _send_messages(messages: list[str]) -> None:
+                """Send pre-tool messages during reprocessing."""
+                if cw_base_url and cw_apikey and cw_conversation_id and cw_account_id:
+                    client = ChatwootClient()
+                    await client.send_messages(
+                        base_url=cw_base_url,
+                        account_id=cw_account_id,
+                        conversation_id=cw_conversation_id,
+                        messages=messages,
+                        api_key=cw_apikey,
+                    )
+
             response = await reprocess_chat(
                 session_id=session_id,
                 company_id=company_id,
                 db=db,
+                on_send_messages=_send_messages,
+                on_send_private_notes=_send_private_notes,
             )
 
             messages = response.get("resposta", [])

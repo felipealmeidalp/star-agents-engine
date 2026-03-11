@@ -44,6 +44,7 @@ class ChatHandler:
         db: "AsyncSession",
         openai_api_key: str,
         on_send_messages: MessageSenderCallback | None = None,
+        on_send_private_notes: MessageSenderCallback | None = None,
         conversation_turn: ConversationTurn | None = None,
     ) -> None:
         """
@@ -57,6 +58,7 @@ class ChatHandler:
             db: Database session for internal tools
             openai_api_key: OpenAI API key for internal tools
             on_send_messages: Optional callback to send messages to the lead
+            on_send_private_notes: Optional callback to send tool results as private notes
             conversation_turn: Optional ConversationTurn for in-memory accumulation
         """
         self.context_builder = context_builder
@@ -66,6 +68,7 @@ class ChatHandler:
         self.db = db
         self.openai_api_key = openai_api_key
         self.on_send_messages = on_send_messages
+        self.on_send_private_notes = on_send_private_notes
         self.conversation_turn = conversation_turn
 
     async def process(
@@ -520,17 +523,12 @@ class ChatHandler:
                         extra=f"session={session_id}, tool_call_id={result.tool_call_id}",
                     )
 
-        # 5. Send tool results as private notes in dev mode
-        if (
-            self.conversation_turn
-            and self.conversation_turn.dev_mode
-            and self.on_send_messages
-            and results
-        ):
+        # 5. Send tool results as private notes (dev and active mode)
+        if self.on_send_private_notes and results:
             tool_summaries = []
             for result in results:
                 tool_summaries.append(f"🔧 *{result.tool_name}*\n{result.content}")
-            await self.on_send_messages(tool_summaries)
+            await self.on_send_private_notes(tool_summaries)
 
             # 5.1 Send RAG results as a separate private note
             for result in results:
@@ -546,7 +544,7 @@ class ChatHandler:
                             )
                     if rag_lines:
                         rag_note = f"📚 *RAG results*\n" + "\n".join(rag_lines)
-                        await self.on_send_messages([rag_note])
+                        await self.on_send_private_notes([rag_note])
 
         # 6. Check if any tool requested cache invalidation
         return any(result.invalidate_cache for result in results)
@@ -567,4 +565,4 @@ class ChatHandler:
         try:
             return json.loads(content)
         except (json.JSONDecodeError, TypeError):
-            return {"response": content}
+            return {"resposta": [content]}

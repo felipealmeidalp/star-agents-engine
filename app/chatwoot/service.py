@@ -187,6 +187,17 @@ class ChatwootService:
                 private=is_dev_agent,
             )
 
+        async def send_private_notes(messages: list[str]) -> None:
+            """Callback to send tool results as private notes (always private)."""
+            await self._send_responses(
+                messages=messages,
+                base_url=cw_base_url,
+                account_id=payload.account.id,
+                conversation_id=payload.conversation.id,
+                api_key=cw_api_key,
+                private=True,
+            )
+
         response = await self.request_manager.on_new_message(
             contact_id=payload.sender.id,
             message=message,
@@ -194,6 +205,7 @@ class ChatwootService:
             company_id=company.id,
             db=self.db,
             on_send_messages=send_messages_to_lead,
+            on_send_private_notes=send_private_notes,
             dev_mode=is_dev_agent,
         )
 

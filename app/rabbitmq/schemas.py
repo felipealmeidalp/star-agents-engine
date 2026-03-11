@@ -6,6 +6,15 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
+class WebhookRetryMessage(BaseModel):
+    """Payload para retry de webhook Chatwoot quando pool de DB esgota."""
+
+    payload: dict[str, Any] = Field(..., description="ChatwootWebhookPayload serializado")
+    token: str = Field(..., description="Token do webhook para lookup da company")
+    sender_id: int | str | None = Field(default=None, description="ID do sender para logs")
+    retry_count: int = Field(default=0, description="Tentativas de retry realizadas")
+
+
 class FollowUpMessage(BaseModel):
     """
     Message payload for scheduled follow-up.

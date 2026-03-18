@@ -9,8 +9,6 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.models.schemas import OpenAIMessage, TokenUsage
 from app.repositories.chat_history import ChatHistoryRepository
 
@@ -210,17 +208,19 @@ class ConversationTurn:
         3. All pending messages (assistant, tool_calls, tool results)
 
         Uses a single commit at the end for atomicity.
+        Creates its own DB session to survive asyncio.shield task cancellation
+        (the parent webhook session may be closed by the time this runs).
 
         Args:
-            chat_repo: Chat history repository
+            chat_repo: Unused (kept for caller compatibility). Session is
+                created internally via AsyncSessionLocal.
             session_id: Session identifier
             company_id: Company ID
             agent_id: Agent ID
             sub_agent_id: Sub-agent ID
         """
+        from app.db.database import AsyncSessionLocal
         from app.models.tables import ChatHistory
-
-        db = chat_repo.db
 
         logger.info(
             "[ConversationTurn] Saving all messages: user=%s, "
@@ -230,75 +230,76 @@ class ConversationTurn:
             len(self.pending_messages),
         )
 
-        # 1. Save user message (skip if already persisted)
-        if not self.user_message_already_saved:
-            db.add(ChatHistory(
-                sessionId=session_id,
-                role="user",
-                content=self.user_message,
-                agent_id=agent_id,
-                sub_agent_id=sub_agent_id,
-                company_id=company_id,
-                isHuman=True,
-            ))
+        async with AsyncSessionLocal() as db:
+            # 1. Save user message (skip if already persisted)
+            if not self.user_message_already_saved:
+                db.add(ChatHistory(
+                    sessionId=session_id,
+                    role="user",
+                    content=self.user_message,
+                    agent_id=agent_id,
+                    sub_agent_id=sub_agent_id,
+                    company_id=company_id,
+                    isHuman=True,
+                ))
 
-        def _resolve_role(original_role: str, msg: dict[str, Any]) -> str:
-            """In dev mode, only remap final assistant response to 'dev'.
+            def _resolve_role(original_role: str, msg: dict[str, Any]) -> str:
+                """In dev mode, only remap final assistant response to 'dev'.
 
-            Tool-calling assistant messages and tool results keep their
-            original role so the OpenAI context stays valid.
-            """
-            if not self.dev_mode:
+                Tool-calling assistant messages and tool results keep their
+                original role so the OpenAI context stays valid.
+                """
+                if not self.dev_mode:
+                    return original_role
+                if original_role == "assistant" and msg.get("tool_calls"):
+                    return "assistant"
+                if original_role == "tool":
+                    return "tool"
+                if original_role == "assistant":
+                    return "dev"
                 return original_role
-            if original_role == "assistant" and msg.get("tool_calls"):
-                return "assistant"
-            if original_role == "tool":
-                return "tool"
-            if original_role == "assistant":
-                return "dev"
-            return original_role
 
-        # 2. Save prior tool history
-        for msg in self.prior_tool_history:
-            tu: TokenUsage | None = msg.get("_token_usage")
-            record = ChatHistory(
-                sessionId=session_id,
-                role=_resolve_role(msg["role"], msg),
-                content=msg.get("content"),
-                agent_id=agent_id,
-                sub_agent_id=sub_agent_id,
-                company_id=company_id,
-                tool_calls=msg.get("tool_calls"),
-                tool_call_id=msg.get("tool_call_id"),
-                input_tokens=tu.input_tokens if tu else None,
-                input_cached_tokens=tu.input_cached_tokens if tu else None,
-                output_tokens=tu.output_tokens if tu else None,
-                model=tu.model if tu else None,
-            )
-            db.add(record)
+            # 2. Save prior tool history
+            for msg in self.prior_tool_history:
+                tu: TokenUsage | None = msg.get("_token_usage")
+                record = ChatHistory(
+                    sessionId=session_id,
+                    role=_resolve_role(msg["role"], msg),
+                    content=msg.get("content"),
+                    agent_id=agent_id,
+                    sub_agent_id=sub_agent_id,
+                    company_id=company_id,
+                    tool_calls=msg.get("tool_calls"),
+                    tool_call_id=msg.get("tool_call_id"),
+                    input_tokens=tu.input_tokens if tu else None,
+                    input_cached_tokens=tu.input_cached_tokens if tu else None,
+                    output_tokens=tu.output_tokens if tu else None,
+                    model=tu.model if tu else None,
+                )
+                db.add(record)
 
-        # 3. Save pending messages
-        for msg in self.pending_messages:
-            tu = msg.get("_token_usage")
-            record = ChatHistory(
-                sessionId=session_id,
-                role=_resolve_role(msg["role"], msg),
-                content=msg.get("content"),
-                agent_id=agent_id,
-                sub_agent_id=sub_agent_id,
-                company_id=company_id,
-                tool_calls=msg.get("tool_calls"),
-                tool_call_id=msg.get("tool_call_id"),
-                input_tokens=tu.input_tokens if tu else None,
-                input_cached_tokens=tu.input_cached_tokens if tu else None,
-                output_tokens=tu.output_tokens if tu else None,
-                model=tu.model if tu else None,
-                rag_result=msg.get("_rag_result"),
-            )
-            db.add(record)
+            # 3. Save pending messages
+            for msg in self.pending_messages:
+                tu = msg.get("_token_usage")
+                record = ChatHistory(
+                    sessionId=session_id,
+                    role=_resolve_role(msg["role"], msg),
+                    content=msg.get("content"),
+                    agent_id=agent_id,
+                    sub_agent_id=sub_agent_id,
+                    company_id=company_id,
+                    tool_calls=msg.get("tool_calls"),
+                    tool_call_id=msg.get("tool_call_id"),
+                    input_tokens=tu.input_tokens if tu else None,
+                    input_cached_tokens=tu.input_cached_tokens if tu else None,
+                    output_tokens=tu.output_tokens if tu else None,
+                    model=tu.model if tu else None,
+                    rag_result=msg.get("_rag_result"),
+                )
+                db.add(record)
 
-        # Atomic commit
-        await db.commit()
+            # Atomic commit
+            await db.commit()
 
         logger.info(
             "[ConversationTurn] All messages saved successfully for session=%s",
@@ -325,18 +326,20 @@ class ConversationTurn:
 
         This ensures the LLM sees pending user messages BEFORE the pitch
         in subsequent turns.
+        Creates its own DB session to survive asyncio.shield task cancellation
+        (the parent webhook session may be closed by the time this runs).
 
         Args:
             interjected_user_messages: Messages that arrived during generation
-            chat_repo: Chat history repository
+            chat_repo: Unused (kept for caller compatibility). Session is
+                created internally via AsyncSessionLocal.
             session_id: Session identifier
             company_id: Company ID
             agent_id: Agent ID
             sub_agent_id: Sub-agent ID
         """
+        from app.db.database import AsyncSessionLocal
         from app.models.tables import ChatHistory
-
-        db = chat_repo.db
 
         logger.info(
             "[ConversationTurn] Saving with interjected users: user=1, "
@@ -346,73 +349,74 @@ class ConversationTurn:
             len(interjected_user_messages),
         )
 
-        def _resolve_role(original_role: str, msg: dict[str, Any]) -> str:
-            """In dev mode, only remap final assistant response to 'dev'."""
-            if not self.dev_mode:
+        async with AsyncSessionLocal() as db:
+            def _resolve_role(original_role: str, msg: dict[str, Any]) -> str:
+                """In dev mode, only remap final assistant response to 'dev'."""
+                if not self.dev_mode:
+                    return original_role
+                if original_role == "assistant" and msg.get("tool_calls"):
+                    return "assistant"
+                if original_role == "tool":
+                    return "tool"
+                if original_role == "assistant":
+                    return "dev"
                 return original_role
-            if original_role == "assistant" and msg.get("tool_calls"):
-                return "assistant"
-            if original_role == "tool":
-                return "tool"
-            if original_role == "assistant":
-                return "dev"
-            return original_role
 
-        def _add_record(msg: dict[str, Any]) -> None:
-            tu: TokenUsage | None = msg.get("_token_usage")
+            def _add_record(msg: dict[str, Any]) -> None:
+                tu: TokenUsage | None = msg.get("_token_usage")
+                db.add(ChatHistory(
+                    sessionId=session_id,
+                    role=_resolve_role(msg["role"], msg),
+                    content=msg.get("content"),
+                    agent_id=agent_id,
+                    sub_agent_id=sub_agent_id,
+                    company_id=company_id,
+                    tool_calls=msg.get("tool_calls"),
+                    tool_call_id=msg.get("tool_call_id"),
+                    input_tokens=tu.input_tokens if tu else None,
+                    input_cached_tokens=tu.input_cached_tokens if tu else None,
+                    output_tokens=tu.output_tokens if tu else None,
+                    model=tu.model if tu else None,
+                    rag_result=msg.get("_rag_result"),
+                ))
+
+            # 1. Save user message
             db.add(ChatHistory(
                 sessionId=session_id,
-                role=_resolve_role(msg["role"], msg),
-                content=msg.get("content"),
+                role="user",
+                content=self.user_message,
                 agent_id=agent_id,
                 sub_agent_id=sub_agent_id,
                 company_id=company_id,
-                tool_calls=msg.get("tool_calls"),
-                tool_call_id=msg.get("tool_call_id"),
-                input_tokens=tu.input_tokens if tu else None,
-                input_cached_tokens=tu.input_cached_tokens if tu else None,
-                output_tokens=tu.output_tokens if tu else None,
-                model=tu.model if tu else None,
-                rag_result=msg.get("_rag_result"),
+                isHuman=True,
             ))
 
-        # 1. Save user message
-        db.add(ChatHistory(
-            sessionId=session_id,
-            role="user",
-            content=self.user_message,
-            agent_id=agent_id,
-            sub_agent_id=sub_agent_id,
-            company_id=company_id,
-            isHuman=True,
-        ))
+            # 2. Save prior tool history
+            for msg in self.prior_tool_history:
+                _add_record(msg)
 
-        # 2. Save prior tool history
-        for msg in self.prior_tool_history:
-            _add_record(msg)
+            # 3. Save pending messages EXCEPT the last one
+            for msg in self.pending_messages[:-1]:
+                _add_record(msg)
 
-        # 3. Save pending messages EXCEPT the last one
-        for msg in self.pending_messages[:-1]:
-            _add_record(msg)
+            # 4. Save interjected user messages
+            concatenated = "\n".join(interjected_user_messages)
+            db.add(ChatHistory(
+                sessionId=session_id,
+                role="user",
+                content=concatenated,
+                agent_id=agent_id,
+                sub_agent_id=sub_agent_id,
+                company_id=company_id,
+                isHuman=True,
+            ))
 
-        # 4. Save interjected user messages
-        concatenated = "\n".join(interjected_user_messages)
-        db.add(ChatHistory(
-            sessionId=session_id,
-            role="user",
-            content=concatenated,
-            agent_id=agent_id,
-            sub_agent_id=sub_agent_id,
-            company_id=company_id,
-            isHuman=True,
-        ))
+            # 5. Save the last pending message (assistant final response)
+            if self.pending_messages:
+                _add_record(self.pending_messages[-1])
 
-        # 5. Save the last pending message (assistant final response)
-        if self.pending_messages:
-            _add_record(self.pending_messages[-1])
-
-        # Atomic commit
-        await db.commit()
+            # Atomic commit
+            await db.commit()
 
         logger.info(
             "[ConversationTurn] Messages saved with interjected users "

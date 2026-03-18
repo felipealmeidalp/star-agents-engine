@@ -693,8 +693,8 @@ class ChatwootService:
             )
             agent_status = result.scalar_one_or_none()
 
-        if agent_status != "dev":
-            # Not in dev mode - if there was a pending state, clear it
+        if agent_status not in ("dev", "demo"):
+            # Not in dev/demo mode - if there was a pending state, clear it
             if customer.dev_command_state:
                 logger.info(
                     f"[ChatwootService] Clearing stale dev_command_state - "

@@ -40,15 +40,15 @@ class RagTool(BaseTool):
         context: ToolExecutionContext,
     ) -> ToolResult:
         """
-        Execute RAG tool with question classification and FAQ/objection handling.
+        Execute RAG tool with FAQ search and intelligent routing.
 
         Flow:
         1. Parse question from arguments
-        2. Fetch filter_obj_faq prompt with config (model, temperature)
-        3. Call OpenAI to classify as "obj" or "faq"
-        4. If "obj": handle objection flow
-        5. If "faq": generate embeddings, search via pgvector, summarize
-        6. Return result
+        2. Generate embedding and search pgvector (FAQ flow)
+        3. If empty results → try sub-agent routing
+        4. Summarize results with decision (has_answer + response)
+        5. If has_answer is False → try sub-agent routing
+        6. Return summarized result
 
         Args:
             arguments: Tool arguments containing "question"
@@ -83,135 +83,136 @@ class RagTool(BaseTool):
             prompt_repo = PromptRepository(context.db)
             openai_client = AsyncOpenAI(api_key=context.openai_api_key)
 
-            # --- Roteamento por sub-agente ---
-            routing_result = await self._route_to_sub_agent(
-                context=context,
-                question=question,
-                openai_client=openai_client,
-                prompt_repo=prompt_repo,
-            )
-            if routing_result is not None:
-                return routing_result
-            # --- Fim do roteamento ---
+            # TEMPORÁRIO: quebra de objeção desabilitada
+            skip_objection = True
 
-            # 3. Fetch objection titles for this agent
-            objection_repo = ObjectionRepository(context.db)
-            objection_titles = await objection_repo.get_titles_by_agent(
-                company_id=context.company_id,
-                agent_id=context.agent_id,
-            )
-
-            # 4. If no objections registered, skip classification → go straight to FAQ
-            if not objection_titles:
-                logger.info(
-                    "No objections for agent %s, skipping classification",
-                    context.agent_id,
-                )
-            else:
-                # 5. Fetch classification prompt with config
-                classification_config = await prompt_repo.get_prompt_with_config(
+            if not skip_objection:
+                # 3. Fetch objection titles for this agent
+                objection_repo = ObjectionRepository(context.db)
+                objection_titles = await objection_repo.get_titles_by_agent(
                     company_id=context.company_id,
-                    name="filter_obj_faq",
-                    reason="obj_faq",
+                    agent_id=context.agent_id,
                 )
 
-                if not classification_config:
-                    return ToolResult(
-                        tool_call_id="",
-                        tool_name=self.name,
-                        tool_type="interna",
-                        success=False,
-                        content="Erro: prompt 'filter_obj_faq' nao configurado",
+                # 4. If no objections registered, skip classification → go straight to FAQ
+                if not objection_titles:
+                    logger.info(
+                        "No objections for agent %s, skipping classification",
+                        context.agent_id,
+                    )
+                else:
+                    # 5. Fetch classification prompt with config
+                    classification_config = await prompt_repo.get_prompt_with_config(
+                        company_id=context.company_id,
+                        name="filter_obj_faq",
+                        reason="obj_faq",
                     )
 
-                # 6. Format objection titles for prompt
-                titles_text = "\n".join(
-                    f"- ID {obj['id']}: {obj['title']}" for obj in objection_titles
-                )
-
-                # 7. Replace placeholders
-                filled_prompt = (
-                    classification_config.prompt
-                    .replace("[OBJECTION_TITLES]", titles_text)
-                    .replace("[question]", question)
-                )
-
-                # 8. Classify question with chain-of-thought
-                classification = await self._classify_question(
-                    client=openai_client,
-                    prompt=filled_prompt,
-                    model=classification_config.model,
-                    temperature=classification_config.temperature,
-                )
-
-                logger.info(
-                    "Classification result: %s (objection_ids=%s, reasoning=%s)",
-                    classification["result"],
-                    classification["objection_ids"],
-                    classification["reasoning"],
-                )
-
-                # 9. If "obj" with valid objection_ids, handle objection flow
-                if classification["result"] == "obj" and classification["objection_ids"]:
-                    # Set flag FIRST to prevent cancellation during generation
-                    if context.conversation_turn:
-                        context.conversation_turn.objection_generating = True
-
-                    try:
-                        # Fetch objection data needed for both connection msg and prompt
-                        objection_repo_obj = ObjectionRepository(context.db)
-                        objections = await objection_repo_obj.get_objections_by_ids(
-                            classification["objection_ids"]
+                    if not classification_config:
+                        return ToolResult(
+                            tool_call_id="",
+                            tool_name=self.name,
+                            tool_type="interna",
+                            success=False,
+                            content="Erro: prompt 'filter_obj_faq' nao configurado",
                         )
 
-                        if not objections:
-                            return ToolResult(
-                                tool_call_id="",
-                                tool_name=self.name,
-                                tool_type="interna",
-                                success=False,
-                                content="Erro: script de objecao nao encontrado",
+                    # 6. Format objection titles for prompt
+                    titles_text = "\n".join(
+                        f"- ID {obj['id']}: {obj['title']}"
+                        for obj in objection_titles
+                    )
+
+                    # 7. Replace placeholders
+                    filled_prompt = (
+                        classification_config.prompt
+                        .replace("[OBJECTION_TITLES]", titles_text)
+                        .replace("[question]", question)
+                    )
+
+                    # 8. Classify question with chain-of-thought
+                    classification = await self._classify_question(
+                        client=openai_client,
+                        prompt=filled_prompt,
+                        model=classification_config.model,
+                        temperature=classification_config.temperature,
+                    )
+
+                    logger.info(
+                        "Classification result: %s (objection_ids=%s, reasoning=%s)",
+                        classification["result"],
+                        classification["objection_ids"],
+                        classification["reasoning"],
+                    )
+
+                    # 9. If "obj" with valid objection_ids, handle objection flow
+                    if (
+                        classification["result"] == "obj"
+                        and classification["objection_ids"]
+                    ):
+                        # Set flag FIRST to prevent cancellation during generation
+                        if context.conversation_turn:
+                            context.conversation_turn.objection_generating = True
+
+                        try:
+                            # Fetch objection data
+                            objection_repo_obj = ObjectionRepository(context.db)
+                            objections = (
+                                await objection_repo_obj.get_objections_by_ids(
+                                    classification["objection_ids"]
+                                )
                             )
 
-                        combined_titles = "\n\n".join(
-                            obj["title"] for obj in objections
-                        )
-
-                        # Generate and send dynamic connection message
-                        if context.on_send_messages:
-                            try:
-                                connection_msg = (
-                                    await self._generate_connection_message(
-                                        openai_client=openai_client,
-                                        question=question,
-                                        objection_titles=combined_titles,
-                                        chat_history=context.chat_history,
-                                    )
-                                )
-                                if connection_msg:
-                                    await context.on_send_messages([connection_msg])
-                                    logger.info(
-                                        "[RagTool] Connection message sent: %s",
-                                        connection_msg,
-                                    )
-                            except Exception:
-                                logger.warning(
-                                    "[RagTool] Failed to send connection message",
-                                    exc_info=True,
+                            if not objections:
+                                return ToolResult(
+                                    tool_call_id="",
+                                    tool_name=self.name,
+                                    tool_type="interna",
+                                    success=False,
+                                    content="Erro: script de objecao nao encontrado",
                                 )
 
-                        # Generate objection prompt (the heavy work)
-                        return await self._handle_objection(
-                            context=context,
-                            question=question,
-                            prompt_repo=prompt_repo,
-                            openai_client=openai_client,
-                            objection_ids=classification["objection_ids"],
-                            objections=objections,
-                        )
-                    finally:
-                        if context.conversation_turn:
-                            context.conversation_turn.objection_generating = False
+                            combined_titles = "\n\n".join(
+                                obj["title"] for obj in objections
+                            )
+
+                            # Generate and send dynamic connection message
+                            if context.on_send_messages:
+                                try:
+                                    connection_msg = (
+                                        await self._generate_connection_message(
+                                            openai_client=openai_client,
+                                            question=question,
+                                            objection_titles=combined_titles,
+                                            chat_history=context.chat_history,
+                                        )
+                                    )
+                                    if connection_msg:
+                                        await context.on_send_messages(
+                                            [connection_msg]
+                                        )
+                                        logger.info(
+                                            "[RagTool] Connection message sent: %s",
+                                            connection_msg,
+                                        )
+                                except Exception:
+                                    logger.warning(
+                                        "[RagTool] Failed to send connection message",
+                                        exc_info=True,
+                                    )
+
+                            # Generate objection prompt (the heavy work)
+                            return await self._handle_objection(
+                                context=context,
+                                question=question,
+                                prompt_repo=prompt_repo,
+                                openai_client=openai_client,
+                                objection_ids=classification["objection_ids"],
+                                objections=objections,
+                            )
+                        finally:
+                            if context.conversation_turn:
+                                context.conversation_turn.objection_generating = False
 
             # 7. FAQ flow: Generate embeddings
             embedding_service = EmbeddingService(context.openai_api_key)
@@ -231,6 +232,16 @@ class RagTool(BaseTool):
             combined_text = self._combine_search_results(search_results)
 
             if not combined_text:
+                # pgvector não retornou nada — tentar roteamento direto
+                routing_result = await self._route_to_sub_agent(
+                    context=context,
+                    question=question,
+                    openai_client=openai_client,
+                    prompt_repo=prompt_repo,
+                )
+                if routing_result is not None:
+                    return routing_result
+
                 return ToolResult(
                     tool_call_id="",
                     tool_name=self.name,
@@ -260,20 +271,45 @@ class RagTool(BaseTool):
                 "[userQuestion]", question
             ).replace("[combinedText]", combined_text)
 
-            # 13. Call OpenAI for summarization using config from database
-            summary = await self._summarize(
+            # 13. Sumarização com structured output — agente decide se RAG responde
+            summary_result = await self._summarize_with_decision(
                 client=openai_client,
                 prompt=filled_summary_prompt,
                 model=summary_config.model,
                 temperature=summary_config.temperature,
             )
 
+            # 14. Se o agente decidiu que o RAG não responde → tentar roteamento
+            if not summary_result["has_answer"]:
+                routing_result = await self._route_to_sub_agent(
+                    context=context,
+                    question=question,
+                    openai_client=openai_client,
+                    prompt_repo=prompt_repo,
+                )
+                if routing_result is not None:
+                    return routing_result
+
+                # Sem roteamento possível — retornar melhor resposta ou fallback
+                fallback = (
+                    summary_result["response"]
+                    or "Nenhuma informacao encontrada no FAQ para esta pergunta."
+                )
+                return ToolResult(
+                    tool_call_id="",
+                    tool_name=self.name,
+                    tool_type="interna",
+                    success=True,
+                    content=fallback,
+                    rag_result=search_results,
+                )
+
             return ToolResult(
                 tool_call_id="",
                 tool_name=self.name,
                 tool_type="interna",
                 success=True,
-                content=summary,
+                content=summary_result["response"],
                 rag_result=search_results,
             )
 
@@ -387,7 +423,11 @@ class RagTool(BaseTool):
             if not content:
                 return None
 
-            decision = json.loads(content)
+            try:
+                decision = json.loads(content)
+            except json.JSONDecodeError:
+                logger.warning("[RagTool] _route_to_sub_agent: JSON invalido da OpenAI")
+                return None
 
             if decision.get("action") != "route":
                 return None
@@ -519,7 +559,7 @@ class RagTool(BaseTool):
                 .replace("[OBJECAO]", question)
             )
 
-            # 5. Call OpenAI with JSON Schema response
+            # 6. Call OpenAI with JSON Schema response
             response = await openai_client.chat.completions.create(
                 model=objection_prompt_config.model,
                 temperature=objection_prompt_config.temperature,
@@ -566,7 +606,17 @@ class RagTool(BaseTool):
                 )
 
             # 6. Parse response JSON
-            generated = json.loads(content)
+            try:
+                generated = json.loads(content)
+            except json.JSONDecodeError:
+                logger.warning("[RagTool] _handle_objection: JSON invalido da OpenAI")
+                return ToolResult(
+                    tool_call_id="",
+                    tool_name=self.name,
+                    tool_type="interna",
+                    success=False,
+                    content="Erro: resposta invalida da OpenAI ao gerar prompt de objecao",
+                )
 
             # 7. Insert generated prompt in prompts table
             prompt_id = await prompt_repo.insert_variable_prompt(
@@ -763,15 +813,18 @@ class RagTool(BaseTool):
             reasoning=parsed.get("reasoning", ""),
         )
 
-    async def _summarize(
+    async def _summarize_with_decision(
         self,
         client: AsyncOpenAI,
         prompt: str,
         model: str,
         temperature: float,
-    ) -> str:
+    ) -> dict[str, Any]:
         """
-        Summarize FAQ content using OpenAI.
+        Summarize FAQ content and decide if the RAG results answer the question.
+
+        Uses structured output so the model returns both the response and a
+        boolean indicating whether the RAG content actually answers the question.
 
         Args:
             client: OpenAI async client
@@ -780,7 +833,7 @@ class RagTool(BaseTool):
             temperature: Temperature from config
 
         Returns:
-            Summarized answer
+            Dict with 'has_answer' (bool) and 'response' (str)
         """
         response = await client.chat.completions.create(
             model=model,
@@ -788,8 +841,52 @@ class RagTool(BaseTool):
                 {"role": "user", "content": prompt},
             ],
             temperature=temperature,
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "rag_summary_result",
+                    "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "has_answer": {
+                                "type": "boolean",
+                                "description": (
+                                    "true se o conteudo do RAG responde a pergunta "
+                                    "do usuario de forma satisfatoria, false se nao "
+                                    "responde ou a informacao e insuficiente"
+                                ),
+                            },
+                            "response": {
+                                "type": "string",
+                                "description": (
+                                    "A resposta formatada baseada no conteudo do RAG. "
+                                    "Mesmo quando has_answer e false, inclua o melhor "
+                                    "resumo possivel do que foi encontrado."
+                                ),
+                            },
+                        },
+                        "required": ["has_answer", "response"],
+                        "additionalProperties": False,
+                    },
+                },
+            },
         )
-        return response.choices[0].message.content or ""
+
+        content = response.choices[0].message.content
+        if not content:
+            return {"has_answer": False, "response": ""}
+
+        try:
+            parsed = json.loads(content)
+        except json.JSONDecodeError:
+            logger.warning("[RagTool] _summarize_with_decision: JSON invalido da OpenAI")
+            return {"has_answer": False, "response": ""}
+
+        return {
+            "has_answer": parsed.get("has_answer", False),
+            "response": parsed.get("response", ""),
+        }
 
     def _combine_search_results(self, results: list[dict[str, Any]]) -> str:
         """

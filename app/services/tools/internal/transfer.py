@@ -21,7 +21,7 @@ class TransferToHumanTool(BaseTool):
 
     @property
     def name(self) -> str:
-        return "transferir_para_humano"
+        return "transfer_to_human"
 
     async def execute(
         self,

@@ -46,7 +46,7 @@ class BaseTool(ABC):
 class ToolHandler:
     """Handles tool execution with routing (internal/external) and timeout."""
 
-    INTERNAL_TOOLS = {"rag", "next_step", "transferir_para_humano", "finish_objection_breaker"}
+    INTERNAL_TOOLS = {"rag", "next_step", "transfer_to_human", "finish_objection_breaker"}
 
     def __init__(self, timeout: int | None = None) -> None:
         """
@@ -71,7 +71,7 @@ class ToolHandler:
         self._tools = {
             "rag": RagTool(),
             "next_step": NextStepTool(),
-            "transferir_para_humano": TransferToHumanTool(),
+            "transfer_to_human": TransferToHumanTool(),
             "finish_objection_breaker": FinishObjectionBreakerTool(),
         }
 

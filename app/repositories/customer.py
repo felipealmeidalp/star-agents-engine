@@ -172,43 +172,49 @@ class CustomerRepository:
     async def get_by_cw_contact_id(
         self,
         cw_contact_id: int,
+        company_id: int | None = None,
     ) -> Customer | None:
         """
         Find customer by Chatwoot contact ID.
 
         Args:
             cw_contact_id: Chatwoot contact ID
+            company_id: Company ID for multi-tenancy isolation
 
         Returns:
             Customer or None if not found
         """
-        result = await self.db.execute(
-            select(Customer).where(
-                Customer.cw_contact_id == cw_contact_id,
-                Customer.deleted_at.is_(None),
-            )
-        )
+        filters = [
+            Customer.cw_contact_id == cw_contact_id,
+            Customer.deleted_at.is_(None),
+        ]
+        if company_id is not None:
+            filters.append(Customer.company_id == company_id)
+        result = await self.db.execute(select(Customer).where(*filters))
         return result.scalar_one_or_none()
 
     async def get_by_cw_conversation_id(
         self,
         cw_conversation_id: int,
+        company_id: int | None = None,
     ) -> Customer | None:
         """
         Find customer by Chatwoot conversation ID.
 
         Args:
             cw_conversation_id: Chatwoot conversation ID
+            company_id: Company ID for multi-tenancy isolation
 
         Returns:
             Customer or None if not found
         """
-        result = await self.db.execute(
-            select(Customer).where(
-                Customer.cw_conversation_id == cw_conversation_id,
-                Customer.deleted_at.is_(None),
-            )
-        )
+        filters = [
+            Customer.cw_conversation_id == cw_conversation_id,
+            Customer.deleted_at.is_(None),
+        ]
+        if company_id is not None:
+            filters.append(Customer.company_id == company_id)
+        result = await self.db.execute(select(Customer).where(*filters))
         return result.scalar_one_or_none()
 
     async def get_by_id(self, customer_id: int) -> Customer | None:
@@ -304,12 +310,12 @@ class CustomerRepository:
             Tuple (Customer, is_new: bool)
         """
         # 1. Tentar buscar existente por conversation_id (mesma conversa)
-        existing = await self.get_by_cw_conversation_id(cw_conversation_id)
+        existing = await self.get_by_cw_conversation_id(cw_conversation_id, company_id)
         if existing:
             return existing, False
 
         # 2. Contato já existe mas abriu nova conversa → atualizar sessionId e conversation
-        existing_contact = await self.get_by_cw_contact_id(cw_contact_id)
+        existing_contact = await self.get_by_cw_contact_id(cw_contact_id, company_id)
         if existing_contact:
             existing_contact.sessionId = str(cw_conversation_id)
             existing_contact.cw_conversation_id = cw_conversation_id
@@ -347,11 +353,11 @@ class CustomerRepository:
                 "cw_conversation_id=%d, buscando registro vencedor",
                 cw_conversation_id,
             )
-            existing = await self.get_by_cw_conversation_id(cw_conversation_id)
+            existing = await self.get_by_cw_conversation_id(cw_conversation_id, company_id)
             if existing:
                 return existing, False
             # Pode ser race no cw_contact_id
-            existing_contact = await self.get_by_cw_contact_id(cw_contact_id)
+            existing_contact = await self.get_by_cw_contact_id(cw_contact_id, company_id)
             if existing_contact:
                 return existing_contact, False
             raise
@@ -468,7 +474,7 @@ class CustomerRepository:
         await self.db.commit()
 
         # Busca customer atualizado para retornar objeto ORM
-        customer = await self.get_by_cw_contact_id(cw_contact_id)
+        customer = await self.get_by_cw_contact_id(cw_contact_id, company_id)
 
         # Extrai info do follow-up (inclui last_message para evitar dependência do cache ORM)
         follow_up_info: dict[str, Any] | None = None

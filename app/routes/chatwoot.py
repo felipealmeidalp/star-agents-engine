@@ -238,7 +238,7 @@ async def _save_outgoing_if_ai_off(
                 return
 
             customer_repo = CustomerRepository(db)
-            customer = await customer_repo.get_by_cw_conversation_id(conversation_id)
+            customer = await customer_repo.get_by_cw_conversation_id(conversation_id, company.id)
 
             if not customer:
                 logger.debug(

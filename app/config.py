@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     # App behavior
     debug: bool = False
     dev_mode: bool = False  # Bypass buffer e outras features para dev local
-    auto_add_contacts: bool = True  # Auto-adiciona contatos na allowed_contacts via trigger
+    auto_admd_contacts: bool = True  # Auto-adiciona contatos na allowed_contacts via trigger
     message_buffer_delay: int = 5  # Segundos para aguardar no buffer de mensagens
     max_chat_history_messages: int = 10
 

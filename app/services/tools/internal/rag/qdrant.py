@@ -1,11 +1,16 @@
 """Service for vector search in Qdrant."""
 
 import asyncio
+import json
+import logging
 from typing import Any
 
 import httpx
 
 from app.config import settings
+from app.utils.alerter import send_critical_alert
+
+logger = logging.getLogger(__name__)
 
 
 class QdrantService:
@@ -63,6 +68,17 @@ class QdrantService:
                     data = response.json()
                     return data.get("result", [])
 
+            except json.JSONDecodeError as e:
+                logger.error("[Qdrant] Invalid JSON response: %s", e)
+                send_critical_alert(
+                    "QDRANT_INVALID_JSON_RESPONSE",
+                    "qdrant.py:search",
+                    e,
+                    extra=f"collection={collection}, attempt={attempt + 1}",
+                )
+                last_exception = e
+                if attempt < self.MAX_RETRIES - 1:
+                    await asyncio.sleep(self.RETRY_DELAY * (attempt + 1))
             except (httpx.HTTPStatusError, httpx.RequestError) as e:
                 last_exception = e
                 if attempt < self.MAX_RETRIES - 1:

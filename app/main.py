@@ -93,9 +93,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Shutdown
     print("🛑 Shutting down...")
-    await close_redis_pool()
+    try:
+        await close_redis_pool()
+    except Exception as e:
+        print(f"⚠️ Error closing Redis pool: {e}")
     await close_rabbitmq_connection()
-    await engine.dispose()
+    try:
+        await engine.dispose()
+    except Exception as e:
+        print(f"⚠️ Error disposing DB engine: {e}")
 
 
 # Create FastAPI application

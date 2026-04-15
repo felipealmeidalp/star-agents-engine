@@ -80,11 +80,17 @@ async def close_rabbitmq_connection() -> None:
     global _rabbitmq_connection, _rabbitmq_channel
 
     if _rabbitmq_channel is not None:
-        await _rabbitmq_channel.close()
+        try:
+            await _rabbitmq_channel.close()
+        except Exception as e:
+            logger.warning("[RabbitMQ] Error closing channel: %s", e)
         _rabbitmq_channel = None
         logger.info("[RabbitMQ] Channel closed")
 
     if _rabbitmq_connection is not None:
-        await _rabbitmq_connection.close()
+        try:
+            await _rabbitmq_connection.close()
+        except Exception as e:
+            logger.warning("[RabbitMQ] Error closing connection: %s", e)
         _rabbitmq_connection = None
         logger.info("[RabbitMQ] Connection closed")

@@ -1106,6 +1106,12 @@ class ChatwootService:
             )
         except Exception as e:
             logger.warning("[ChatwootService] Failed to apply atendimento-ia label: %s", e)
+            send_critical_alert(
+                "CHATWOOT_IA_LABEL_FAILED",
+                "chatwoot/service.py:_apply_ia_label",
+                e,
+                extra=f"conversation={conversation_id}, account={account_id}",
+            )
 
     async def _execute_reset_command(
         self,

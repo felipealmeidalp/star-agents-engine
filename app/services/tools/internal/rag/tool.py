@@ -332,8 +332,8 @@ class RagTool(BaseTool):
             # Rollback para evitar InFailedSQLTransactionError na próxima iteração
             try:
                 await context.db.rollback()
-            except Exception:
-                pass
+            except Exception as rb_err:
+                logger.warning("[RagTool] Rollback failed in execute: %s", rb_err)
             return ToolResult(
                 tool_call_id="",
                 tool_name=self.name,
@@ -498,8 +498,8 @@ class RagTool(BaseTool):
         except Exception:
             try:
                 await context.db.rollback()
-            except Exception:
-                pass
+            except Exception as rb_err:
+                logger.warning("[RagTool] Rollback failed in _route_to_sub_agent: %s", rb_err)
             raise
 
     async def _handle_objection(
@@ -677,8 +677,8 @@ class RagTool(BaseTool):
         except Exception:
             try:
                 await context.db.rollback()
-            except Exception:
-                pass
+            except Exception as rb_err:
+                logger.warning("[RagTool] Rollback failed in _handle_objection: %s", rb_err)
             raise
 
     def _format_chat_history(

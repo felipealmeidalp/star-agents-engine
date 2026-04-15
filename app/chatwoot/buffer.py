@@ -283,7 +283,17 @@ class MessageBuffer:
             args=[ttl],
         )
 
-        entries = json.loads(raw_result)
+        try:
+            entries = json.loads(raw_result)
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.error("[MessageBuffer] Failed to parse Lua script result: %s", e)
+            send_critical_alert(
+                "REDIS_BUFFER_LUA_PARSE_FAILED",
+                "chatwoot/buffer.py:move_to_processing",
+                e,
+                contact_id=contact_id,
+            )
+            return []
 
         # Decode and reverse: Redis LRANGE returns newest-first, we want oldest-first
         messages = [self._decode_entry(e)[1] for e in reversed(entries)]

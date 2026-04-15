@@ -6,6 +6,8 @@ from typing import Any
 
 import httpx
 
+from app.utils.alerter import send_critical_alert
+
 logger = logging.getLogger(__name__)
 
 # Constantes para cálculo de delay humanizado
@@ -455,6 +457,12 @@ class ChatwootClient:
                 results.append(result)
             except Exception as e:
                 logger.error(f"[ChatwootClient] Failed to send message: {e}")
+                send_critical_alert(
+                    "CHATWOOT_CLIENT_SEND_FAILED",
+                    "chatwoot/client.py:send_messages",
+                    e,
+                    extra=f"conversation={conversation_id}, account={account_id}",
+                )
                 results.append({"error": str(e)})
 
         return results

@@ -246,28 +246,41 @@ class HttpToolExecutor:
         if value is None:
             return None
 
-        if target_type == "text":
-            return str(value)
-        elif target_type == "int":
-            return int(value)
-        elif target_type == "float":
-            return float(value)
-        elif target_type == "bool":
-            if isinstance(value, bool):
+        try:
+            if target_type == "text":
+                return str(value)
+            elif target_type == "int":
+                return int(value)
+            elif target_type == "float":
+                return float(value)
+            elif target_type == "bool":
+                if isinstance(value, bool):
+                    return value
+                if isinstance(value, str):
+                    return value.lower() in ("true", "1", "yes")
+                return bool(value)
+            elif target_type == "array":
+                if not isinstance(value, list):
+                    value = [value]
+                return [self._convert_type(v, array_type) for v in value]
+            elif target_type == "object":
+                if isinstance(value, dict):
+                    return value
+                if isinstance(value, str):
+                    return json.loads(value)
                 return value
-            if isinstance(value, str):
-                return value.lower() in ("true", "1", "yes")
-            return bool(value)
-        elif target_type == "array":
-            if not isinstance(value, list):
-                value = [value]
-            return [self._convert_type(v, array_type) for v in value]
-        elif target_type == "object":
-            if isinstance(value, dict):
-                return value
-            if isinstance(value, str):
-                return json.loads(value)
-            return value
+        except (ValueError, TypeError, json.JSONDecodeError) as e:
+            logger.error(
+                "[ExternalTool] Type conversion failed: value=%s, target=%s, error=%s",
+                value, target_type, e,
+            )
+            send_critical_alert(
+                "EXTERNAL_TOOL_TYPE_CONVERSION_FAILED",
+                "http_executor.py:_convert_type",
+                e,
+                extra=f"target_type={target_type}, value={str(value)[:100]}",
+            )
+            return value  # Return as-is on failure
 
         # Default: return as-is
         return value

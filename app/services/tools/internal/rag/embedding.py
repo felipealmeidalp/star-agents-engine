@@ -1,6 +1,12 @@
 """Service for generating text embeddings via OpenAI."""
 
+import logging
+
 from openai import AsyncOpenAI
+
+from app.utils.alerter import send_critical_alert
+
+logger = logging.getLogger(__name__)
 
 
 class EmbeddingService:
@@ -33,10 +39,19 @@ class EmbeddingService:
         Raises:
             Exception: If OpenAI API call fails
         """
-        response = await self.client.embeddings.create(
-            model=model,
-            input=text,
-            dimensions=1536,
-        )
-
-        return response.data[0].embedding
+        try:
+            response = await self.client.embeddings.create(
+                model=model,
+                input=text,
+                dimensions=1536,
+            )
+            return response.data[0].embedding
+        except Exception as e:
+            logger.error("[EmbeddingService] Failed to generate embedding: %s", e)
+            send_critical_alert(
+                "EMBEDDING_GENERATION_FAILED",
+                "rag/embedding.py:generate",
+                e,
+                extra=f"model={model}, text_len={len(text)}",
+            )
+            raise

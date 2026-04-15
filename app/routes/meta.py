@@ -192,6 +192,11 @@ async def meta_webhook_proxy(
         body = await request.json()
     except Exception as e:
         logger.warning(f"[MetaWebhook] Invalid JSON payload: {e}")
+        send_critical_alert(
+            "META_INVALID_JSON_PAYLOAD",
+            "meta.py:meta_webhook",
+            e,
+        )
         return Response(status_code=200)
 
     # 3. Extract whatsapp number
@@ -199,6 +204,11 @@ async def meta_webhook_proxy(
         whatsapp = body["entry"][0]["changes"][0]["value"]["metadata"]["display_phone_number"]
     except (KeyError, IndexError, TypeError) as e:
         logger.warning(f"[MetaWebhook] Could not extract phone number: {e}")
+        send_critical_alert(
+            "META_PHONE_EXTRACTION_FAILED",
+            "meta.py:meta_webhook",
+            e,
+        )
         # Return 200 anyway — don't make Meta retry for malformed payloads
         return Response(status_code=200)
 

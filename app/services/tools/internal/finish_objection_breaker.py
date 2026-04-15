@@ -148,7 +148,18 @@ class FinishObjectionBreakerTool(BaseTool):
                 logger.warning("Empty LLM response for sub-agent classification")
                 return
 
-            decision = json.loads(content)
+            try:
+                decision = json.loads(content)
+            except json.JSONDecodeError as e:
+                logger.warning("Invalid JSON from LLM for sub-agent classification: %s", e)
+                send_critical_alert(
+                    "OBJECTION_CLASSIFICATION_JSON_INVALID",
+                    "finish_objection_breaker.py:_select_best_sub_agent",
+                    e,
+                    company_id=context.company_id,
+                    extra=f"session={context.session_id}",
+                )
+                return
             chosen_id = decision.get("sub_agent_id")
 
             if not chosen_id:
@@ -193,8 +204,8 @@ class FinishObjectionBreakerTool(BaseTool):
             )
             try:
                 await context.db.rollback()
-            except Exception:
-                pass
+            except Exception as rb_err:
+                logger.warning("[FinishObjection] Rollback failed: %s", rb_err)
 
     def _format_chat_history(
         self,

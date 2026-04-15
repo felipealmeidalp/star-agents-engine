@@ -5,6 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
+from app.utils.alerter import send_critical_alert
 
 router = APIRouter()
 
@@ -36,6 +37,11 @@ async def readiness_check(db: AsyncSession = Depends(get_db)) -> dict[str, str]:
         result.scalar()
         return {"status": "ready", "database": "connected"}
     except Exception as e:
+        send_critical_alert(
+            "HEALTH_DB_DISCONNECTED",
+            "health.py:readiness_check",
+            e,
+        )
         return {
             "status": "not_ready",
             "database": "disconnected",

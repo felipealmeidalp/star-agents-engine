@@ -172,10 +172,10 @@ class CustomerRepository:
     async def get_by_cw_contact_id(
         self,
         cw_contact_id: int,
-        company_id: int | None = None,
+        company_id: int,
     ) -> Customer | None:
         """
-        Find customer by Chatwoot contact ID.
+        Find customer by Chatwoot contact ID + company_id.
 
         Args:
             cw_contact_id: Chatwoot contact ID
@@ -184,22 +184,22 @@ class CustomerRepository:
         Returns:
             Customer or None if not found
         """
-        filters = [
-            Customer.cw_contact_id == cw_contact_id,
-            Customer.deleted_at.is_(None),
-        ]
-        if company_id is not None:
-            filters.append(Customer.company_id == company_id)
-        result = await self.db.execute(select(Customer).where(*filters))
+        result = await self.db.execute(
+            select(Customer).where(
+                Customer.cw_contact_id == cw_contact_id,
+                Customer.company_id == company_id,
+                Customer.deleted_at.is_(None),
+            )
+        )
         return result.scalar_one_or_none()
 
     async def get_by_cw_conversation_id(
         self,
         cw_conversation_id: int,
-        company_id: int | None = None,
+        company_id: int,
     ) -> Customer | None:
         """
-        Find customer by Chatwoot conversation ID.
+        Find customer by Chatwoot conversation ID + company_id.
 
         Args:
             cw_conversation_id: Chatwoot conversation ID
@@ -208,13 +208,13 @@ class CustomerRepository:
         Returns:
             Customer or None if not found
         """
-        filters = [
-            Customer.cw_conversation_id == cw_conversation_id,
-            Customer.deleted_at.is_(None),
-        ]
-        if company_id is not None:
-            filters.append(Customer.company_id == company_id)
-        result = await self.db.execute(select(Customer).where(*filters))
+        result = await self.db.execute(
+            select(Customer).where(
+                Customer.cw_conversation_id == cw_conversation_id,
+                Customer.company_id == company_id,
+                Customer.deleted_at.is_(None),
+            )
+        )
         return result.scalar_one_or_none()
 
     async def get_by_id(self, customer_id: int) -> Customer | None:

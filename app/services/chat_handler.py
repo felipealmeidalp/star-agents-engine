@@ -540,7 +540,7 @@ class ChatHandler:
                         similarity = entry.get("similarity", "?")
                         if answer:
                             rag_lines.append(
-                                f"• (similarity: {similarity}) {question}: {answer[:300]}"
+                                f"• (similarity: {similarity}) {question}: {answer}"
                             )
                     if rag_lines:
                         rag_note = f"📚 *RAG results*\n" + "\n".join(rag_lines)

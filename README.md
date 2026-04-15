@@ -2,7 +2,7 @@
 
 AI Agent Orchestration Platform - Python Migration from N8N
 
-## 🎯 Overview
+## 🎯 Overviewa
 
 This is a Python-based AI agent orchestration platform migrated from N8N to enable:
 - ✅ Development assisted by AI (Claude Code, Cursor)

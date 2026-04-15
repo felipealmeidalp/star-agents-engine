@@ -1,5 +1,6 @@
 """Transfer to Human tool."""
 
+import asyncio
 import logging
 import random
 from typing import Any
@@ -109,49 +110,50 @@ class TransferToHumanTool(BaseTool):
 
         # 5. Swap labels + assignment
         try:
-            chatwoot_client = ChatwootClient()
-
-            # Swap labels: add "atendimento-humano", remove "atendimento-ia"
-            await chatwoot_client.swap_label(
-                base_url=company.cw_base_url,
-                account_id=company.cw_account_id,
-                conversation_id=customer.cw_conversation_id,
-                add="atendimento-humano",
-                remove="atendimento-ia",
-                api_key=company.cw_apikey,
-            )
-            logger.info(
-                "[TransferToHuman] Label 'atendimento-humano' added to conversation %d",
-                customer.cw_conversation_id,
-            )
-
-            # Assignment: pick a human from the team (or keep AI)
-            assignee_id: int | None = None
-            if responsible_team:
-                assignee_id = await self._pick_human_assignee(
-                    chatwoot_client=chatwoot_client,
-                    base_url=company.cw_base_url,
-                    account_id=company.cw_account_id,
-                    team_id=responsible_team,
-                    api_key=company.cw_apikey,
-                    ai_agent_id=company.ai_agent_id,
-                )
-
-            if responsible_team or assignee_id:
-                await chatwoot_client.assign_conversation(
+            async with ChatwootClient() as chatwoot_client:
+                # Swap labels: add "atendimento-humano", remove "atendimento-ia"
+                await chatwoot_client.swap_label(
                     base_url=company.cw_base_url,
                     account_id=company.cw_account_id,
                     conversation_id=customer.cw_conversation_id,
+                    add="atendimento-humano",
+                    remove="atendimento-ia",
                     api_key=company.cw_apikey,
-                    assignee_id=assignee_id,
-                    team_id=responsible_team,
                 )
                 logger.info(
-                    "[TransferToHuman] Conversation %d assigned: assignee=%s, team=%s",
+                    "[TransferToHuman] Label 'atendimento-humano' added to conversation %d",
                     customer.cw_conversation_id,
-                    assignee_id,
-                    responsible_team,
                 )
+
+                # Pick a human from the responsible team
+                assignee_id: int | None = None
+                if responsible_team:
+                    assignee_id = await self._pick_human_assignee(
+                        chatwoot_client=chatwoot_client,
+                        base_url=company.cw_base_url,
+                        account_id=company.cw_account_id,
+                        team_id=responsible_team,
+                        api_key=company.cw_apikey,
+                        ai_agent_id=company.ai_agent_id,
+                    )
+                else:
+                    logger.warning(
+                        "[TransferToHuman] Agent %d has no responsible_team configured. "
+                        "Cannot pick human assignee.",
+                        context.agent_id,
+                    )
+
+                if assignee_id:
+                    await self._assign_and_verify(
+                        chatwoot_client=chatwoot_client,
+                        base_url=company.cw_base_url,
+                        account_id=company.cw_account_id,
+                        conversation_id=customer.cw_conversation_id,
+                        api_key=company.cw_apikey,
+                        assignee_id=assignee_id,
+                        company_id=context.company_id,
+                        contact_id=customer.cw_contact_id,
+                    )
         except Exception as e:
             logger.error(
                 "[TransferToHuman] Failed Chatwoot operations for conversation %d: %s",
@@ -173,6 +175,77 @@ class TransferToHumanTool(BaseTool):
             tool_type="interna",
             success=True,
             content="Conversa transferida para atendimento humano com sucesso.",
+        )
+
+    async def _assign_and_verify(
+        self,
+        chatwoot_client: ChatwootClient,
+        base_url: str,
+        account_id: int,
+        conversation_id: int,
+        api_key: str,
+        assignee_id: int,
+        company_id: int,
+        contact_id: int | None,
+    ) -> None:
+        """Assign conversation and verify the assignee, retrying up to 3 times."""
+        for attempt in range(3):
+            await chatwoot_client.assign_conversation(
+                base_url=base_url,
+                account_id=account_id,
+                conversation_id=conversation_id,
+                api_key=api_key,
+                assignee_id=assignee_id,
+            )
+
+            await asyncio.sleep(0.5)
+
+            conv = await chatwoot_client.get_conversation(
+                base_url=base_url,
+                account_id=account_id,
+                conversation_id=conversation_id,
+                api_key=api_key,
+            )
+            current = (
+                conv.get("meta", {}).get("assignee", {}).get("id")
+                or conv.get("assignee_id")
+            )
+
+            if current == assignee_id:
+                logger.info(
+                    "[TransferToHuman] Conversation %d verified: assigned to agent %d "
+                    "(attempt %d)",
+                    conversation_id,
+                    assignee_id,
+                    attempt + 1,
+                )
+                return
+
+            logger.warning(
+                "[TransferToHuman] Assignment not verified for conversation %d: "
+                "expected=%d, got=%s (attempt %d/3)",
+                conversation_id,
+                assignee_id,
+                current,
+                attempt + 1,
+            )
+
+        logger.error(
+            "[TransferToHuman] Failed to verify assignment after 3 attempts "
+            "for conversation %d, expected agent %d",
+            conversation_id,
+            assignee_id,
+        )
+        send_critical_alert(
+            "TRANSFER_ASSIGNMENT_VERIFICATION_FAILED",
+            "transfer.py:_assign_and_verify",
+            Exception(
+                f"Assignment verification failed after 3 attempts: "
+                f"conversation={conversation_id}, expected={assignee_id}, got={current}"
+            ),
+            company_id=company_id,
+            contact_id=contact_id,
+            extra=f"conversation={conversation_id}, expected_assignee={assignee_id}",
         )
 
     async def _pick_human_assignee(

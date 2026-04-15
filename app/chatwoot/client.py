@@ -2,6 +2,8 @@
 
 import asyncio
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 
 import httpx
@@ -36,11 +38,41 @@ def calculate_humanized_delay(message: str) -> float:
 
 
 class ChatwootClient:
-    """Client for sending messages to Chatwoot API."""
+    """Client for sending messages to Chatwoot API.
+
+    Can be used as async context manager to reuse a single httpx connection
+    across multiple calls::
+
+        async with ChatwootClient() as cw:
+            await cw.swap_label(...)
+            await cw.assign_conversation(...)
+
+    When used without ``async with``, each method creates its own connection
+    (backwards compatible).
+    """
 
     def __init__(self, timeout: int = 30) -> None:
         """Initialize client with configurable timeout."""
         self.timeout = timeout
+        self._client: httpx.AsyncClient | None = None
+
+    async def __aenter__(self) -> "ChatwootClient":
+        self._client = httpx.AsyncClient(timeout=self.timeout)
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        if self._client:
+            await self._client.aclose()
+            self._client = None
+
+    @asynccontextmanager
+    async def _http(self) -> AsyncIterator[httpx.AsyncClient]:
+        """Yield shared client (context manager mode) or create a temporary one."""
+        if self._client:
+            yield self._client
+        else:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                yield client
 
     async def send_message(
         self,
@@ -89,7 +121,7 @@ class ChatwootClient:
             f"[ChatwootClient] Sending message to conversation {conversation_id}"
         )
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with self._http() as client:
             response = await client.post(
                 url,
                 json=payload,
@@ -146,7 +178,7 @@ class ChatwootClient:
             team_id,
         )
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with self._http() as client:
             response = await client.post(
                 url,
                 json=payload,
@@ -175,7 +207,7 @@ class ChatwootClient:
         )
         headers = {"api_access_token": api_key}
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with self._http() as client:
             response = await client.get(url, headers=headers)
             response.raise_for_status()
             return response.json()
@@ -212,7 +244,7 @@ class ChatwootClient:
             team_id,
         )
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with self._http() as client:
             response = await client.post(url, json=payload, headers=headers)
             logger.info(
                 "[ChatwootClient] Assignment response: status=%d, body=%s",
@@ -236,7 +268,7 @@ class ChatwootClient:
         )
         headers = {"api_access_token": api_key}
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with self._http() as client:
             response = await client.get(url, headers=headers)
             response.raise_for_status()
             return response.json()
@@ -276,7 +308,7 @@ class ChatwootClient:
         add_set = set(add_labels)
         old_sectors_to_remove = set(sector_labels) - add_set
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with self._http() as client:
             response = await client.get(url, headers=headers)
             response.raise_for_status()
             current_labels: list[str] = response.json().get("payload", [])
@@ -289,7 +321,8 @@ class ChatwootClient:
                     updated.append(label)
 
             if updated != current_labels:
-                await client.post(url, json={"labels": updated}, headers=headers)
+                resp = await client.post(url, json={"labels": updated}, headers=headers)
+                resp.raise_for_status()
                 logger.info(
                     "[ChatwootClient] Labels updated on conversation %d: %s",
                     conversation_id,
@@ -326,7 +359,7 @@ class ChatwootClient:
             "Content-Type": "application/json",
         }
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with self._http() as client:
             # GET current labels
             response = await client.get(url, headers=headers)
             response.raise_for_status()
@@ -387,7 +420,7 @@ class ChatwootClient:
             "Content-Type": "application/json",
         }
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with self._http() as client:
             response = await client.get(url, headers=headers)
             response.raise_for_status()
             current_labels: list[str] = response.json().get("payload", [])
@@ -397,7 +430,21 @@ class ChatwootClient:
                 updated.append(add)
 
             if updated != current_labels:
-                await client.post(url, json={"labels": updated}, headers=headers)
+                last_err: Exception | None = None
+                for attempt in range(3):
+                    try:
+                        resp = await client.post(
+                            url, json={"labels": updated}, headers=headers
+                        )
+                        resp.raise_for_status()
+                        last_err = None
+                        break
+                    except (httpx.HTTPStatusError, httpx.RequestError) as e:
+                        last_err = e
+                        if attempt < 2:
+                            await asyncio.sleep(0.5 * (attempt + 1))
+                if last_err:
+                    raise last_err
                 logger.info(
                     "[ChatwootClient] swap_label: added '%s', removed '%s' on conversation %d",
                     add,

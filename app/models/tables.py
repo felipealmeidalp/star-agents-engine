@@ -478,6 +478,33 @@ class Objection(Base):
     )
 
 
+class ErrorLog(Base):
+    """ErrorLog table - persistent error/alert logging."""
+
+    __tablename__ = "error_logs"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    company_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger, nullable=True
+    )
+    error_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    severity: Mapped[str] = mapped_column(String(20), nullable=False, default="error")
+    location: Mapped[str] = mapped_column(String(255), nullable=False)
+    error_message: Mapped[str] = mapped_column(Text, nullable=False)
+    traceback: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    session_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    contact_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    agent_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    sub_agent_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    tool_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    extra: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
+    resolved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP, default=datetime.utcnow, nullable=False
+    )
+
+
 class Imbox(Base):
     """Imbox table - WhatsApp inbox configuration for Meta webhook routing."""
 

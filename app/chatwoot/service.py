@@ -176,6 +176,8 @@ class ChatwootService:
         # 5. Delegate to RequestManager (handles buffering + cancellation)
         logger.info("[ChatwootService] Delegating to RequestManager...")
 
+        _sender_id = payload.sender.id if payload.sender else None
+
         async def send_messages_to_lead(messages: list[str]) -> None:
             """Callback to send messages to lead before tool execution."""
             await self._send_responses(
@@ -185,6 +187,8 @@ class ChatwootService:
                 conversation_id=payload.conversation.id,
                 api_key=cw_api_key,
                 private=is_dev_agent,
+                company_id=company.id,
+                contact_id=_sender_id,
             )
 
         async def send_private_notes(messages: list[str]) -> None:
@@ -196,6 +200,8 @@ class ChatwootService:
                 conversation_id=payload.conversation.id,
                 api_key=cw_api_key,
                 private=True,
+                company_id=company.id,
+                contact_id=_sender_id,
             )
 
         response = await self.request_manager.on_new_message(
@@ -272,6 +278,8 @@ class ChatwootService:
                 conversation_id=payload.conversation.id,
                 api_key=cw_api_key,
                 private=is_dev_agent,
+                company_id=company.id,
+                contact_id=_sender_id,
             )
 
         return {
@@ -382,6 +390,8 @@ class ChatwootService:
         conversation_id: int,
         api_key: str | None,
         private: bool = False,
+        company_id: int | None = None,
+        contact_id: int | str | None = None,
     ) -> None:
         """Send response messages to Chatwoot."""
         if not api_key:
@@ -416,6 +426,9 @@ class ChatwootService:
                 "CHATWOOT_SEND_FAILED",
                 "chatwoot/service.py:_send_responses",
                 e,
+                contact_id=contact_id,
+                company_id=company_id,
+                extra=f"conversation={conversation_id}, account={account_id}",
             )
 
     async def _schedule_follow_up(
@@ -1033,6 +1046,12 @@ class ChatwootService:
             )
         except Exception as e:
             logger.warning("[ChatwootService] Failed to apply labels: %s", e)
+            send_critical_alert(
+                "CHATWOOT_LABELS_FAILED",
+                "chatwoot/service.py:_apply_ia_labels_and_assignment",
+                e,
+                extra=f"conversation={conversation_id}, account={account_id}",
+            )
 
         # Part 2: Assignment (separate calls — Chatwoot ignores team_id when sent with assignee_id)
         if not ai_agent_id:
@@ -1055,6 +1074,12 @@ class ChatwootService:
             )
         except Exception as e:
             logger.warning("[ChatwootService] Failed to assign conversation: %s", e)
+            send_critical_alert(
+                "CHATWOOT_ASSIGNMENT_FAILED",
+                "chatwoot/service.py:_apply_ia_labels_and_assignment",
+                e,
+                extra=f"conversation={conversation_id}, account={account_id}, ai_agent={ai_agent_id}",
+            )
 
     async def _apply_ia_label(
         self,

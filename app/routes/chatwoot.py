@@ -207,6 +207,13 @@ async def _add_contact_background(
             logger.exception(
                 f"[ChatwootWebhook] Error in _add_contact_background: {e}"
             )
+            send_critical_alert(
+                "ADD_CONTACT_BACKGROUND_FAILED",
+                "chatwoot.py:_add_contact_background",
+                e,
+                contact_id=contact_id,
+                extra=f"inbox={inbox_id}, conversation={conversation_id}",
+            )
 
 
 async def _save_outgoing_if_ai_off(
@@ -300,6 +307,12 @@ async def _save_outgoing_if_ai_off(
             logger.exception(
                 "[ChatwootWebhook] Error in _save_outgoing_if_ai_off: %s", e
             )
+            send_critical_alert(
+                "SAVE_OUTGOING_AI_OFF_FAILED",
+                "chatwoot.py:_save_outgoing_if_ai_off",
+                e,
+                extra=f"conversation={conversation_id}",
+            )
 
 
 @router.post("/chatwoot/{token}/debug")
@@ -340,6 +353,7 @@ async def process_webhook_background(
         retry_count: Number of retry attempts (0 = first attempt)
     """
     sender_id = payload.sender.id if payload.sender else None
+    company_id: int | None = None  # Track for error alerts
     logger.info(
         f"[ChatwootWebhook] Background processing started for contact {sender_id}"
         + (f" (retry {retry_count})" if retry_count > 0 else "")
@@ -358,6 +372,8 @@ async def process_webhook_background(
                         f"[ChatwootWebhook] Company not found for token {token}"
                     )
                     return
+
+                company_id = company.id
 
                 logger.info(
                     f"[ChatwootWebhook] Found company: {company.id} - {company.name}"
@@ -402,6 +418,7 @@ async def process_webhook_background(
                     "chatwoot.py:process_webhook_background",
                     e,
                     contact_id=sender_id,
+                    company_id=company_id,
                 )
             except OpenAIAuthenticationError as e:
                 logger.error(
@@ -412,6 +429,7 @@ async def process_webhook_background(
                     "chatwoot.py:process_webhook_background",
                     e,
                     contact_id=sender_id,
+                    company_id=company_id,
                 )
             except OpenAIRateLimitError as e:
                 logger.error(
@@ -422,6 +440,7 @@ async def process_webhook_background(
                     "chatwoot.py:process_webhook_background",
                     e,
                     contact_id=sender_id,
+                    company_id=company_id,
                 )
             except OpenAITimeoutError as e:
                 logger.error(
@@ -432,6 +451,7 @@ async def process_webhook_background(
                     "chatwoot.py:process_webhook_background",
                     e,
                     contact_id=sender_id,
+                    company_id=company_id,
                 )
             except OpenAIError as e:
                 logger.error(
@@ -442,6 +462,7 @@ async def process_webhook_background(
                     "chatwoot.py:process_webhook_background",
                     e,
                     contact_id=sender_id,
+                    company_id=company_id,
                 )
             except ValueError as e:
                 logger.error(
@@ -452,6 +473,7 @@ async def process_webhook_background(
                     "chatwoot.py:process_webhook_background",
                     e,
                     contact_id=sender_id,
+                    company_id=company_id,
                 )
             except Exception as e:
                 if _is_pool_exhaustion_error(e):
@@ -467,6 +489,7 @@ async def process_webhook_background(
                         "chatwoot.py:process_webhook_background",
                         e,
                         contact_id=sender_id,
+                        company_id=company_id,
                     )
 
     except Exception as e:
@@ -483,6 +506,7 @@ async def process_webhook_background(
                 "chatwoot.py:process_webhook_background",
                 e,
                 contact_id=sender_id,
+                company_id=company_id,
             )
 
     # Tratar pool exhaustion fora do session CM para garantir re-enqueue
@@ -499,6 +523,7 @@ async def process_webhook_background(
                 "chatwoot.py:process_webhook_background",
                 pool_error,
                 contact_id=sender_id,
+                company_id=company_id,
             )
             return
 
@@ -524,6 +549,7 @@ async def process_webhook_background(
                 "chatwoot.py:process_webhook_background",
                 pub_err,
                 contact_id=sender_id,
+                company_id=company_id,
             )
 
 

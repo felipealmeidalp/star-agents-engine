@@ -121,7 +121,7 @@ class RequestManager:
 
         # Phase 1: Cancel active request + add to buffer (under lock)
         async with lock:
-            cancel_result = await self._cancel_active_if_exists(contact_id)
+            cancel_result = await self._cancel_active_if_exists(contact_id, company_id)
 
             if cancel_result == "OBJECTION_IN_PROGRESS":
                 await self._buffer.add_objection_pending(message, contact_id)
@@ -241,6 +241,7 @@ class RequestManager:
     async def _cancel_active_if_exists(
         self,
         contact_id: int,
+        company_id: int | None = None,
     ) -> list[dict[str, Any]] | None | str:
         """Cancel the active request for a contact if one exists.
 
@@ -291,6 +292,7 @@ class RequestManager:
                 "request_manager.py:_cancel_active_if_exists",
                 e,
                 contact_id=contact_id,
+                company_id=company_id,
             )
 
         # Extract completed tool history before discarding the turn

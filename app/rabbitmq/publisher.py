@@ -11,6 +11,7 @@ from aio_pika.abc import AbstractRobustChannel
 from app.config import settings
 from app.rabbitmq.connection import get_rabbitmq_channel
 from app.rabbitmq.schemas import FollowUpMessage
+from app.utils.alerter import send_critical_alert
 
 logger = logging.getLogger(__name__)
 
@@ -188,6 +189,13 @@ class FollowUpPublisher:
 
         except Exception as e:
             logger.error(f"[RabbitMQ] Failed to publish follow-up: {e}")
+            send_critical_alert(
+                "RABBITMQ_PUBLISH_FOLLOWUP_FAILED",
+                "rabbitmq/publisher.py:publish_follow_up",
+                e,
+                company_id=follow_up_msg.company_id,
+                extra=f"customer={customer_id}, step={step_order}",
+            )
             raise
 
 

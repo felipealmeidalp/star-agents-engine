@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from app.models.schemas import ExternalToolConfigSchema, ExternalToolParameterSchema, ToolResult
+from app.utils.alerter import send_critical_alert
 
 logger = logging.getLogger(__name__)
 
@@ -116,8 +117,14 @@ class HttpToolExecutor:
                     content=response.text,
                 )
 
-        except httpx.TimeoutException:
+        except httpx.TimeoutException as e:
             logger.error(f"[ExternalTool] Timeout após {self.timeout}s")
+            send_critical_alert(
+                "EXTERNAL_TOOL_TIMEOUT",
+                "http_executor.py:execute",
+                f"Tool '{tool_name}' timeout after {self.timeout}s",
+                extra=f"tool={tool_name}, endpoint={config.endpoint}",
+            )
             return ToolResult(
                 tool_call_id=tool_call_id,
                 tool_name=tool_name,
@@ -127,6 +134,12 @@ class HttpToolExecutor:
             )
         except httpx.RequestError as e:
             logger.error(f"[ExternalTool] Erro de conexão: {str(e)}")
+            send_critical_alert(
+                "EXTERNAL_TOOL_CONNECTION_ERROR",
+                "http_executor.py:execute",
+                e,
+                extra=f"tool={tool_name}, endpoint={config.endpoint}",
+            )
             return ToolResult(
                 tool_call_id=tool_call_id,
                 tool_name=tool_name,

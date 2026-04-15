@@ -12,6 +12,7 @@ from app.repositories.customer import CustomerRepository
 from app.repositories.objection import ObjectionRepository
 from app.repositories.prompt import PromptRepository
 from app.services.tool_handler import BaseTool
+from app.utils.alerter import send_critical_alert
 
 from .embedding import EmbeddingService
 from .vector_search import VectorSearchService
@@ -195,10 +196,17 @@ class RagTool(BaseTool):
                                             "[RagTool] Connection message sent: %s",
                                             connection_msg,
                                         )
-                                except Exception:
+                                except Exception as e:
                                     logger.warning(
                                         "[RagTool] Failed to send connection message",
                                         exc_info=True,
+                                    )
+                                    send_critical_alert(
+                                        "RAG_CONNECTION_MESSAGE_FAILED",
+                                        "rag/tool.py:execute",
+                                        e,
+                                        company_id=context.company_id,
+                                        extra=f"session={context.session_id}",
                                     )
 
                             # Generate objection prompt (the heavy work)
@@ -314,6 +322,13 @@ class RagTool(BaseTool):
             )
 
         except Exception as e:
+            send_critical_alert(
+                "RAG_EXECUTION_FAILED",
+                "rag/tool.py:execute",
+                e,
+                company_id=context.company_id,
+                extra=f"session={context.session_id}, agent={context.agent_id}",
+            )
             # Rollback para evitar InFailedSQLTransactionError na próxima iteração
             try:
                 await context.db.rollback()
@@ -425,8 +440,15 @@ class RagTool(BaseTool):
 
             try:
                 decision = json.loads(content)
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
                 logger.warning("[RagTool] _route_to_sub_agent: JSON invalido da OpenAI")
+                send_critical_alert(
+                    "RAG_ROUTING_JSON_INVALID",
+                    "rag/tool.py:_route_to_sub_agent",
+                    e,
+                    company_id=context.company_id,
+                    extra=f"session={context.session_id}",
+                )
                 return None
 
             if decision.get("action") != "route":
@@ -608,8 +630,15 @@ class RagTool(BaseTool):
             # 6. Parse response JSON
             try:
                 generated = json.loads(content)
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
                 logger.warning("[RagTool] _handle_objection: JSON invalido da OpenAI")
+                send_critical_alert(
+                    "RAG_OBJECTION_JSON_INVALID",
+                    "rag/tool.py:_handle_objection",
+                    e,
+                    company_id=context.company_id,
+                    extra=f"session={context.session_id}",
+                )
                 return ToolResult(
                     tool_call_id="",
                     tool_name=self.name,
@@ -739,9 +768,14 @@ class RagTool(BaseTool):
 
             content = response.choices[0].message.content
             return content.strip() if content else None
-        except Exception:
+        except Exception as e:
             logger.warning(
                 "[RagTool] Failed to generate connection message", exc_info=True,
+            )
+            send_critical_alert(
+                "RAG_CONNECTION_MSG_GENERATION_FAILED",
+                "rag/tool.py:_generate_connection_message",
+                e,
             )
             return None
 
@@ -879,8 +913,13 @@ class RagTool(BaseTool):
 
         try:
             parsed = json.loads(content)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
             logger.warning("[RagTool] _summarize_with_decision: JSON invalido da OpenAI")
+            send_critical_alert(
+                "RAG_SUMMARIZE_JSON_INVALID",
+                "rag/tool.py:_summarize_with_decision",
+                e,
+            )
             return {"has_answer": False, "response": ""}
 
         return {

@@ -9,6 +9,7 @@ import redis.asyncio as aioredis
 
 from app.chatwoot.buffer import get_redis_pool
 from app.config import settings
+from app.utils.alerter import send_critical_alert
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +84,11 @@ class MetaDeduplicator:
         except aioredis.RedisError as e:
             # Graceful degradation: if Redis fails, process normally
             logger.error(f"[MetaWebhook] Redis dedup error: {e}. Processing anyway.")
+            send_critical_alert(
+                "META_REDIS_DEDUP_ERROR",
+                "meta_webhook.py:is_duplicate",
+                e,
+            )
             return False
 
 
@@ -123,6 +129,12 @@ class MetaWebhookCache:
                 return (parsed["company_id"], parsed["cw_base_url"])
         except (aioredis.RedisError, json.JSONDecodeError, KeyError) as e:
             logger.error(f"[MetaWebhook] Redis cache get error: {e}")
+            send_critical_alert(
+                "META_REDIS_CACHE_GET_ERROR",
+                "meta_webhook.py:MetaWebhookCache.get",
+                e,
+                extra=f"whatsapp={whatsapp}",
+            )
         return None
 
     async def set(self, whatsapp: str, company_id: int, cw_base_url: str) -> None:
@@ -142,3 +154,9 @@ class MetaWebhookCache:
             logger.debug(f"[MetaWebhook] Cached mapping for whatsapp={whatsapp}")
         except aioredis.RedisError as e:
             logger.error(f"[MetaWebhook] Redis cache set error: {e}")
+            send_critical_alert(
+                "META_REDIS_CACHE_SET_ERROR",
+                "meta_webhook.py:MetaWebhookCache.set",
+                e,
+                extra=f"whatsapp={whatsapp}",
+            )

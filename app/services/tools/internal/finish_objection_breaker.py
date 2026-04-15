@@ -11,6 +11,7 @@ from app.repositories.agent import AgentRepository
 from app.repositories.customer import CustomerRepository
 from app.repositories.prompt import PromptRepository
 from app.services.tool_handler import BaseTool
+from app.utils.alerter import send_critical_alert
 
 logger = logging.getLogger(__name__)
 
@@ -178,10 +179,17 @@ class FinishObjectionBreakerTool(BaseTool):
                     new_sub_agent_id=chosen_id,
                 )
 
-        except Exception:
+        except Exception as e:
             logger.warning(
                 "Failed to classify sub-agent after objection, keeping current",
                 exc_info=True,
+            )
+            send_critical_alert(
+                "OBJECTION_SUB_AGENT_SELECTION_FAILED",
+                "finish_objection_breaker.py:_select_best_sub_agent",
+                e,
+                company_id=context.company_id,
+                extra=f"session={context.session_id}, agent={context.agent_id}",
             )
             try:
                 await context.db.rollback()

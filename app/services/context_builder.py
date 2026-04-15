@@ -165,7 +165,7 @@ class ContextBuilder:
             system_prompt = self._build_system_prompt(context)
 
         # 5. Format messages
-        messages = self._format_messages(raw_history, system_prompt)
+        messages = self._format_messages(raw_history, system_prompt, company_id, session_id)
 
         # 5b. Append pending in-memory messages (from ConversationTurn)
         if pending_messages:
@@ -436,6 +436,8 @@ class ContextBuilder:
         self,
         history: list[dict[str, Any]],
         system_prompt: str,
+        company_id: int | None = None,
+        session_id: str | None = None,
     ) -> list[OpenAIMessage]:
         """Convert chat history to OpenAI message format."""
         messages: list[OpenAIMessage] = []
@@ -481,7 +483,8 @@ class ContextBuilder:
                 "CONTEXT_BUILDER_TOOL_SEQUENCE_INVALID",
                 "context_builder.py:_format_messages",
                 Exception("Tool message sequence invalid after sanitize + reorder"),
-                extra=f"messages_count={len(messages)}",
+                company_id=company_id,
+                extra=f"session={session_id}, messages_count={len(messages)}",
             )
             messages = [
                 msg for msg in messages

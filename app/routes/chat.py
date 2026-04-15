@@ -18,6 +18,7 @@ from app.exceptions import (
 )
 from app.models.schemas import ChatRequest, ReprocessRequest
 from app.repositories.company import CompanyRepository
+from app.utils.alerter import send_critical_alert
 from app.repositories.customer import CustomerRepository
 from app.services.chat_processor import process_chat, reprocess_chat
 
@@ -205,5 +206,12 @@ async def _reprocess_background(
             session_id,
             len(messages),
         )
-    except Exception:
+    except Exception as e:
         logger.exception("[Reprocess] Background task failed for session=%s", session_id)
+        send_critical_alert(
+            "REPROCESS_BACKGROUND_FAILED",
+            "chat.py:_reprocess_background",
+            e,
+            company_id=company_id,
+            extra=f"session={session_id}",
+        )

@@ -1,7 +1,8 @@
-"""Centralized critical alerting via WhatsApp (Evolution API).
+"""Centralized critical alerting via WhatsApp (Evolution API) + DB persistence.
 
 Fire-and-forget alerts that NEVER raise exceptions or block the caller.
 Uses in-memory rate limiting (no Redis dependency) to prevent alert storms.
+All alerts are also persisted to the error_logs table for history/search.
 """
 
 import asyncio
@@ -65,6 +66,52 @@ def _format_message(
     return "\n".join(lines)
 
 
+async def _persist_error_log(
+    error_type: str,
+    location: str,
+    error: str,
+    contact_id: int | str | None = None,
+    company_id: int | str | None = None,
+    extra: str | None = None,
+) -> None:
+    """Persist error to DB. Never raises — failures only logged."""
+    try:
+        from app.db.database import AsyncSessionLocal
+        from app.repositories.error_log import ErrorLogRepository
+
+        # Determine severity from error_type
+        critical_types = {
+            "DATABASE_CONNECTION_FAILED", "RABBITMQ_CONNECTION_FAILED",
+            "CONTEXT_BUILD_FAILED", "OPENAI_AUTH_ERROR",
+            "WEBHOOK_UNHANDLED_ERROR", "WEBHOOK_POOL_EXHAUSTION_MAX_RETRIES",
+            "WEBHOOK_RETRY_PUBLISH_FAILED",
+        }
+        warning_types = {
+            "OPENAI_EXTRA_CALL_FAILED", "META_FORWARD_TIMEOUT",
+        }
+
+        if error_type in critical_types:
+            severity = "critical"
+        elif error_type in warning_types:
+            severity = "warning"
+        else:
+            severity = "error"
+
+        async with AsyncSessionLocal() as session:
+            repo = ErrorLogRepository(session)
+            await repo.create(
+                error_type=error_type,
+                location=location,
+                error_message=str(error),
+                severity=severity,
+                company_id=int(company_id) if company_id is not None else None,
+                contact_id=str(contact_id) if contact_id is not None else None,
+                extra={"info": extra} if extra else None,
+            )
+    except Exception as exc:
+        logger.warning("[Alerter] Failed to persist error log to DB: %s", exc)
+
+
 async def _send_alert(text: str) -> None:
     """Send a WhatsApp message via Evolution API. Never raises."""
     url = (
@@ -112,6 +159,18 @@ def send_critical_alert(
         extra: Optional extra info
     """
     try:
+        # Always persist to DB (independent of WhatsApp rate limiting)
+        asyncio.create_task(
+            _persist_error_log(
+                error_type=error_type,
+                location=location,
+                error=str(error),
+                contact_id=contact_id,
+                company_id=company_id,
+                extra=extra,
+            )
+        )
+
         if not settings.alert_enabled:
             return
 
@@ -153,6 +212,16 @@ async def send_critical_alert_sync(
     Same as send_critical_alert but awaits the HTTP call directly.
     """
     try:
+        # Always persist to DB (independent of WhatsApp rate limiting)
+        await _persist_error_log(
+            error_type=error_type,
+            location=location,
+            error=str(error),
+            contact_id=contact_id,
+            company_id=company_id,
+            extra=extra,
+        )
+
         if not settings.alert_enabled:
             return
 

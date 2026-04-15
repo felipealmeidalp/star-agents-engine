@@ -484,8 +484,15 @@ class ChatHandler:
         if any(not r.success for r in results):
             try:
                 await self.db.rollback()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("[ChatHandler] Defensive rollback failed: %s", e)
+                send_critical_alert(
+                    "DB_DEFENSIVE_ROLLBACK_FAILED",
+                    "chat_handler.py:_handle_tool_calls",
+                    e,
+                    company_id=company_id,
+                    extra=f"session={session_id}",
+                )
 
         # 4. Save tool results
         if self.conversation_turn:

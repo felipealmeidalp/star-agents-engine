@@ -9,6 +9,7 @@ from aio_pika.abc import AbstractRobustChannel
 from app.config import settings
 from app.rabbitmq.connection import get_rabbitmq_channel
 from app.rabbitmq.schemas import WebhookRetryMessage
+from app.utils.alerter import send_critical_alert
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +95,13 @@ class WebhookRetryPublisher:
             )
         except Exception as e:
             logger.error(f"[WebhookRetry] Failed to publish retry: {e}")
+            send_critical_alert(
+                "RABBITMQ_PUBLISH_WEBHOOK_RETRY_FAILED",
+                "webhook_retry_publisher.py:publish_webhook_retry",
+                e,
+                contact_id=sender_id,
+                extra=f"retry_count={retry_count}",
+            )
             raise
 
 

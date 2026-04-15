@@ -12,6 +12,7 @@ from app.models.tables import Agent
 from app.repositories.company import CompanyRepository
 from app.repositories.customer import CustomerRepository
 from app.services.tool_handler import BaseTool
+from app.utils.alerter import send_critical_alert
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +158,14 @@ class TransferToHumanTool(BaseTool):
                 customer.cw_conversation_id,
                 str(e),
             )
+            send_critical_alert(
+                "TRANSFER_CHATWOOT_OPS_FAILED",
+                "transfer.py:execute",
+                e,
+                company_id=context.company_id,
+                contact_id=customer.cw_contact_id,
+                extra=f"session={context.session_id}, conversation={customer.cw_conversation_id}",
+            )
 
         return ToolResult(
             tool_call_id="",
@@ -206,5 +215,11 @@ class TransferToHumanTool(BaseTool):
                 "[TransferToHuman] Failed to get team members for team %d: %s",
                 team_id,
                 str(e),
+            )
+            send_critical_alert(
+                "TRANSFER_TEAM_MEMBERS_FAILED",
+                "transfer.py:_pick_human_assignee",
+                e,
+                extra=f"team_id={team_id}",
             )
             return None

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.config import settings
 from app.models.schemas import ToolCall, ToolExecutionContext, ToolResult
+from app.utils.alerter import send_critical_alert
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +122,13 @@ class ToolHandler:
             return result
 
         except TimeoutError:
+            send_critical_alert(
+                "TOOL_EXECUTION_TIMEOUT",
+                "tool_handler.py:_execute_with_timeout",
+                f"Tool '{tool_call.function.name}' timeout after {self.timeout}s",
+                company_id=context.company_id,
+                extra=f"session={context.session_id}, tool={tool_call.function.name}",
+            )
             return ToolResult(
                 tool_call_id=tool_call.id,
                 tool_name=tool_call.function.name,
@@ -130,6 +138,13 @@ class ToolHandler:
             )
 
         except Exception as e:
+            send_critical_alert(
+                "TOOL_EXECUTION_ERROR",
+                "tool_handler.py:_execute_with_timeout",
+                e,
+                company_id=context.company_id,
+                extra=f"session={context.session_id}, tool={tool_call.function.name}",
+            )
             return ToolResult(
                 tool_call_id=tool_call.id,
                 tool_name=tool_call.function.name,

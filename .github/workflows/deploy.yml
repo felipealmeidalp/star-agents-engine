@@ -1,0 +1,84 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    # Ignora commits de auto-increment do VERSION
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout com histórico pra comparar VERSION
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # 2. Detectar versão (manual ou auto-increment)
+      - name: Determine version
+        id: version
+        run: |
+          CURRENT_VERSION=$(cat VERSION)
+
+          # Verifica se VERSION foi alterado neste commit
+          if git diff HEAD~1 --name-only | grep -q '^VERSION$'; then
+            echo "VERSION foi alterado manualmente"
+            VERSION="$CURRENT_VERSION"
+            echo "auto_incremented=false" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION não foi alterado, auto-incrementando patch"
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+            PATCH=$((PATCH + 1))
+            VERSION="${MAJOR}.${MINOR}.${PATCH}"
+            echo "$VERSION" > VERSION
+            echo "auto_incremented=true" >> $GITHUB_OUTPUT
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Versão: v$VERSION"
+
+      # 3. Login no Docker Hub
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # 4. Setup Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 5. Build e Push da imagem
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64
+          tags: |
+            felipperson/star-agents-engine:latest
+            felipperson/star-agents-engine:v${{ steps.version.outputs.version }}
+
+      # 6. Commit VERSION atualizado (só se foi auto-increment)
+      - name: Commit updated VERSION
+        if: steps.version.outputs.auto_incremented == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add VERSION
+          git commit -m "chore: bump version to ${{ steps.version.outputs.version }} [skip ci]"
+          git push
+
+      # 7. Trigger redeploy no Portainer
+      - name: Trigger Portainer webhook
+        run: |
+          curl -X POST "${{ secrets.PORTAINER_WEBHOOK_URL }}" \
+            --fail \
+            --silent \
+            --show-error \
+            --max-time 30
+          echo "Redeploy triggerado com sucesso"

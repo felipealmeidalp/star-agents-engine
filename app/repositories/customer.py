@@ -362,6 +362,56 @@ class CustomerRepository:
                 return existing_contact, False
             raise
 
+    async def get_or_create_api_customer(
+        self,
+        session_id: str,
+        company_id: int,
+        agent_id: int,
+        sub_agent_id: int,
+        customer_context: dict[str, Any] | None = None,
+    ) -> tuple[Customer, bool]:
+        """
+        Get or create a customer from the API (without Chatwoot).
+
+        Args:
+            session_id: Unique session identifier
+            company_id: Company ID for multi-tenancy
+            agent_id: Agent ID to assign
+            sub_agent_id: Sub-agent ID to assign
+            customer_context: Optional JSON context data
+
+        Returns:
+            Tuple (Customer, is_new: bool)
+        """
+        existing = await self.get_by_session(session_id, company_id)
+        if existing:
+            return existing, False
+
+        try:
+            customer = Customer(
+                company_id=company_id,
+                sessionId=session_id,
+                agent_id=agent_id,
+                sub_agent_id=sub_agent_id,
+                customer_context=customer_context,
+                follow_up=0,
+            )
+            self.db.add(customer)
+            await self.db.commit()
+            await self.db.refresh(customer)
+            return customer, True
+        except IntegrityError:
+            await self.db.rollback()
+            logger.warning(
+                "[CustomerRepository] Race condition detectada para "
+                "session_id=%s, buscando registro vencedor",
+                session_id,
+            )
+            existing = await self.get_by_session(session_id, company_id)
+            if existing:
+                return existing, False
+            raise
+
     async def update_follow_up_on_message(
         self,
         cw_contact_id: int,

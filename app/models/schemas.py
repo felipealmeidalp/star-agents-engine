@@ -24,6 +24,22 @@ class ReprocessRequest(BaseModel):
     customer_id: int = Field(..., description="Customer ID to reprocess")
 
 
+class VoeChatRequest(BaseModel):
+    """Request schema for POST /voe/chat endpoint."""
+
+    session_id: str = Field(..., min_length=1, max_length=100, description="Unique session identifier")
+    message: str = Field(..., min_length=1, max_length=10000, description="User message content")
+
+
+class VoeCreateCustomerRequest(BaseModel):
+    """Request schema for POST /voe/create_customer endpoint."""
+
+    session_id: str = Field(..., min_length=1, max_length=100, description="Unique session identifier")
+    customer_context: dict[str, Any] | None = Field(
+        None, description="Optional JSON object with customer context data"
+    )
+
+
 # =============================================================================
 # Agent Context Schemas
 # =============================================================================

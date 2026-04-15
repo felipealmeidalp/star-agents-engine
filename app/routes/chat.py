@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.chatwoot.client import ChatwootClient
 from app.db.database import AsyncSessionLocal, get_db
+from app.dependencies import verify_api_key
 from app.exceptions import (
     MaxIterationsExceededError,
     OpenAIAuthenticationError,
@@ -28,6 +29,7 @@ router = APIRouter()
 @router.post("/chat")
 async def chat(
     request: ChatRequest,
+    _api_key: str = Depends(verify_api_key),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """
@@ -89,6 +91,7 @@ async def chat(
 @router.post("/chat/reprocess")
 async def reprocess(
     request: ReprocessRequest,
+    _api_key: str = Depends(verify_api_key),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """

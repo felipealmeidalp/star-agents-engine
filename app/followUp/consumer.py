@@ -61,7 +61,15 @@ async def on_follow_up_message(message: AbstractIncomingMessage) -> None:
                     )
                     return
 
-                # 2. VALIDAÇÃO 1: last_message (comparação exata com microsegundos)
+                # 2. VALIDAÇÃO 0: status do customer (IA desativada = atendimento humano)
+                if customer.status is False:
+                    logger.info(
+                        f"[FollowUp Consumer] Customer {customer_id} has status=False "
+                        "(AI disabled, human support active), discarding follow-up"
+                    )
+                    return
+
+                # 3. VALIDAÇÃO 1: last_message (comparação exata com microsegundos)
                 event_last_message = datetime.fromisoformat(
                     last_message_str.replace("Z", "+00:00")
                 )

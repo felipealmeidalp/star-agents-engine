@@ -334,6 +334,10 @@ class Customer(Base):
     customer_context: Mapped[Optional[Dict[str, Any]]] = mapped_column(
         JSON, nullable=True, default=None
     )
+    # Extra customer metadata (JSONB, gêmea de customer_context mas NÃO entra no contexto do agente)
+    custom_information: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSON, nullable=True, default=None
+    )
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP, default=datetime.utcnow, nullable=False
     )

@@ -41,6 +41,13 @@ async def create_customer(
     """
     customer_repo = CustomerRepository(db)
 
+    custom_information = {
+        "user_id": request.user_id,
+        "bar_event_id": request.bar_event_id,
+        "ticket_event_id": request.ticket_event_id,
+        "enterprise_id": request.enterprise_id,
+    }
+
     try:
         customer, is_new = await customer_repo.get_or_create_api_customer(
             session_id=request.session_id,
@@ -48,6 +55,7 @@ async def create_customer(
             agent_id=VOE_AGENT_ID,
             sub_agent_id=VOE_SUB_AGENT_ID,
             customer_context=request.customer_context,
+            custom_information=custom_information,
         )
     except Exception:
         logger.exception("[VOE] Failed to create customer session_id=%s", request.session_id)

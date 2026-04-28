@@ -369,6 +369,7 @@ class CustomerRepository:
         agent_id: int,
         sub_agent_id: int,
         customer_context: dict[str, Any] | None = None,
+        custom_information: dict[str, Any] | None = None,
     ) -> tuple[Customer, bool]:
         """
         Get or create a customer from the API (without Chatwoot).
@@ -378,7 +379,8 @@ class CustomerRepository:
             company_id: Company ID for multi-tenancy
             agent_id: Agent ID to assign
             sub_agent_id: Sub-agent ID to assign
-            customer_context: Optional JSON context data
+            customer_context: Optional JSON context data (loaded into agent context)
+            custom_information: Optional JSON metadata (NOT loaded into agent context)
 
         Returns:
             Tuple (Customer, is_new: bool)
@@ -394,6 +396,7 @@ class CustomerRepository:
                 agent_id=agent_id,
                 sub_agent_id=sub_agent_id,
                 customer_context=customer_context,
+                custom_information=custom_information,
                 follow_up=0,
             )
             self.db.add(customer)

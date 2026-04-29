@@ -42,10 +42,14 @@ async def create_customer(
     customer_repo = CustomerRepository(db)
 
     custom_information = {
-        "user_id": request.user_id,
-        "bar_event_id": request.bar_event_id,
-        "ticket_event_id": request.ticket_event_id,
-        "enterprise_id": request.enterprise_id,
+        k: v
+        for k, v in {
+            "user_id": request.user_id,
+            "bar_event_id": request.bar_event_id,
+            "ticket_event_id": request.ticket_event_id,
+            "enterprise_id": request.enterprise_id,
+        }.items()
+        if v is not None
     }
 
     try:

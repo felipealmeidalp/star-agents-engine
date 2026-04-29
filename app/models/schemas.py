@@ -36,8 +36,8 @@ class VoeCreateCustomerRequest(BaseModel):
 
     session_id: str = Field(..., min_length=1, max_length=100, description="Unique session identifier")
     user_id: str = Field(..., min_length=1, description="VOE user identifier")
-    bar_event_id: str = Field(..., min_length=1, description="VOE bar event identifier")
-    ticket_event_id: str = Field(..., min_length=1, description="VOE ticket event identifier")
+    bar_event_id: str | None = Field(None, description="VOE bar event identifier")
+    ticket_event_id: str | None = Field(None, description="VOE ticket event identifier")
     enterprise_id: str = Field(..., min_length=1, description="VOE enterprise identifier")
     customer_context: dict[str, Any] | None = Field(
         None, description="Optional JSON object with customer context data"

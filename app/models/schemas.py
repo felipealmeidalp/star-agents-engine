@@ -44,6 +44,12 @@ class VoeCreateCustomerRequest(BaseModel):
     )
 
 
+class VoeGetCustomerRequest(BaseModel):
+    """Request schema for POST /voe/get_customer endpoint."""
+
+    customer_id: int = Field(..., description="Customer ID (primary key)")
+
+
 # =============================================================================
 # Agent Context Schemas
 # =============================================================================

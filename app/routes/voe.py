@@ -14,7 +14,7 @@ from app.exceptions import (
     OpenAIRateLimitError,
     OpenAITimeoutError,
 )
-from app.models.schemas import VoeChatRequest, VoeCreateCustomerRequest
+from app.models.schemas import VoeChatRequest, VoeCreateCustomerRequest, VoeGetCustomerRequest
 from app.repositories.customer import CustomerRepository
 from app.services.chat_processor import process_chat
 
@@ -76,6 +76,38 @@ async def create_customer(
         "sub_agent_id": customer.sub_agent_id,
         "is_new": is_new,
     }
+
+
+@router.post("/voe/get_customer")
+async def get_customer(
+    request: VoeGetCustomerRequest,
+    _api_key: str = Depends(verify_api_key),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Retorna o JSON `custom_information` do customer diretamente no body.
+
+    Busca o customer pelo `customer_id` (primary key, único) e retorna o conteúdo
+    bruto da coluna `custom_information`. Sem validação do shape do JSON.
+    """
+    customer_repo = CustomerRepository(db)
+
+    try:
+        customer = await customer_repo.get_by_id(request.customer_id)
+    except Exception:
+        logger.exception("[VOE] Failed to get customer customer_id=%s", request.customer_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get customer",
+        )
+
+    if customer is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Customer not found",
+        )
+
+    return customer.custom_information or {}
 
 
 @router.post("/voe/chat")

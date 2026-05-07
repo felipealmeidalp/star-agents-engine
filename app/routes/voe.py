@@ -34,14 +34,17 @@ async def create_customer(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """
-    Create a customer for VOE popup chat.
+    Create or update a customer for VOE popup chat (smart merge).
 
-    Uses hardcoded company/agent/sub-agent IDs for VOE.
-    If a customer with the same session_id already exists, returns it.
+    On a brand-new session_id, falls back to the hardcoded VOE defaults for
+    agent/sub-agent. On an existing session_id, only fields explicitly sent
+    in the request are updated; missing fields are preserved. The
+    custom_information JSON is shallow-merged (request keys override existing
+    keys; absent keys are kept).
     """
     customer_repo = CustomerRepository(db)
 
-    custom_information = {
+    custom_information_patch = {
         k: v
         for k, v in {
             "user_id": request.user_id,
@@ -53,13 +56,15 @@ async def create_customer(
     }
 
     try:
-        customer, is_new = await customer_repo.get_or_create_api_customer(
+        customer, is_new = await customer_repo.upsert_api_customer(
             session_id=request.session_id,
             company_id=VOE_COMPANY_ID,
-            agent_id=VOE_AGENT_ID,
-            sub_agent_id=VOE_SUB_AGENT_ID,
+            agent_id=request.agent_id,
+            sub_agent_id=request.sub_agent_id,
+            fallback_agent_id=VOE_AGENT_ID,
+            fallback_sub_agent_id=VOE_SUB_AGENT_ID,
             customer_context=request.customer_context,
-            custom_information=custom_information,
+            custom_information_patch=custom_information_patch,
         )
     except Exception:
         logger.exception("[VOE] Failed to create customer session_id=%s", request.session_id)

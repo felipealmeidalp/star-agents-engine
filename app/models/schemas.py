@@ -39,6 +39,13 @@ class VoeCreateCustomerRequest(BaseModel):
     bar_event_id: str | None = Field(None, description="VOE bar event identifier")
     ticket_event_id: str | None = Field(None, description="VOE ticket event identifier")
     enterprise_id: str = Field(..., min_length=1, description="VOE enterprise identifier")
+    agent_id: int | None = Field(
+        None, description="Override default VOE agent_id; falls back to hardcoded default if omitted"
+    )
+    sub_agent_id: int | None = Field(
+        None,
+        description="Override default VOE sub_agent_id; falls back to hardcoded default if omitted",
+    )
     customer_context: dict[str, Any] | None = Field(
         None, description="Optional JSON object with customer context data"
     )

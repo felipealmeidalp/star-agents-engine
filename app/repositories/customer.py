@@ -362,41 +362,63 @@ class CustomerRepository:
                 return existing_contact, False
             raise
 
-    async def get_or_create_api_customer(
+    async def upsert_api_customer(
         self,
         session_id: str,
         company_id: int,
-        agent_id: int,
-        sub_agent_id: int,
+        agent_id: int | None,
+        sub_agent_id: int | None,
+        fallback_agent_id: int,
+        fallback_sub_agent_id: int,
         customer_context: dict[str, Any] | None = None,
-        custom_information: dict[str, Any] | None = None,
+        custom_information_patch: dict[str, Any] | None = None,
     ) -> tuple[Customer, bool]:
         """
-        Get or create a customer from the API (without Chatwoot).
+        Upsert a customer from the API (without Chatwoot) with smart merge.
+
+        On existing customer: only fields explicitly provided are updated.
+        - agent_id / sub_agent_id: updated only if not None.
+        - customer_context: fully replaced when not None; preserved otherwise.
+        - custom_information_patch: shallow-merged into existing (request keys
+          override existing keys; missing keys are preserved).
+
+        On new customer: uses provided agent_id/sub_agent_id, falling back to
+        fallback_*_id when not provided. customer_context and the patch are
+        used as-is for the initial row.
 
         Args:
             session_id: Unique session identifier
             company_id: Company ID for multi-tenancy
-            agent_id: Agent ID to assign
-            sub_agent_id: Sub-agent ID to assign
+            agent_id: Agent ID from request (None = preserve / use fallback)
+            sub_agent_id: Sub-agent ID from request (None = preserve / use fallback)
+            fallback_agent_id: Default agent_id used only when creating
+            fallback_sub_agent_id: Default sub_agent_id used only when creating
             customer_context: Optional JSON context data (loaded into agent context)
-            custom_information: Optional JSON metadata (NOT loaded into agent context)
+            custom_information_patch: Optional JSON metadata to merge into existing
 
         Returns:
             Tuple (Customer, is_new: bool)
         """
         existing = await self.get_by_session(session_id, company_id)
         if existing:
-            return existing, False
+            return await self._patch_api_customer(
+                existing,
+                agent_id=agent_id,
+                sub_agent_id=sub_agent_id,
+                customer_context=customer_context,
+                custom_information_patch=custom_information_patch,
+            )
 
         try:
             customer = Customer(
                 company_id=company_id,
                 sessionId=session_id,
-                agent_id=agent_id,
-                sub_agent_id=sub_agent_id,
+                agent_id=agent_id if agent_id is not None else fallback_agent_id,
+                sub_agent_id=(
+                    sub_agent_id if sub_agent_id is not None else fallback_sub_agent_id
+                ),
                 customer_context=customer_context,
-                custom_information=custom_information,
+                custom_information=custom_information_patch or None,
                 follow_up=0,
             )
             self.db.add(customer)
@@ -407,13 +429,43 @@ class CustomerRepository:
             await self.db.rollback()
             logger.warning(
                 "[CustomerRepository] Race condition detectada para "
-                "session_id=%s, buscando registro vencedor",
+                "session_id=%s, atualizando registro vencedor",
                 session_id,
             )
             existing = await self.get_by_session(session_id, company_id)
             if existing:
-                return existing, False
+                return await self._patch_api_customer(
+                    existing,
+                    agent_id=agent_id,
+                    sub_agent_id=sub_agent_id,
+                    customer_context=customer_context,
+                    custom_information_patch=custom_information_patch,
+                )
             raise
+
+    async def _patch_api_customer(
+        self,
+        customer: Customer,
+        agent_id: int | None,
+        sub_agent_id: int | None,
+        customer_context: dict[str, Any] | None,
+        custom_information_patch: dict[str, Any] | None,
+    ) -> tuple[Customer, bool]:
+        """Apply a partial update (smart merge) to an existing API customer."""
+        if agent_id is not None:
+            customer.agent_id = agent_id
+        if sub_agent_id is not None:
+            customer.sub_agent_id = sub_agent_id
+        if customer_context is not None:
+            customer.customer_context = customer_context
+        if custom_information_patch:
+            customer.custom_information = {
+                **(customer.custom_information or {}),
+                **custom_information_patch,
+            }
+        await self.db.commit()
+        await self.db.refresh(customer)
+        return customer, False
 
     async def update_follow_up_on_message(
         self,

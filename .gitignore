@@ -84,3 +84,5 @@ docker-compose.yml
 .dockerignore
 
 tasks
+# Saída do /graphify (knowledge graph local, não versionar)
+graphify-out/

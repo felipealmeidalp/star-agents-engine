@@ -32,6 +32,8 @@ async def process_chat(
     db: AsyncSession,
     on_send_messages: MessageSenderCallback | None = None,
     on_send_private_notes: MessageSenderCallback | None = None,
+    model: str | None = None,
+    reasoning_effort: str | None = None,
 ) -> dict[str, Any]:
     """
     Process a chat message through the full orchestration pipeline (legacy).
@@ -45,6 +47,10 @@ async def process_chat(
         company_id: Company ID for multi-tenancy isolation.
         db: Async database session.
         on_send_messages: Optional callback to send messages to the lead.
+        on_send_private_notes: Optional callback to send tool results as private notes.
+        model: Optional model overriding the sub-agent's configured model.
+        reasoning_effort: Optional reasoning effort override (none, low, medium,
+            high, xhigh). Not validated locally - OpenAI rejects unsupported values.
 
     Returns:
         Dict with the assistant's response.
@@ -80,6 +86,8 @@ async def process_chat(
         openai_api_key=api_key,
         on_send_messages=on_send_messages,
         on_send_private_notes=on_send_private_notes,
+        model_override=model,
+        reasoning_effort_override=reasoning_effort,
     )
 
     return await handler.process(

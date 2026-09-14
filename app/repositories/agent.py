@@ -74,6 +74,7 @@ class AgentRepository:
                     )
                     FROM tools t
                     WHERE t.title = ANY(sa.tools)
+                      AND t.company_id = sa.company_id
                 )
             ) AS full_context
             FROM customers c

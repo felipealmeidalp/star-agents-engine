@@ -1,8 +1,10 @@
 name: Build and Deploy
 
+# Desativado: o deploy passou a ser build na VPS a partir do pacote enviado por
+# FTP (docker build + docker stack deploy), sem Docker Hub. Mantido como
+# workflow_dispatch para poder ser disparado manualmente se o fluxo voltar.
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write

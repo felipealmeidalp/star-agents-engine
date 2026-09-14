@@ -1,5 +1,6 @@
 """Repository for chat history operations."""
 
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import delete, select, text
@@ -378,3 +379,89 @@ class ChatHistoryRepository:
         )
         await self.db.commit()
         return result.rowcount
+
+    async def list_conversations(
+        self,
+        company_id: int,
+        limit: int = 50,
+        cursor: str | None = None,
+    ) -> tuple[list[dict[str, Any]], str | None]:
+        """
+        List sessions for a company, most recently active first.
+
+        Args:
+            company_id: Company ID for multi-tenancy
+            limit: Max items to return
+            cursor: ISO timestamp from a previous page's next_cursor
+
+        Returns:
+            Tuple of (items, next_cursor). next_cursor is None on the last page.
+        """
+        query = text("""
+            SELECT DISTINCT ON (ch."sessionId")
+                   ch."sessionId" AS session_id,
+                   ch.content AS preview,
+                   ch.role AS preview_role,
+                   ch.created_at AS last_message_at,
+                   c.name AS customer_name,
+                   c.customer_context
+            FROM chat_history ch
+            JOIN customers c
+              ON c."sessionId" = ch."sessionId"
+             AND c.company_id = ch.company_id
+             AND c.deleted_at IS NULL
+            WHERE ch.company_id = :company_id
+              AND ch.role IN ('user', 'assistant')
+              AND ch.content IS NOT NULL
+            ORDER BY ch."sessionId", ch.created_at DESC, ch.id DESC
+        """)
+        result = await self.db.execute(query, {"company_id": company_id})
+        rows = [dict(r._mapping) for r in result.fetchall()]
+
+        # ponytail: ordenação/paginação em memória — DISTINCT ON exige ordenar por
+        # sessionId primeiro. Vira window function se passar de ~alguns milhares de sessões.
+        rows.sort(key=lambda r: r["last_message_at"], reverse=True)
+        if cursor:
+            # Compara datetime, não string: o mesmo instante serializa como "Z"
+            # ou "+00:00" dependendo da origem, e a ordem ASCII dos dois difere.
+            after = datetime.fromisoformat(cursor)
+            rows = [r for r in rows if r["last_message_at"] < after]
+
+        page = rows[:limit]
+        next_cursor = (
+            page[-1]["last_message_at"].isoformat() if len(rows) > limit else None
+        )
+        return page, next_cursor
+
+    async def list_messages(
+        self,
+        session_id: str,
+        company_id: int,
+    ) -> list[dict[str, Any]]:
+        """
+        Fetch the full visible history of a session, oldest first.
+
+        Only user/assistant messages with content — tool calls and dev
+        commands are internal and never rendered by a client.
+        """
+        result = await self.db.execute(
+            select(ChatHistory)
+            .where(
+                ChatHistory.sessionId == session_id,
+                ChatHistory.company_id == company_id,
+                ChatHistory.role.in_(("user", "assistant")),
+                ChatHistory.content.isnot(None),
+            )
+            .order_by(ChatHistory.created_at.asc(), ChatHistory.id.asc())
+        )
+        return [
+            {
+                "id": str(m.id),
+                "role": m.role,
+                "content": m.content,
+                "fragments": m.content.split("\n") if m.role == "assistant" else None,
+                "is_human": m.isHuman,
+                "created_at": m.created_at,
+            }
+            for m in result.scalars().all()
+        ]

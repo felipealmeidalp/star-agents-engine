@@ -16,6 +16,41 @@ class ChatRequest(BaseModel):
     session_id: str = Field(..., description="Unique session identifier")
     message: str = Field(..., description="User message content")
     company_id: int = Field(..., description="Company ID for multi-tenancy")
+    model: str | None = Field(
+        None, description="Override the sub-agent's model; falls back to sub-agent config if omitted"
+    )
+    reasoning_effort: str | None = Field(
+        None,
+        description=(
+            "Override the reasoning effort: none, low, medium, high, xhigh. "
+            "Not validated locally - OpenAI rejects unsupported values."
+        ),
+    )
+    debug: bool = Field(
+        False,
+        description="Include _tool_calls (name, arguments, iteration) in the response.",
+    )
+
+
+class CreateSessionRequest(BaseModel):
+    """Request schema for POST /session endpoint."""
+
+    session_id: str = Field(..., min_length=1, max_length=100, description="Unique session identifier")
+    company_id: int = Field(..., description="Company ID for multi-tenancy")
+    agent_id: int | None = Field(
+        None,
+        description="Override the company's standard_agent_id; falls back to it if omitted",
+    )
+    sub_agent_id: int | None = Field(
+        None,
+        description="Override the company's standard_sub_agent_id; falls back to it if omitted",
+    )
+    customer_context: dict[str, Any] | None = Field(
+        None, description="Optional JSON object with customer context data"
+    )
+    custom_information: dict[str, Any] | None = Field(
+        None, description="Optional JSON metadata shallow-merged into an existing session"
+    )
 
 
 class ReprocessRequest(BaseModel):
@@ -174,7 +209,7 @@ class OpenAIPayload(BaseModel):
     """Complete payload for OpenAI API."""
 
     model: str
-    temperature: float
+    reasoning_effort: str | None = None
     messages: list[OpenAIMessage]
     tools: list[dict[str, Any]] | None = None
     response_format: dict[str, Any] | None = None

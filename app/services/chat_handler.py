@@ -46,6 +46,8 @@ class ChatHandler:
         on_send_messages: MessageSenderCallback | None = None,
         on_send_private_notes: MessageSenderCallback | None = None,
         conversation_turn: ConversationTurn | None = None,
+        model_override: str | None = None,
+        reasoning_effort_override: str | None = None,
     ) -> None:
         """
         Initialize the chat handler.
@@ -60,6 +62,8 @@ class ChatHandler:
             on_send_messages: Optional callback to send messages to the lead
             on_send_private_notes: Optional callback to send tool results as private notes
             conversation_turn: Optional ConversationTurn for in-memory accumulation
+            model_override: Optional model overriding the sub-agent's configured model
+            reasoning_effort_override: Optional reasoning effort overriding the default
         """
         self.context_builder = context_builder
         self.openai_service = openai_service
@@ -68,8 +72,11 @@ class ChatHandler:
         self.db = db
         self.openai_api_key = openai_api_key
         self.on_send_messages = on_send_messages
+        self.tool_calls_log: list[dict[str, Any]] = []
         self.on_send_private_notes = on_send_private_notes
         self.conversation_turn = conversation_turn
+        self.model_override = model_override
+        self.reasoning_effort_override = reasoning_effort_override
 
     async def process(
         self,
@@ -102,6 +109,8 @@ class ChatHandler:
         """
         iteration = 0
         cached_context: AgentContext | None = None
+        # Tool calls desta requisicao, para inspecao via debug (evals)
+        self.tool_calls_log: list[dict[str, Any]] = []
 
         logger.info(
             "[ChatHandler] ========== NOVA REQUISIÇÃO ========== "
@@ -147,6 +156,8 @@ class ChatHandler:
                 cached_context=cached_context,
                 pending_messages=pending,
                 dev_mode=self.conversation_turn.dev_mode if self.conversation_turn else False,
+                model_override=self.model_override,
+                reasoning_effort_override=self.reasoning_effort_override,
             )
 
             # Cache context for subsequent iterations
@@ -180,7 +191,7 @@ class ChatHandler:
                 ]
                 fallback_payload = OpenAIPayload(
                     model=payload.model,
-                    temperature=payload.temperature,
+                    reasoning_effort=payload.reasoning_effort,
                     messages=clean_messages,
                     tools=None,
                     response_format=payload.response_format,
@@ -215,6 +226,14 @@ class ChatHandler:
                 tool_names,
                 raw_content,
             )
+            for tc in self.openai_service.get_tool_calls(response) or []:
+                self.tool_calls_log.append(
+                    {
+                        "iteration": iteration + 1,
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments,
+                    }
+                )
 
             should_invalidate = await self._handle_tool_calls(
                 response=response,
@@ -299,7 +318,10 @@ class ChatHandler:
             )
 
         # Parse and return response
-        return self._parse_response(content)
+        parsed = self._parse_response(content)
+        if self.tool_calls_log:
+            parsed["_tool_calls"] = self.tool_calls_log
+        return parsed
 
     def _should_send_content_before_tools(
         self,
@@ -340,7 +362,7 @@ class ChatHandler:
 
         text_payload = OpenAIPayload(
             model=payload.model,
-            temperature=payload.temperature,
+            reasoning_effort=payload.reasoning_effort,
             messages=messages,
             tools=None,
             response_format=payload.response_format,

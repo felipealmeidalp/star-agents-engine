@@ -523,3 +523,17 @@ class Imbox(Base):
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), default=datetime.utcnow, nullable=False
     )
+
+
+class Category(Base):
+    """Categories table - catalog text loaded into context by the categories tool."""
+
+    __tablename__ = "categories"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    company_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("companies.id"))
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP, default=datetime.utcnow, nullable=False
+    )
+    updated_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP, nullable=True)

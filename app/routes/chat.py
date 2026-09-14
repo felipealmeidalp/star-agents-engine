@@ -12,13 +12,15 @@ from app.dependencies import verify_api_key
 from app.exceptions import (
     MaxIterationsExceededError,
     OpenAIAuthenticationError,
+    OpenAIBadRequestError,
     OpenAIError,
     OpenAIRateLimitError,
     OpenAITimeoutError,
 )
-from app.models.schemas import ChatRequest, ReprocessRequest
+from app.models.schemas import ChatRequest, CreateSessionRequest, ReprocessRequest
 from app.repositories.company import CompanyRepository
 from app.utils.alerter import send_critical_alert
+from app.repositories.chat_history import ChatHistoryRepository
 from app.repositories.customer import CustomerRepository
 from app.services.chat_processor import process_chat, reprocess_chat
 
@@ -37,19 +39,26 @@ async def chat(
     Process a chat message with full tool calling support.
 
     Args:
-        request: Chat request with session_id, message and company_id
+        request: Chat request with session_id, message, company_id and optional
+            model / reasoning_effort overrides
         db: Database session from dependency injection
 
     Returns:
         Dict with the assistant's final response
     """
     try:
-        return await process_chat(
+        result = await process_chat(
             session_id=request.session_id,
             message=request.message,
             company_id=request.company_id,
             db=db,
+            model=request.model,
+            reasoning_effort=request.reasoning_effort,
         )
+        # _tool_calls so sai quando pedido explicitamente (usado pelos evals)
+        if not request.debug:
+            result.pop("_tool_calls", None)
+        return result
 
     except MaxIterationsExceededError as e:
         raise HTTPException(
@@ -82,11 +91,99 @@ async def chat(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             detail=str(e),
         )
+    except OpenAIBadRequestError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
     except OpenAIError as e:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=str(e),
         )
+
+
+@router.post("/session")
+async def create_session(
+    request: CreateSessionRequest,
+    _api_key: str = Depends(verify_api_key),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Create or update a chat session for any company (smart merge, idempotent).
+
+    On a brand-new session_id, falls back to the company's standard_agent_id /
+    standard_sub_agent_id. On an existing session_id, only fields explicitly
+    sent in the request are updated; missing fields are preserved. The
+    custom_information JSON is shallow-merged (request keys override existing
+    keys; absent keys are kept).
+
+    Args:
+        request: Session request with session_id, company_id and optional
+            agent_id / sub_agent_id overrides and JSON payloads
+        db: Database session from dependency injection
+
+    Returns:
+        Dict with customer_id, session_id, company_id, agent_id, sub_agent_id
+        and is_new (False when an existing session was merged)
+    """
+    company_repo = CompanyRepository(db)
+    company = await company_repo.get_by_id(request.company_id)
+    if not company:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Company {request.company_id} not found",
+        )
+
+    # Fallbacks are only used when the request omits the override
+    if request.agent_id is None and not company.standard_agent_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Company {request.company_id} missing standard_agent_id — "
+                "configure it or send agent_id in the request"
+            ),
+        )
+    if request.sub_agent_id is None and not company.standard_sub_agent_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Company {request.company_id} missing standard_sub_agent_id — "
+                "configure it or send sub_agent_id in the request"
+            ),
+        )
+
+    customer_repo = CustomerRepository(db)
+    try:
+        customer, is_new = await customer_repo.upsert_api_customer(
+            session_id=request.session_id,
+            company_id=request.company_id,
+            agent_id=request.agent_id,
+            sub_agent_id=request.sub_agent_id,
+            fallback_agent_id=company.standard_agent_id,
+            fallback_sub_agent_id=company.standard_sub_agent_id,
+            customer_context=request.customer_context,
+            custom_information_patch=request.custom_information,
+        )
+    except Exception:
+        logger.exception(
+            "[CreateSession] Failed for session_id=%s, company=%s",
+            request.session_id,
+            request.company_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create session",
+        )
+
+    return {
+        "customer_id": customer.id,
+        "session_id": customer.sessionId,
+        "company_id": customer.company_id,
+        "agent_id": customer.agent_id,
+        "sub_agent_id": customer.sub_agent_id,
+        "is_new": is_new,
+    }
 
 
 @router.post("/chat/reprocess")
@@ -215,3 +312,60 @@ async def _reprocess_background(
             company_id=company_id,
             extra=f"session={session_id}",
         )
+
+
+@router.get("/conversations")
+async def list_conversations(
+    company_id: int,
+    limit: int = 50,
+    cursor: str | None = None,
+    _api_key: str = Depends(verify_api_key),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    List a company's chat sessions, most recently active first.
+
+    Args:
+        company_id: Company ID for multi-tenancy
+        limit: Max sessions per page (default 50)
+        cursor: next_cursor from a previous page
+
+    Returns:
+        Dict with items and next_cursor (None on the last page)
+    """
+    repo = ChatHistoryRepository(db)
+    items, next_cursor = await repo.list_conversations(
+        company_id=company_id, limit=limit, cursor=cursor
+    )
+    return {"items": items, "next_cursor": next_cursor}
+
+
+@router.get("/conversations/{session_id}/messages")
+async def list_messages(
+    session_id: str,
+    company_id: int,
+    _api_key: str = Depends(verify_api_key),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Fetch a session's full visible history, oldest first.
+
+    Args:
+        session_id: The session identifier
+        company_id: Company ID for multi-tenancy
+
+    Returns:
+        Dict with messages (empty list if the session has no history)
+
+    Raises:
+        HTTPException: 404 if the session does not exist for this company
+    """
+    customer_repo = CustomerRepository(db)
+    if not await customer_repo.get_by_session(session_id, company_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Session '{session_id}' not found for company {company_id}",
+        )
+
+    repo = ChatHistoryRepository(db)
+    return {"messages": await repo.list_messages(session_id, company_id)}

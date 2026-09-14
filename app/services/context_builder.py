@@ -75,6 +75,8 @@ class ContextBuilder:
         cached_context: AgentContext | None = None,
         pending_messages: list[OpenAIMessage] | None = None,
         dev_mode: bool = False,
+        model_override: str | None = None,
+        reasoning_effort_override: str | None = None,
     ) -> OpenAIPayload:
         """
         Build complete OpenAI payload.
@@ -91,6 +93,9 @@ class ContextBuilder:
             company_id: Company ID for multi-tenancy
             cached_context: Optional cached AgentContext to skip database fetch
             pending_messages: Optional in-memory messages to append after DB history
+            model_override: Optional model from the request; wins over variable prompt and sub-agent
+            reasoning_effort_override: Optional reasoning effort from the request; omitted from
+                the payload when None
 
         Returns:
             OpenAIPayload ready to send to OpenAI API
@@ -104,6 +109,8 @@ class ContextBuilder:
                 cached_context=cached_context,
                 pending_messages=pending_messages,
                 dev_mode=dev_mode,
+                model_override=model_override,
+                reasoning_effort_override=reasoning_effort_override,
             )
         except Exception as e:
             logger.exception("[ContextBuilder] Failed to build context: %s", e)
@@ -123,6 +130,8 @@ class ContextBuilder:
         cached_context: AgentContext | None = None,
         pending_messages: list[OpenAIMessage] | None = None,
         dev_mode: bool = False,
+        model_override: str | None = None,
+        reasoning_effort_override: str | None = None,
     ) -> OpenAIPayload:
         """Internal build logic, separated for clean error handling."""
         # 1. Use cached context if available, otherwise fetch from DB
@@ -184,17 +193,20 @@ class ContextBuilder:
         # 7. Get response format if needed
         response_format = self._get_response_format(context.agent.output_type)
 
-        # 8. Build payload (use variable prompt model/temp if available)
-        if variable_prompt:
+        # 8. Build payload: request override > variable prompt > sub-agent > default
+        if model_override:
+            model = model_override
+        elif variable_prompt:
             model = variable_prompt.model
-            temperature = variable_prompt.temperature
         else:
             model = context.sub_agent.model or "gpt-4"
-            temperature = context.sub_agent.temperature or 0.7
+
+        # Only send effort when the request asked for it: gpt-4.x rejects reasoning.effort
+        reasoning_effort = reasoning_effort_override
 
         payload = OpenAIPayload(
             model=model,
-            temperature=temperature,
+            reasoning_effort=reasoning_effort,
             messages=messages,
             tools=tools if tools else None,
             response_format=response_format,
@@ -202,7 +214,7 @@ class ContextBuilder:
 
         # Log payload summary
         logger.info(
-            f"[ContextBuilder] Payload pronto: model={model}, temp={temperature}, "
+            f"[ContextBuilder] Payload pronto: model={model}, effort={reasoning_effort or '-'}, "
             f"messages={len(messages)}, tools={len(tools) if tools else 0}"
         )
         # Full payload for debugging

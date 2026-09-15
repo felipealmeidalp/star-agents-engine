@@ -26,34 +26,34 @@ Domain terms: `companies` (table), `helena_token` (UUID, matches the `{token}` i
 
 **1. ORM columns on `Company`**
 
-- [ ] In `app/models/tables.py`, add `helena_token` to the `Company` class, mirroring the `cw_token` declaration exactly: `Mapped[Optional[PyUUID]] = mapped_column(UUID(as_uuid=True), nullable=True, unique=True, index=True)`.
-- [ ] Add `helena_apikey` mirroring `cw_apikey`: `Mapped[Optional[str]] = mapped_column(String, nullable=True)`.
-- [ ] Place both next to the existing Chatwoot integration block for readability; confirm no new imports are needed (`PyUUID`, `UUID`, `String` are already imported).
+- [x] In `app/models/tables.py`, add `helena_token` to the `Company` class, mirroring the `cw_token` declaration exactly: `Mapped[Optional[PyUUID]] = mapped_column(UUID(as_uuid=True), nullable=True, unique=True, index=True)`.
+- [x] Add `helena_apikey` mirroring `cw_apikey`: `Mapped[Optional[str]] = mapped_column(String, nullable=True)`.
+- [x] Place both next to the existing Chatwoot integration block for readability; confirm no new imports are needed (`PyUUID`, `UUID`, `String` are already imported).
 
 **2. Alembic migration 006**
 
-- [ ] Create `migrations/versions/20260302_000002_006_add_helena_channel_columns.py` with `revision = "006"`, `down_revision = "005"`, and `branch_labels`/`depends_on` set to `None`, matching the header of revision 005.
-- [ ] In `upgrade()`, add `helena_token` (`UUID(as_uuid=True)`, nullable) idempotently: check `information_schema.columns` for `table_name = 'companies' AND column_name = 'helena_token'` and `return` early if present, following the revision 005 pattern.
-- [ ] Add `helena_apikey` (`String`, nullable) idempotently with the same existence check.
-- [ ] Create the unique index on `helena_token` idempotently: check `pg_indexes` by `indexname` and `return`/skip if it already exists, following the revision 004 pattern (SQLAlchemy's `index=True, unique=True` on the column implies an index named `ix_companies_helena_token` — create it explicitly in the migration so the DB matches the ORM).
-- [ ] In `downgrade()`, drop the index and both columns.
+- [x] Create `migrations/versions/20260302_000002_006_add_helena_channel_columns.py` with `revision = "006"`, `down_revision = "005"`, and `branch_labels`/`depends_on` set to `None`, matching the header of revision 005.
+- [x] In `upgrade()`, add `helena_token` (`UUID(as_uuid=True)`, nullable) idempotently: check `information_schema.columns` for `table_name = 'companies' AND column_name = 'helena_token'` and `return` early if present, following the revision 005 pattern.
+- [x] Add `helena_apikey` (`String`, nullable) idempotently with the same existence check.
+- [x] Create the unique index on `helena_token` idempotently: check `pg_indexes` by `indexname` and `return`/skip if it already exists, following the revision 004 pattern (SQLAlchemy's `index=True, unique=True` on the column implies an index named `ix_companies_helena_token` — create it explicitly in the migration so the DB matches the ORM).
+- [x] In `downgrade()`, drop the index and both columns.
 
 **3. Repository lookup**
 
-- [ ] In `app/repositories/company.py`, add `async def get_by_helena_token(self, helena_token: str) -> Company | None` to `CompanyRepository`, mirroring `get_by_cw_token`: parse with `UUID(helena_token)` inside `try/except ValueError: return None`, then `select(Company).where(Company.helena_token == token_uuid)` and return `scalar_one_or_none()`.
-- [ ] Give it a Google-style docstring consistent with `get_by_cw_token`.
+- [x] In `app/repositories/company.py`, add `async def get_by_helena_token(self, helena_token: str) -> Company | None` to `CompanyRepository`, mirroring `get_by_cw_token`: parse with `UUID(helena_token)` inside `try/except ValueError: return None`, then `select(Company).where(Company.helena_token == token_uuid)` and return `scalar_one_or_none()`.
+- [x] Give it a Google-style docstring consistent with `get_by_cw_token`.
 
 **4. Helena base URL / endpoint config**
 
-- [ ] In `app/config.py`, add the fixed Helena base URL (`https://api.helena.run`) and send endpoint (`/chat/v1/send/text`) as `Settings` fields with those defaults (e.g. `helena_base_url`, `helena_send_text_path`), matching how `alert_evo_api_url` / the `meta_*` fields are declared. Do not add a Company column for these.
+- [x] In `app/config.py`, add the fixed Helena base URL (`https://api.helena.run`) and send endpoint (`/chat/v1/send/text`) as `Settings` fields with those defaults (e.g. `helena_base_url`, `helena_send_text_path`), matching how `alert_evo_api_url` / the `meta_*` fields are declared. Do not add a Company column for these.
 
 ## Acceptance criteria
 
-- [ ] `alembic upgrade head` applies revision 006 on a fresh DB and on a DB already at 005, and running it twice is a no-op (idempotent), leaving `companies` with `helena_token` (unique-indexed UUID) and `helena_apikey` (string) columns.
-- [ ] `alembic downgrade -1` from 006 removes both columns and the index.
-- [ ] The `Company` ORM model exposes `helena_token` and `helena_apikey` attributes matching the migrated columns.
-- [ ] `CompanyRepository.get_by_helena_token(token)` returns the matching `Company` for a valid token string, `None` for an unknown token, and `None` (no exception) for a non-UUID string.
-- [ ] `settings.helena_base_url` and the send endpoint resolve to `https://api.helena.run` and `/chat/v1/send/text` without any env var set.
+- [x] `alembic upgrade head` applies revision 006 on a fresh DB and on a DB already at 005, and running it twice is a no-op (idempotent), leaving `companies` with `helena_token` (unique-indexed UUID) and `helena_apikey` (string) columns.
+- [x] `alembic downgrade -1` from 006 removes both columns and the index.
+- [x] The `Company` ORM model exposes `helena_token` and `helena_apikey` attributes matching the migrated columns.
+- [x] `CompanyRepository.get_by_helena_token(token)` returns the matching `Company` for a valid token string, `None` for an unknown token, and `None` (no exception) for a non-UUID string.
+- [x] `settings.helena_base_url` and the send endpoint resolve to `https://api.helena.run` and `/chat/v1/send/text` without any env var set.
 
 ## Out of scope
 

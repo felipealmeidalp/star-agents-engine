@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     meta_forward_timeout: int = 10     # Timeout forward pro Chatwoot (s)
     meta_cache_ttl: int = 300          # TTL cache imbox/company no Redis (5min)
 
+    # Helena channel (base URL fixa; token/apikey são per-tenant em companies)
+    helena_base_url: str = "https://api.helena.run"
+    helena_send_text_path: str = "/chat/v1/send/text"
+
     # Alerting (WhatsApp via Evolution API)
     alert_enabled: bool = True
     alert_evo_api_url: str = "https://evo.starbots.com.br"

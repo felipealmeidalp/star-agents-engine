@@ -88,6 +88,26 @@ class CompanyRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_by_helena_token(self, helena_token: str) -> Company | None:
+        """
+        Find company by Helena webhook token.
+
+        Args:
+            helena_token: Unique webhook token (UUID string)
+
+        Returns:
+            Company or None if not found
+        """
+        try:
+            token_uuid = UUID(helena_token)
+        except ValueError:
+            return None
+
+        result = await self.db.execute(
+            select(Company).where(Company.helena_token == token_uuid)
+        )
+        return result.scalar_one_or_none()
+
     async def get_by_id(self, company_id: int) -> Company | None:
         """
         Buscar company por ID.

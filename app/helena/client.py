@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class HelenaClient:
-    """Client for sending messages back to Helena via `send/text`."""
+    """Client for sending messages back to a lead via Helena's `message/send`."""
 
     def __init__(self, timeout: int = 30) -> None:
         """Initialize client with configurable timeout."""
@@ -22,20 +22,25 @@ class HelenaClient:
 
     async def send_text(
         self,
-        session_id: str,
+        to: str,
         text: str,
         apikey: str,
     ) -> dict[str, Any]:
         """
-        Send a single text message to a Helena session.
+        Send a single text message to a lead through Helena.
+
+        Helena's `POST /v1/message/send` routes by the recipient phone (`to`),
+        not by a sessionId — there is no sessionId in the send contract; a new
+        Helena session auto-creates if needed. See
+        https://helena.readme.io/reference/post_v1-message-send.
 
         Args:
-            session_id: Helena conversation sessionId (also the customer key)
+            to: Lead phone number (from the webhook's `details.from`) — required
             text: Message content
             apikey: Bearer token (company.helena_apikey) for authentication
 
         Returns:
-            Dict with API response (e.g. {id, sessionId, status: "QUEUED"})
+            Dict with API response (e.g. {id, status: "QUEUED", ...})
 
         Raises:
             httpx.HTTPStatusError: If Helena returns a non-2xx status
@@ -46,12 +51,9 @@ class HelenaClient:
             "Authorization": f"Bearer {apikey}",
             "Content-Type": "application/json",
         }
-        # ponytail: confirmar no primeiro envio real que `send/text` aceita responder
-        # só com sessionId (sem `to`). Se o Helena exigir `to`, cair para o telefone
-        # do lead em details.from (já disponível via custom_information do customer).
-        payload = {"sessionId": session_id, "text": text}
+        payload = {"to": to, "body": {"text": text}}
 
-        logger.info("[HelenaClient] Sending message to session %s", session_id)
+        logger.info("[HelenaClient] Sending message to %s", to)
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(url, json=payload, headers=headers)
@@ -61,12 +63,12 @@ class HelenaClient:
 
     async def send_messages(
         self,
-        session_id: str,
+        to: str,
         messages: list[str],
         apikey: str,
     ) -> list[dict[str, Any]]:
         """
-        Send multiple messages to a Helena session with humanized delays.
+        Send multiple messages to a lead with humanized delays.
 
         The first message is sent immediately (AI processing already provides a
         natural pause). Each subsequent message is preceded by a humanized delay
@@ -74,7 +76,7 @@ class HelenaClient:
         and processing continues with the next message.
 
         Args:
-            session_id: Helena conversation sessionId
+            to: Lead phone number (Helena routes the reply by phone)
             messages: List of message strings
             apikey: Bearer token for authentication
 
@@ -94,7 +96,7 @@ class HelenaClient:
                 await asyncio.sleep(delay)
 
             try:
-                result = await self.send_text(session_id, message, apikey)
+                result = await self.send_text(to, message, apikey)
                 results.append(result)
             except Exception as e:
                 logger.error("[HelenaClient] Failed to send message: %s", e)
@@ -102,7 +104,7 @@ class HelenaClient:
                     "HELENA_SEND_FAILED",
                     "helena/client.py:send_messages",
                     e,
-                    extra=f"session={session_id}",
+                    extra=f"to={to}",
                 )
                 results.append({"error": str(e)})
 

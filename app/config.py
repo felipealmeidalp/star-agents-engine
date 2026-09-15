@@ -50,8 +50,8 @@ class Settings(BaseSettings):
     meta_cache_ttl: int = 300          # TTL cache imbox/company no Redis (5min)
 
     # Helena channel (base URL fixa; token/apikey são per-tenant em companies)
-    helena_base_url: str = "https://api.helena.run"
-    helena_send_text_path: str = "/chat/v1/send/text"
+    helena_base_url: str = "https://api.helena.run/chat"
+    helena_send_text_path: str = "/v1/message/send"
 
     # Alerting (WhatsApp via Evolution API)
     alert_enabled: bool = True

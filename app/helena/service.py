@@ -71,6 +71,28 @@ class HelenaService:
         helena_apikey = company.helena_apikey
         phone = payload.content.details.from_ if payload.content.details else None
 
+        # Helena routes the reply by phone (`to`), not by sessionId — there is no
+        # sessionId in the send contract. Without a phone we cannot answer the lead.
+        if not phone:
+            logger.error(
+                "[HelenaService] No lead phone (details.from) for session %s "
+                "(company %d) — cannot send reply",
+                session_id,
+                company.id,
+            )
+            return {"status": "ignored", "reason": "no_phone", "session_id": session_id}
+
+        # No Bearer configured → every send would 401; abort before touching the AI.
+        if not helena_apikey:
+            logger.error(
+                "[HelenaService] Company %d has no helena_apikey — cannot send reply",
+                company.id,
+            )
+            return {"status": "ignored", "reason": "no_apikey", "session_id": session_id}
+
+        to: str = phone  # narrowed non-None; Helena's `to` recipient
+        apikey: str = helena_apikey  # narrowed non-None; Bearer for send/text
+
         contact_id = _contact_key(session_id)
 
         logger.info(
@@ -92,7 +114,7 @@ class HelenaService:
 
         async def on_send_messages(messages: list[str]) -> None:
             """Send messages to the lead through Helena before tool execution."""
-            await self.client.send_messages(session_id, messages, helena_apikey)
+            await self.client.send_messages(to, messages, apikey)
 
         response = await self.request_manager.on_new_message(
             contact_id=contact_id,
@@ -120,7 +142,7 @@ class HelenaService:
 
         messages = response.get("resposta", [])
         if messages:
-            await self.client.send_messages(session_id, messages, helena_apikey)
+            await self.client.send_messages(to, messages, apikey)
 
         return {
             "status": "processed",

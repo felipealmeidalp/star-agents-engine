@@ -32,26 +32,26 @@ Domain terms, exact: `POST /api/helena/{token}`, `MESSAGE_RECEIVED`, `HelenaClie
 
 **1. Test harness and fixtures**
 
-- [ ] Stand up the route-test file under `tests/` (e.g. `tests/test_helena_route.py`), following the style of `tests/test_categories_tool.py` (`sys.path.insert(0, ".")`, `asyncio`, `assert`-based) since no pytest config exists — or, if a framework is wanted, add `pytest`/`pytest-asyncio` + minimal `[tool.pytest.ini_options]` (`asyncio_mode = "auto"`) + `conftest.py` and state the choice at the top of the file.
-- [ ] Build an in-process client against the app: `httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")` importing `app` from `app.main`, constructed so the lifespan (RabbitMQ/DB startup) does not run.
-- [ ] Set `settings.dev_mode = True` in the test so the `RequestManager` dev_mode bypass processes synchronously and skips Redis/buffer, while still calling `on_send_messages`.
-- [ ] Write one reusable `MESSAGE_RECEIVED` payload dict from the spec's Estrutura shape (`{eventType, date, content:{id, sessionId, text, type, direction, timestamp, details:{from}}}`); note in a comment that no real captured payload existed so this was built from the spec.
-- [ ] Ensure a company with a known `helena_token` exists (seed it or rely on the dev DB), and provide the OpenAI and `HelenaClient` mocks: patch `OpenAIService.chat_completion` to return an `OpenAIResponse` with content `{"resposta": [...]}` and no tool_calls; patch `HelenaClient` (`send_text`/`send_messages`) to record calls and no-op the delay.
+- [x] Stand up the route-test file under `tests/` (e.g. `tests/test_helena_route.py`), following the style of `tests/test_categories_tool.py` (`sys.path.insert(0, ".")`, `asyncio`, `assert`-based) since no pytest config exists — or, if a framework is wanted, add `pytest`/`pytest-asyncio` + minimal `[tool.pytest.ini_options]` (`asyncio_mode = "auto"`) + `conftest.py` and state the choice at the top of the file.
+- [x] Build an in-process client against the app: `httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")` importing `app` from `app.main`, constructed so the lifespan (RabbitMQ/DB startup) does not run.
+- [x] Set `settings.dev_mode = True` in the test so the `RequestManager` dev_mode bypass processes synchronously and skips Redis/buffer, while still calling `on_send_messages`.
+- [x] Write one reusable `MESSAGE_RECEIVED` payload dict from the spec's Estrutura shape (`{eventType, date, content:{id, sessionId, text, type, direction, timestamp, details:{from}}}`); note in a comment that no real captured payload existed so this was built from the spec.
+- [x] Ensure a company with a known `helena_token` exists (seed it or rely on the dev DB), and provide the OpenAI and `HelenaClient` mocks: patch `OpenAIService.chat_completion` to return an `OpenAIResponse` with content `{"resposta": [...]}` and no tool_calls; patch `HelenaClient` (`send_text`/`send_messages`) to record calls and no-op the delay.
 
 **2. Test cases (the five from the spec)**
 
-- [ ] **(a) Text `MESSAGE_RECEIVED` dispatches a send** — POST a valid text payload to `POST /api/helena/{token}` with a known token; assert `HelenaClient` was called to send the AI reply to `send/text` (at least one POST with the mocked reply text, to the payload's `sessionId`).
-- [ ] **(b) Non-`MESSAGE_RECEIVED` event is ignored** — POST a payload with `eventType` other than `MESSAGE_RECEIVED`; assert `HelenaClient` was **not** called (zero sends) and the route responds without error.
-- [ ] **(c) Message without text is ignored** — POST a `MESSAGE_RECEIVED` whose `content.text` is missing/empty; assert `HelenaClient` was **not** called (zero sends) and no exception.
-- [ ] **(d) Token that resolves to no company no-ops** — POST a valid text payload to a token that matches no company; assert `HelenaClient` was **not** called and the route returns cleanly with no exception raised.
-- [ ] **(e) Reply of N messages produces N ordered POSTs** — mock OpenAI to return `{"resposta": ["m1","m2","m3"]}`; assert `HelenaClient` sent exactly N messages to `send/text` in that exact order.
+- [x] **(a) Text `MESSAGE_RECEIVED` dispatches a send** — POST a valid text payload to `POST /api/helena/{token}` with a known token; assert `HelenaClient` was called to send the AI reply to `send/text` (at least one POST with the mocked reply text, to the payload's `sessionId`).
+- [x] **(b) Non-`MESSAGE_RECEIVED` event is ignored** — POST a payload with `eventType` other than `MESSAGE_RECEIVED`; assert `HelenaClient` was **not** called (zero sends) and the route responds without error.
+- [x] **(c) Message without text is ignored** — POST a `MESSAGE_RECEIVED` whose `content.text` is missing/empty; assert `HelenaClient` was **not** called (zero sends) and no exception.
+- [x] **(d) Token that resolves to no company no-ops** — POST a valid text payload to a token that matches no company; assert `HelenaClient` was **not** called and the route returns cleanly with no exception raised.
+- [x] **(e) Reply of N messages produces N ordered POSTs** — mock OpenAI to return `{"resposta": ["m1","m2","m3"]}`; assert `HelenaClient` sent exactly N messages to `send/text` in that exact order.
 
 ## Acceptance criteria
 
-- [ ] All five cases (a)–(e) run and pass, driving the real path from `POST /api/helena/{token}` through to the mocked `HelenaClient`, with only `HelenaClient` and `OpenAIService.chat_completion` mocked.
-- [ ] The assertions are on the channel's **external behavior** — the calls made to `HelenaClient` (count, target `sessionId`, message text, order) — and never on núcleo internals (buffer contents, `ConversationTurn` shape).
-- [ ] The tests do not perform any real network I/O to Helena or OpenAI, and do not require Redis or RabbitMQ to be running (dev_mode bypass covers Redis; RabbitMQ is not started).
-- [ ] The file states its harness choice (framework vs. `asyncio.run` script) and notes that the `MESSAGE_RECEIVED` fixture was built from the spec because no captured payload existed.
+- [x] All five cases (a)–(e) run and pass, driving the real path from `POST /api/helena/{token}` through to the mocked `HelenaClient`, with only `HelenaClient` and `OpenAIService.chat_completion` mocked.
+- [x] The assertions are on the channel's **external behavior** — the calls made to `HelenaClient` (count, target `sessionId`, message text, order) — and never on núcleo internals (buffer contents, `ConversationTurn` shape).
+- [x] The tests do not perform any real network I/O to Helena or OpenAI, and do not require Redis or RabbitMQ to be running (dev_mode bypass covers Redis; RabbitMQ is not started).
+- [x] The file states its harness choice (framework vs. `asyncio.run` script) and notes that the `MESSAGE_RECEIVED` fixture was built from the spec because no captured payload existed.
 
 ## Out of scope
 

@@ -8,6 +8,7 @@ from app.db.database import AsyncSessionLocal
 from app.helena.schemas import HelenaWebhookPayload
 from app.helena.service import HelenaService
 from app.repositories.company import CompanyRepository
+from app.routes.chatwoot import _is_entry_allowed
 from app.utils.alerter import send_critical_alert
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,23 @@ async def process_webhook_background(
             if company is None:
                 logger.warning(
                     "[HelenaWebhook] Company not found for token, aborting silently"
+                )
+                return
+
+            # Gate by allowed_inbox (channel). The n8n pre-processor injects the
+            # numeric channel into content.channel; we reuse the Chatwoot allowlist
+            # (same column, same rules): no config → all allowed; channel not in
+            # the list → blocked; channel listed with empty contacts → all allowed.
+            # Helena has no int contact_id, so contact-level filtering degrades to
+            # channel-level; contact 0 only matters if a channel lists contacts.
+            channel = payload.content.channel
+            if channel is not None and not _is_entry_allowed(
+                company.allowed_contacts, channel, 0
+            ):
+                logger.info(
+                    "[HelenaWebhook] BLOCKED: channel %s not allowed for company %d",
+                    channel,
+                    company.id,
                 )
                 return
 

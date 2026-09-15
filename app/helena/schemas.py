@@ -22,6 +22,10 @@ class HelenaContent(BaseModel):
     direction: str | None = None
     timestamp: str | None = None
     details: HelenaDetails | None = None
+    # Numeric channel id injected by the n8n pre-processor so the engine can gate
+    # by allowed_inbox. Helena's native payload has no channel field. None → no
+    # channel info → gate treats it as allowed (same as a company without config).
+    channel: int | None = None
 
 
 class HelenaWebhookPayload(BaseModel):

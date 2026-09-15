@@ -64,6 +64,8 @@ UNKNOWN_TOKEN = "22222222-2222-2222-2222-222222222222"
 SESSION_ID = "33333333-3333-3333-3333-333333333333"
 LEAD_PHONE = "+5511999998888"  # details.from — Helena routes the reply by phone
 HELENA_APIKEY = "test-helena-apikey"
+ALLOWED_CHANNEL = 7  # content.channel (injected by n8n) that the allowlist permits
+BLOCKED_CHANNEL = 9  # a channel NOT in the allowlist → gated out
 
 
 def make_payload(**overrides: Any) -> dict[str, Any]:
@@ -177,14 +179,27 @@ async def db_reachable() -> bool:
 
 
 async def seed_company_token() -> None:
-    """Stamp the known helena_token/helena_apikey onto the seeded fixture company."""
+    """Stamp helena_token/apikey and an allowed_inbox config onto the fixture company.
+
+    The allowlist permits ALLOWED_CHANNEL (empty contacts → all leads on it) so the
+    channel-gate cases are deterministic. Payloads without a channel stay allowed
+    (gate only fires when content.channel is present).
+    """
+    import json
+
+    allowed = json.dumps({"allowed_inboxes": [{"id": ALLOWED_CHANNEL, "allowed_contacts": []}]})
     async with AsyncSessionLocal() as db:
         await db.execute(
             text(
-                "UPDATE companies SET helena_token = :tok, helena_apikey = :key "
-                "WHERE id = :cid"
+                "UPDATE companies SET helena_token = :tok, helena_apikey = :key, "
+                "allowed_contacts = CAST(:allowed AS jsonb) WHERE id = :cid"
             ),
-            {"tok": KNOWN_TOKEN, "key": HELENA_APIKEY, "cid": SEED_COMPANY_ID},
+            {
+                "tok": KNOWN_TOKEN,
+                "key": HELENA_APIKEY,
+                "allowed": allowed,
+                "cid": SEED_COMPANY_ID,
+            },
         )
         await db.commit()
 
@@ -241,6 +256,24 @@ async def case_e_n_messages_ordered() -> None:
     print("  (e) N-message reply → N ordered send/text POSTs: OK")
 
 
+async def case_f_allowed_channel_dispatches() -> None:
+    # content.channel in the allowlist → processed and dispatched.
+    payload = make_payload(content={"channel": ALLOWED_CHANNEL})
+    resp, calls = await _run_pipeline(payload, KNOWN_TOKEN, ["ok"])
+    assert resp.status_code == 200, resp.status_code
+    assert len(calls) >= 1, f"expected a send for the allowed channel, got {calls}"
+    print("  (f) allowed channel → dispatched: OK")
+
+
+async def case_g_blocked_channel_noops() -> None:
+    # content.channel NOT in the allowlist → gated out before any AI/send.
+    payload = make_payload(content={"channel": BLOCKED_CHANNEL})
+    resp, calls = await _run_pipeline(payload, KNOWN_TOKEN, ["should not be sent"])
+    assert resp.status_code == 200, resp.status_code
+    assert calls == [], f"expected zero sends for a blocked channel, got {calls}"
+    print("  (g) blocked channel → zero sends, clean return: OK")
+
+
 async def main() -> None:
     print("Helena route behavioral tests (seam: POST /api/helena/{token})")
     assert settings.helena_base_url  # sanity: settings imported
@@ -268,7 +301,9 @@ async def main() -> None:
     await case_c_no_text_ignored()
     await case_d_unknown_token_noops()
     await case_e_n_messages_ordered()
-    print("\nOK - all five Helena route cases passed")
+    await case_f_allowed_channel_dispatches()
+    await case_g_blocked_channel_noops()
+    print("\nOK - all Helena route cases passed")
 
 
 if __name__ == "__main__":

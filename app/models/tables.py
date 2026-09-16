@@ -47,6 +47,8 @@ class Company(Base):
         UUID(as_uuid=True), nullable=True, unique=True, index=True
     )
     helena_apikey: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    # userId (UUID as text) of the fixed Helena attendant escalations are assigned to.
+    helena_assignee_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     # Unified inbox+contact filtering (replaces allowed_inboxes and allowed_contacts)
     # Structure: {"allowed_inboxes": [{"id": 1, "allowed_contacts": [1,2,3]}, ...]}
     # null or {"allowed_inboxes": []} = all allowed

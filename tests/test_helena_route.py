@@ -141,6 +141,22 @@ def patch_send_text(sends: list[tuple[str, str]]) -> Any:
     return patch("app.helena.client.HelenaClient.send_text", _stub)
 
 
+def patch_transcribe(transcript: str | None = None, raises: bool = False) -> Any:
+    """Patch OpenAIService.transcribe_audio to a fixed transcript / empty / raise.
+
+    ``raises=True`` → the transcription blows up (network/API failure path);
+    ``transcript=""`` → empty transcript (also a failure path); otherwise the
+    given string is what the (mocked) Whisper call returns.
+    """
+
+    async def _stub(self: Any, audio_url: str) -> str:
+        if raises:
+            raise RuntimeError("whisper boom")
+        return transcript if transcript is not None else ""
+
+    return patch("app.services.openai.OpenAIService.transcribe_audio", _stub)
+
+
 async def _post(payload: dict[str, Any], token: str) -> httpx.Response:
     transport = httpx.ASGITransport(app=app)  # lifespan not triggered → no RabbitMQ/DB ping
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
@@ -162,6 +178,45 @@ async def _run_pipeline(
     ), patch("app.helena.client.calculate_humanized_delay", lambda _msg: 0):
         resp = await _post(payload, token)
     return resp, sends
+
+
+def patch_capture_message(captured: list[str]) -> Any:
+    """Patch RequestManager.on_new_message to record the `message` it receives.
+
+    The transcript-/phrase-into-`message` mapping this ticket adds happens in
+    HelenaService BEFORE on_new_message; capturing here asserts what the service
+    hands the core, without needing the full AI pipeline / a fully seeded DB.
+    Returns a canned response so the caller still exercises the send path.
+    """
+
+    async def _stub(self: Any, *, message: str, **kwargs: Any) -> dict[str, Any]:
+        captured.append(message)
+        return {"resposta": []}
+
+    return patch(
+        "app.services.request_manager.RequestManager.on_new_message", _stub
+    )
+
+
+async def _run_capture(
+    payload: dict[str, Any],
+    token: str,
+    *,
+    transcribe: Any,
+) -> tuple[httpx.Response, list[str], list[tuple[str, str]]]:
+    """Drive the route with on_new_message captured; return (resp, messages, sends).
+
+    ``transcribe`` is a patch_transcribe(...) context manager (mocked Whisper).
+    HelenaClient.send_text is mocked so the failure-path error message to the
+    lead is observable in ``sends``.
+    """
+    captured: list[str] = []
+    sends: list[tuple[str, str]] = []
+    with patch_capture_message(captured), patch_send_text(sends), transcribe, patch(
+        "app.helena.client.calculate_humanized_delay", lambda _msg: 0
+    ):
+        resp = await _post(payload, token)
+    return resp, captured, sends
 
 
 # --------------------------------------------------------------------------- #
@@ -256,6 +311,58 @@ async def case_e_n_messages_ordered() -> None:
     print("  (e) N-message reply → N ordered send/text POSTs: OK")
 
 
+async def set_customer_status_false(session_id: str, company_id: int) -> None:
+    """Silence the AI for a session by setting customers.status = False.
+
+    The customer row is created by upsert_api_customer during a normal pass, so
+    the caller runs one pipeline pass first to create it, then flips the DB flag
+    that transfer_to_human sets (status=False = escalated to a human).
+    """
+    async with AsyncSessionLocal() as db:
+        await db.execute(
+            text(
+                'UPDATE customers SET status = false '
+                'WHERE "sessionId" = :sid AND company_id = :cid'
+            ),
+            {"sid": session_id, "cid": company_id},
+        )
+        await db.commit()
+
+
+async def case_h_status_false_gates_ai() -> None:
+    # Gate de IA: status=False silences the AI. The lead's message is saved to
+    # chat_history but NO send fires and OpenAI is never called.
+    # First pass creates the customer row (status defaults True) and dispatches.
+    resp, calls = await _run_pipeline(make_payload(), KNOWN_TOKEN, ["primeira"])
+    assert resp.status_code == 200, resp.status_code
+    assert len(calls) >= 1, f"expected first pass to dispatch, got {calls}"
+
+    # Escalate: flip status to False, as transfer_to_human would.
+    await set_customer_status_false(SESSION_ID, SEED_COMPANY_ID)
+
+    # Second pass: count chat_completion invocations; assert the gate blocks it.
+    completion_calls = 0
+
+    async def _counting_completion(self: Any, payload: Any) -> OpenAIResponse:
+        nonlocal completion_calls
+        completion_calls += 1
+        return await fake_openai_response(["should not be sent"])(self, payload)
+
+    gated_calls: list[tuple[str, str]] = []
+    with patch_send_text(gated_calls), patch(
+        "app.services.openai.OpenAIService.chat_completion",
+        _counting_completion,
+    ), patch("app.helena.client.calculate_humanized_delay", lambda _msg: 0):
+        resp2 = await _post(make_payload(content={"text": "quero um humano"}), KNOWN_TOKEN)
+
+    assert resp2.status_code == 200, resp2.status_code
+    assert gated_calls == [], f"expected zero sends when AI is off, got {gated_calls}"
+    assert completion_calls == 0, (
+        f"expected zero OpenAI calls when status=False, got {completion_calls}"
+    )
+    print("  (h) status=False → message saved, zero sends, zero OpenAI calls: OK")
+
+
 async def case_f_allowed_channel_dispatches() -> None:
     # content.channel in the allowlist → processed and dispatched.
     payload = make_payload(content={"channel": ALLOWED_CHANNEL})
@@ -272,6 +379,101 @@ async def case_g_blocked_channel_noops() -> None:
     assert resp.status_code == 200, resp.status_code
     assert calls == [], f"expected zero sends for a blocked channel, got {calls}"
     print("  (g) blocked channel → zero sends, clean return: OK")
+
+
+async def case_h_audio_transcript_is_message() -> None:
+    # Audio-only payload (no text) + mocked Whisper → the transcript is the
+    # `message` that enters the pipeline (not the raw payload / attachment url).
+    transcript = "quero saber o preço do plano premium"
+    payload = make_payload(
+        content={"attachment_url": "https://x/y/audio.ogg", "attachment_type": "audio"}
+    )
+    del payload["content"]["text"]
+    resp, messages, sends = await _run_capture(
+        payload, KNOWN_TOKEN, transcribe=patch_transcribe(transcript)
+    )
+    assert resp.status_code == 200, resp.status_code
+    assert messages == [transcript], f"expected [{transcript!r}], got {messages}"
+    print("  (h) audio-only → transcript is the AI input: OK")
+
+
+async def case_i_non_audio_describes() -> None:
+    # Image-only payload → the descriptive phrase is the `message`.
+    payload = make_payload(
+        content={"attachment_url": "https://x/y/pic.jpg", "attachment_type": "image"}
+    )
+    del payload["content"]["text"]
+    resp, messages, sends = await _run_capture(
+        payload, KNOWN_TOKEN, transcribe=patch_transcribe("unused")
+    )
+    assert resp.status_code == 200, resp.status_code
+    assert messages == ["O usuário enviou uma imagem"], messages
+    print("  (i) image-only → descriptive phrase is the AI input: OK")
+
+
+async def case_j_text_precedence() -> None:
+    # Text + attachment → the text is used, the attachment ignored (transcript
+    # would be a different string; assert it is NOT what reached the AI).
+    payload = make_payload(
+        content={
+            "attachment_url": "https://x/y/audio.ogg",
+            "attachment_type": "audio",
+        }
+    )
+    # keep the default text from make_payload
+    resp, messages, sends = await _run_capture(
+        payload, KNOWN_TOKEN, transcribe=patch_transcribe("TRANSCRIPT-SHOULD-NOT-APPEAR")
+    )
+    assert resp.status_code == 200, resp.status_code
+    assert messages == ["olá, quero saber sobre os produtos"], messages
+    print("  (j) text + attachment → text wins, attachment ignored: OK")
+
+
+async def case_k_transcription_failure_alerts_and_notifies() -> None:
+    # Whisper raises → error message sent to the lead via HelenaClient, no AI
+    # call, and the AUDIO_TRANSCRIPTION_FAILED alert fires.
+    payload = make_payload(
+        content={"attachment_url": "https://x/y/audio.ogg", "attachment_type": "audio"}
+    )
+    del payload["content"]["text"]
+    alerts: list[str] = []
+    with patch(
+        "app.helena.service.send_critical_alert",
+        lambda error_type, *a, **k: alerts.append(error_type),
+    ):
+        resp, messages, sends = await _run_capture(
+            payload, KNOWN_TOKEN, transcribe=patch_transcribe(raises=True)
+        )
+    assert resp.status_code == 200, resp.status_code
+    assert messages == [], f"expected no AI call, got {messages}"
+    assert len(sends) >= 1, f"expected an error message to the lead, got {sends}"
+    assert sends[0][0] == LEAD_PHONE, sends[0][0]
+    assert "AUDIO_TRANSCRIPTION_FAILED" in alerts, alerts
+    print("  (k) transcription failure → lead notified + alert, no AI call: OK")
+
+
+async def case_l_empty_transcript_uses_empty_string() -> None:
+    # Whisper returns blank → the "Não consegui entender o áudio…" string (not the
+    # generic "Desculpa…") is sent, alert fires, no AI call.
+    from app.utils.attachments import AUDIO_EMPTY_MSG
+
+    payload = make_payload(
+        content={"attachment_url": "https://x/y/audio.ogg", "attachment_type": "audio"}
+    )
+    del payload["content"]["text"]
+    alerts: list[str] = []
+    with patch(
+        "app.helena.service.send_critical_alert",
+        lambda error_type, *a, **k: alerts.append(error_type),
+    ):
+        resp, messages, sends = await _run_capture(
+            payload, KNOWN_TOKEN, transcribe=patch_transcribe("   ")
+        )
+    assert resp.status_code == 200, resp.status_code
+    assert messages == [], f"expected no AI call, got {messages}"
+    assert len(sends) == 1 and sends[0][1] == AUDIO_EMPTY_MSG, sends
+    assert "AUDIO_TRANSCRIPTION_FAILED" in alerts, alerts
+    print("  (l) empty transcript → 'Não consegui entender' string, alert, no AI: OK")
 
 
 async def main() -> None:
@@ -303,6 +505,12 @@ async def main() -> None:
     await case_e_n_messages_ordered()
     await case_f_allowed_channel_dispatches()
     await case_g_blocked_channel_noops()
+    await case_h_status_false_gates_ai()
+    await case_h_audio_transcript_is_message()
+    await case_i_non_audio_describes()
+    await case_j_text_precedence()
+    await case_k_transcription_failure_alerts_and_notifies()
+    await case_l_empty_transcript_uses_empty_string()
     print("\nOK - all Helena route cases passed")
 
 

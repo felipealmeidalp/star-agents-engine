@@ -17,6 +17,11 @@ from app.repositories.company import CompanyRepository
 from app.repositories.customer import CustomerRepository
 from app.services.openai import OpenAIService
 from app.utils.alerter import send_critical_alert
+from app.utils.attachments import (
+    AUDIO_EMPTY_MSG,
+    AUDIO_FAILURE_MSG,
+    describe_attachment,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -213,6 +218,7 @@ class ChatwootService:
             on_send_messages=send_messages_to_lead,
             on_send_private_notes=send_private_notes,
             dev_mode=is_dev_agent,
+            channel="chatwoot",
         )
 
         # If None, message was discarded (newer message in buffer)
@@ -529,33 +535,13 @@ class ChatwootService:
             # Transcription failed or empty — error message already sent to client
             return message, False
 
-        # Case 2: Non-audio attachment → describe for AI
+        # Case 2: Non-audio attachment → describe for AI (shared helper: the
+        # descriptive strings live in app/utils/attachments.py, one place).
         if non_audio_attachment:
             file_type = non_audio_attachment.file_type or "file"
-
-            # Map file_type to descriptive message
-            type_labels = {
-                "image": "uma imagem",
-                "video": "um vídeo",
-            }
-
-            if file_type in type_labels:
-                description = type_labels[file_type]
-            else:
-                # Try to extract extension from data_url for more specific description
-                ext = ""
-                if non_audio_attachment.data_url:
-                    from urllib.parse import urlparse
-                    path = urlparse(non_audio_attachment.data_url).path
-                    if "." in path:
-                        ext = path.rsplit(".", 1)[-1].upper()
-
-                if ext and len(ext) <= 5:
-                    description = f"um arquivo {ext}"
-                else:
-                    description = "um arquivo"
-
-            descriptive_message = f"O usuário enviou {description}"
+            descriptive_message = describe_attachment(
+                non_audio_attachment.file_type, non_audio_attachment.data_url
+            )
 
             logger.info(
                 "[ChatwootService] Non-audio attachment '%s' → forwarding as AI input: '%s'. "
@@ -593,10 +579,7 @@ class ChatwootService:
                 payload.sender.id if payload.sender else "?",
             )
             await self._send_responses(
-                messages=[
-                    "Desculpa, tive um problema ao processar seu áudio. "
-                    "Você pode tentar enviar novamente ou digitar a mensagem?"
-                ],
+                messages=[AUDIO_FAILURE_MSG],
                 base_url=company.cw_base_url,
                 account_id=payload.account.id,
                 conversation_id=payload.conversation.id,
@@ -615,10 +598,7 @@ class ChatwootService:
                     payload.sender.id if payload.sender else "?",
                 )
                 await self._send_responses(
-                    messages=[
-                        "Não consegui entender o áudio. Você pode tentar enviar "
-                        "novamente ou digitar a mensagem?"
-                    ],
+                    messages=[AUDIO_EMPTY_MSG],
                     base_url=company.cw_base_url,
                     account_id=payload.account.id,
                     conversation_id=payload.conversation.id,
@@ -641,10 +621,7 @@ class ChatwootService:
             )
 
             await self._send_responses(
-                messages=[
-                    "Desculpa, tive um problema ao processar seu áudio. "
-                    "Você pode tentar enviar novamente ou digitar a mensagem?"
-                ],
+                messages=[AUDIO_FAILURE_MSG],
                 base_url=company.cw_base_url,
                 account_id=payload.account.id,
                 conversation_id=payload.conversation.id,

@@ -61,6 +61,52 @@ class HelenaClient:
             response.raise_for_status()
             return response.json()
 
+    async def assign_session(
+        self,
+        session_id: str,
+        user_id: str,
+        apikey: str,
+    ) -> dict[str, Any]:
+        """
+        Assign a Helena session to a fixed attendant, stopping Helena's own bot.
+
+        Used by transfer_to_human on the Helena channel to hand the conversation
+        to a human (`stopBotInExecution: true`). Modeled on send_text (Bearer,
+        raise_for_status).
+
+        Args:
+            session_id: Helena session id (Customer.sessionId == content.sessionId)
+            user_id: Helena attendant userId (company.helena_assignee_id)
+            apikey: Bearer token (company.helena_apikey)
+
+        Returns:
+            Dict with API response
+
+        Raises:
+            httpx.HTTPStatusError: If Helena returns a non-2xx status
+            httpx.RequestError: If the connection fails
+        """
+        # ponytail: content.sessionId assumed == the {id} the Helena session API
+        #           wants; fallback is resolve-by-phone
+        #           (GET /core/v1/contact/phoneNumber/{phone}). Confirm on the
+        #           first real escalation.
+        url = f"{settings.helena_base_url}/v1/session/{session_id}/assignee"
+        headers = {
+            "Authorization": f"Bearer {apikey}",
+            "Content-Type": "application/json",
+        }
+        # ponytail: doc lists both `id` and `userId` on the agent object — using
+        #           `userId`; confirm on the first real escalation.
+        payload = {"userId": user_id, "options": {"stopBotInExecution": True}}
+
+        logger.info("[HelenaClient] Assigning session %s to %s", session_id, user_id)
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.put(url, json=payload, headers=headers)
+            logger.info("[HelenaClient] Response: status=%d", response.status_code)
+            response.raise_for_status()
+            return response.json()
+
     async def send_messages(
         self,
         to: str,

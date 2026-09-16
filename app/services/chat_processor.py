@@ -34,6 +34,7 @@ async def process_chat(
     on_send_private_notes: MessageSenderCallback | None = None,
     model: str | None = None,
     reasoning_effort: str | None = None,
+    channel: str = "chatwoot",
 ) -> dict[str, Any]:
     """
     Process a chat message through the full orchestration pipeline (legacy).
@@ -88,6 +89,7 @@ async def process_chat(
         on_send_private_notes=on_send_private_notes,
         model_override=model,
         reasoning_effort_override=reasoning_effort,
+        channel=channel,
     )
 
     return await handler.process(
@@ -160,6 +162,7 @@ async def process_chat_in_memory(
     conversation_turn: ConversationTurn,
     on_send_messages: MessageSenderCallback | None = None,
     on_send_private_notes: MessageSenderCallback | None = None,
+    channel: str = "chatwoot",
     *,
     skip_save: bool = False,
 ) -> dict[str, Any]:
@@ -211,6 +214,7 @@ async def process_chat_in_memory(
         on_send_messages=on_send_messages,
         on_send_private_notes=on_send_private_notes,
         conversation_turn=conversation_turn,
+        channel=channel,
     )
 
     # 6. Process (all writes go to ConversationTurn in memory)

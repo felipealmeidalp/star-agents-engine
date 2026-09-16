@@ -327,6 +327,10 @@ class ToolExecutionContext(BaseModel):
     sub_agent_id: int
     customer_id: int | None = None
 
+    # Opaque channel tag ("chatwoot"/"helena"), forwarded by the channel service.
+    # The core carries it without any channel logic; tools branch on it (ADR 0005).
+    channel: str = "chatwoot"
+
     # Dependencies for internal tools (RAG, etc.)
     db: Any | None = None  # AsyncSession - using Any for Pydantic compatibility
     openai_api_key: str | None = None

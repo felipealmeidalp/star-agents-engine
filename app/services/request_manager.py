@@ -73,6 +73,7 @@ class RequestManager:
         on_send_messages: MessageSenderCallback | None = None,
         on_send_private_notes: MessageSenderCallback | None = None,
         dev_mode: bool = False,
+        channel: str = "chatwoot",
     ) -> dict[str, Any] | None:
         """Handle a new incoming message for a contact.
 
@@ -115,6 +116,7 @@ class RequestManager:
                 db=db,
                 on_send_messages=on_send_messages,
                 on_send_private_notes=on_send_private_notes,
+                channel=channel,
             )
 
         lock = self._get_lock(contact_id)
@@ -203,6 +205,7 @@ class RequestManager:
                     on_send_messages=on_send_messages,
                     on_send_private_notes=on_send_private_notes,
                     conversation_turn=conversation_turn,
+                    channel=channel,
                 ),
                 name=f"chat-{contact_id}",
             )
@@ -326,6 +329,7 @@ class RequestManager:
         on_send_messages: MessageSenderCallback | None,
         on_send_private_notes: MessageSenderCallback | None,
         conversation_turn: ConversationTurn,
+        channel: str = "chatwoot",
     ) -> dict[str, Any]:
         """Execute the chat processing task.
 
@@ -353,6 +357,7 @@ class RequestManager:
                 conversation_turn=conversation_turn,
                 on_send_messages=on_send_messages,
                 on_send_private_notes=on_send_private_notes,
+                channel=channel,
                 skip_save=True,
             )
 

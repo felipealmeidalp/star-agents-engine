@@ -32,20 +32,20 @@ Domain terms: **Gate de IA** = the boolean `customers.status`; `True`/`None` = A
 
 **1. Wire the ChatHistoryRepository into HelenaService**
 
-- [ ] In `HelenaService.__init__` (`app/helena/service.py`), import `ChatHistoryRepository` from `app.repositories.chat_history` and add `self.chat_history_repo = ChatHistoryRepository(self.db)`, matching how `ChatwootService.__init__` builds it.
+- [x] In `HelenaService.__init__` (`app/helena/service.py`), import `ChatHistoryRepository` from `app.repositories.chat_history` and add `self.chat_history_repo = ChatHistoryRepository(self.db)`, matching how `ChatwootService.__init__` builds it.
 
 **2. Insert the gate in process_webhook**
 
-- [ ] After the existing `await self.customer_repo.upsert_api_customer(...)` call and BEFORE the `on_send_messages` closure / `await self.request_manager.on_new_message(...)`, read the customer status: `status = await self.customer_repo.get_status(session_id, company.id)`.
-- [ ] If `status is False`: log that AI is deactivated for this session (mirror the Chatwoot log line, e.g. `"[HelenaService] AI deactivated for session %s (status=False), saving user message"`), call `await self.chat_history_repo.insert_user_message(session_id=session_id, message=text, company_id=company.id)`, and `return {"status": "ai_deactivated", "session_id": session_id}`.
-- [ ] Use the strict `is False` comparison — do NOT gate on `None` or `True`; those must fall through to the normal `on_new_message` path unchanged.
-- [ ] Do NOT call `_update_follow_up_and_schedule` or any follow-up logic — Helena has no follow-up; that Chatwoot step is deliberately not replicated.
+- [x] After the existing `await self.customer_repo.upsert_api_customer(...)` call and BEFORE the `on_send_messages` closure / `await self.request_manager.on_new_message(...)`, read the customer status: `status = await self.customer_repo.get_status(session_id, company.id)`.
+- [x] If `status is False`: log that AI is deactivated for this session (mirror the Chatwoot log line, e.g. `"[HelenaService] AI deactivated for session %s (status=False), saving user message"`), call `await self.chat_history_repo.insert_user_message(session_id=session_id, message=text, company_id=company.id)`, and `return {"status": "ai_deactivated", "session_id": session_id}`.
+- [x] Use the strict `is False` comparison — do NOT gate on `None` or `True`; those must fall through to the normal `on_new_message` path unchanged.
+- [x] Do NOT call `_update_follow_up_and_schedule` or any follow-up logic — Helena has no follow-up; that Chatwoot step is deliberately not replicated.
 
 **3. Behavioural test at the route seam (mirror Seam 1)**
 
-- [ ] In `tests/test_helena_route.py`, add a gate case following the existing `_run_pipeline` / `patch_send_text` / `make_payload` model. Before posting, set the seeded company's customer to `status = False` for `SESSION_ID` (the customer row is created by `upsert_api_customer` during processing, so the case must first create/upsert the customer with `status=False` — e.g. run one normal pipeline pass to create the row, then `UPDATE customers SET status = false WHERE "sessionId" = :sid AND company_id = :cid`, or seed the row directly before the gated POST).
-- [ ] Assert the gated behaviour: `resp.status_code == 200`, `calls == []` (NO `HelenaClient.send_text`), and that `OpenAIService.chat_completion` was never invoked (wrap the `chat_completion` stub in a counter / `unittest.mock` spy and assert its call count is 0 — the existing `fake_openai_response` stub can be replaced with a `MagicMock`-tracked async wrapper for this case).
-- [ ] Register the new case in `main()` alongside the other DB-dependent cases (it needs the live DB, same as cases a/c/d/e), so it SKIPs cleanly when no DB is reachable.
+- [x] In `tests/test_helena_route.py`, add a gate case following the existing `_run_pipeline` / `patch_send_text` / `make_payload` model. Before posting, set the seeded company's customer to `status = False` for `SESSION_ID` (the customer row is created by `upsert_api_customer` during processing, so the case must first create/upsert the customer with `status=False` — e.g. run one normal pipeline pass to create the row, then `UPDATE customers SET status = false WHERE "sessionId" = :sid AND company_id = :cid`, or seed the row directly before the gated POST).
+- [x] Assert the gated behaviour: `resp.status_code == 200`, `calls == []` (NO `HelenaClient.send_text`), and that `OpenAIService.chat_completion` was never invoked (wrap the `chat_completion` stub in a counter / `unittest.mock` spy and assert its call count is 0 — the existing `fake_openai_response` stub can be replaced with a `MagicMock`-tracked async wrapper for this case).
+- [x] Register the new case in `main()` alongside the other DB-dependent cases (it needs the live DB, same as cases a/c/d/e), so it SKIPs cleanly when no DB is reachable.
 
 ## Acceptance criteria
 

@@ -22,6 +22,13 @@ class HelenaContent(BaseModel):
     direction: str | None = None
     timestamp: str | None = None
     details: HelenaDetails | None = None
+    # ponytail: shape assumed — no real Helena attachment payload captured yet.
+    # Minimal mirror of ChatwootAttachment (file_type, data_url): a file URL plus
+    # a type/mimetype to tell audio from image/video/file. Confirm/adjust field
+    # names against the first real Helena attachment webhook. Optional, so a
+    # text-only payload is unaffected; the envelope already ignores extras.
+    attachment_url: str | None = None
+    attachment_type: str | None = None
     # Numeric channel id injected by the n8n pre-processor so the engine can gate
     # by allowed_inbox. Helena's native payload has no channel field. None → no
     # channel info → gate treats it as allowed (same as a company without config).

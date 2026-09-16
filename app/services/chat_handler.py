@@ -48,6 +48,7 @@ class ChatHandler:
         conversation_turn: ConversationTurn | None = None,
         model_override: str | None = None,
         reasoning_effort_override: str | None = None,
+        channel: str = "chatwoot",
     ) -> None:
         """
         Initialize the chat handler.
@@ -77,6 +78,7 @@ class ChatHandler:
         self.conversation_turn = conversation_turn
         self.model_override = model_override
         self.reasoning_effort_override = reasoning_effort_override
+        self.channel = channel
 
     async def process(
         self,
@@ -498,6 +500,7 @@ class ChatHandler:
             chat_history=chat_history,
             on_send_messages=self.on_send_messages,
             conversation_turn=self.conversation_turn,
+            channel=self.channel,
         )
 
         results = await self.tool_handler.execute_all(tool_calls, execution_context)

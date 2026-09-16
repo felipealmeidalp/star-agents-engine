@@ -84,18 +84,11 @@ class HelenaService:
         # lazy-load outside the greenlet (mirrors ChatwootService.process_webhook).
         helena_apikey = company.helena_apikey
         company_id = company.id
+        # Optional lead phone, kept only for the customer record (custom_information).
+        # It is NOT the send target: replies route by sessionId via
+        # POST /v1/session/{id}/message, the only contract that works on
+        # non-WhatsApp channels (Instagram/Facebook), where details.from is absent.
         phone = payload.content.details.from_ if payload.content.details else None
-
-        # Helena routes the reply by phone (`to`), not by sessionId — there is no
-        # sessionId in the send contract. Without a phone we cannot answer the lead.
-        if not phone:
-            logger.error(
-                "[HelenaService] No lead phone (details.from) for session %s "
-                "(company %d) — cannot send reply",
-                session_id,
-                company.id,
-            )
-            return {"status": "ignored", "reason": "no_phone", "session_id": session_id}
 
         # No Bearer configured → every send would 401; abort before touching the AI.
         if not helena_apikey:
@@ -105,8 +98,7 @@ class HelenaService:
             )
             return {"status": "ignored", "reason": "no_apikey", "session_id": session_id}
 
-        to: str = phone  # narrowed non-None; Helena's `to` recipient
-        apikey: str = helena_apikey  # narrowed non-None; Bearer for send/text
+        apikey: str = helena_apikey  # narrowed non-None; Bearer for session send
 
         # Resolve an attachment (audio → Whisper transcript; image/video/file →
         # descriptive phrase) into the text the core receives. Text has precedence.
@@ -134,7 +126,7 @@ class HelenaService:
             error_msg = (
                 AUDIO_EMPTY_MSG if isinstance(e, EmptyTranscriptError) else AUDIO_FAILURE_MSG
             )
-            await self.client.send_text(to, error_msg, apikey)
+            await self.client.send_text(session_id, error_msg, apikey)
             send_critical_alert(
                 "AUDIO_TRANSCRIPTION_FAILED",
                 "helena/service.py:process_webhook",
@@ -194,7 +186,7 @@ class HelenaService:
 
         async def on_send_messages(messages: list[str]) -> None:
             """Send messages to the lead through Helena before tool execution."""
-            await self.client.send_messages(to, messages, apikey)
+            await self.client.send_messages(session_id, messages, apikey)
 
         response = await self.request_manager.on_new_message(
             contact_id=contact_id,
@@ -223,7 +215,7 @@ class HelenaService:
 
         messages = response.get("resposta", [])
         if messages:
-            await self.client.send_messages(to, messages, apikey)
+            await self.client.send_messages(session_id, messages, apikey)
 
         return {
             "status": "processed",

@@ -53,6 +53,7 @@ class ToolHandler:
         "transfer_to_human",
         "finish_objection_breaker",
         "categories",
+        "salvar_contexto",
     }
 
     def __init__(self, timeout: int | None = None) -> None:
@@ -73,6 +74,7 @@ class ToolHandler:
             FinishObjectionBreakerTool,
             NextStepTool,
             RagTool,
+            SaveContextTool,
             TransferToHumanTool,
         )
 
@@ -82,6 +84,7 @@ class ToolHandler:
             "transfer_to_human": TransferToHumanTool(),
             "finish_objection_breaker": FinishObjectionBreakerTool(),
             "categories": CategoriesTool(),
+            "salvar_contexto": SaveContextTool(),
         }
 
     async def execute_all(

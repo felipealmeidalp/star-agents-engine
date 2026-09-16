@@ -136,11 +136,11 @@ class ChatHistoryRepository:
         company_id: int,
     ) -> list[dict[str, Any]]:
         """
-        Fetch last 10 messages with orphan tool handling.
+        Fetch last 20 messages with orphan tool handling.
 
-        If there's a role='tool' in the last 10 messages, ensures that the
+        If there's a role='tool' in the last 20 messages, ensures that the
         assistant message with tool_calls is included (even if it falls outside
-        the 10 message limit).
+        the 20 message limit).
 
         Args:
             session_id: The session identifier
@@ -157,7 +157,7 @@ class ChatHistoryRepository:
                   AND company_id = :company_id
                   AND role != 'dev'
                 ORDER BY created_at DESC, id DESC
-                LIMIT 10
+                LIMIT 20
             ),
             has_orphan_tool AS (
                 SELECT EXISTS (

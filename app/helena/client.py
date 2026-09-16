@@ -22,20 +22,22 @@ class HelenaClient:
 
     async def send_text(
         self,
-        to: str,
+        session_id: str,
         text: str,
         apikey: str,
     ) -> dict[str, Any]:
         """
-        Send a single text message to a lead through Helena.
+        Send a single text message into an existing Helena session.
 
-        Helena's `POST /v1/message/send` routes by the recipient phone (`to`),
-        not by a sessionId — there is no sessionId in the send contract; a new
-        Helena session auto-creates if needed. See
-        https://helena.readme.io/reference/post_v1-message-send.
+        Replies go through `POST /v1/session/{id}/message`, which routes by the
+        conversation's sessionId. This is the only send contract that works for
+        non-WhatsApp channels (Instagram/Facebook): `POST /v1/message/send` by
+        phone returns 200 QUEUED but the status resolves to FAILED with "não
+        suportado neste tipo de canal de atendimento". See
+        https://helena.readme.io/reference/post_v1-session-id-message.
 
         Args:
-            to: Lead phone number (from the webhook's `details.from`) — required
+            session_id: Helena session id (webhook's content.sessionId) — required
             text: Message content
             apikey: Bearer token (company.helena_apikey) for authentication
 
@@ -46,14 +48,14 @@ class HelenaClient:
             httpx.HTTPStatusError: If Helena returns a non-2xx status
             httpx.RequestError: If the connection fails
         """
-        url = f"{settings.helena_base_url}{settings.helena_send_text_path}"
+        url = f"{settings.helena_base_url}/v1/session/{session_id}/message"
         headers = {
             "Authorization": f"Bearer {apikey}",
             "Content-Type": "application/json",
         }
-        payload = {"to": to, "body": {"text": text}}
+        payload = {"text": text}
 
-        logger.info("[HelenaClient] Sending message to %s", to)
+        logger.info("[HelenaClient] Sending message to session %s", session_id)
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(url, json=payload, headers=headers)
@@ -86,10 +88,11 @@ class HelenaClient:
             httpx.HTTPStatusError: If Helena returns a non-2xx status
             httpx.RequestError: If the connection fails
         """
-        # ponytail: content.sessionId assumed == the {id} the Helena session API
-        #           wants; fallback is resolve-by-phone
-        #           (GET /core/v1/contact/phoneNumber/{phone}). Confirm on the
-        #           first real escalation.
+        # Assignee lives under /chat (same messaging service as send). Helena's
+        # assignee endpoint requires Content-Type application/*+json, not
+        # application/json.
+        # ponytail: content.sessionId assumed == the {id} the session API wants;
+        #           confirmed working on the first real escalation test.
         url = f"{settings.helena_base_url}/v1/session/{session_id}/assignee"
         headers = {
             "Authorization": f"Bearer {apikey}",
@@ -109,12 +112,12 @@ class HelenaClient:
 
     async def send_messages(
         self,
-        to: str,
+        session_id: str,
         messages: list[str],
         apikey: str,
     ) -> list[dict[str, Any]]:
         """
-        Send multiple messages to a lead with humanized delays.
+        Send multiple messages into a session with humanized delays.
 
         The first message is sent immediately (AI processing already provides a
         natural pause). Each subsequent message is preceded by a humanized delay
@@ -122,7 +125,7 @@ class HelenaClient:
         and processing continues with the next message.
 
         Args:
-            to: Lead phone number (Helena routes the reply by phone)
+            session_id: Helena session id (Helena routes the reply by session)
             messages: List of message strings
             apikey: Bearer token for authentication
 
@@ -142,7 +145,7 @@ class HelenaClient:
                 await asyncio.sleep(delay)
 
             try:
-                result = await self.send_text(to, message, apikey)
+                result = await self.send_text(session_id, message, apikey)
                 results.append(result)
             except Exception as e:
                 logger.error("[HelenaClient] Failed to send message: %s", e)
@@ -150,7 +153,7 @@ class HelenaClient:
                     "HELENA_SEND_FAILED",
                     "helena/client.py:send_messages",
                     e,
-                    extra=f"to={to}",
+                    extra=f"session={session_id}",
                 )
                 results.append({"error": str(e)})
 

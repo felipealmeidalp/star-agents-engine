@@ -2,6 +2,7 @@
 
 import json
 import logging
+import uuid
 from typing import Any
 
 import httpx
@@ -223,6 +224,9 @@ class HttpToolExecutor:
         """Extract parameter value from fixed, AI or customer_id source."""
         if param.source == "customer_id":
             return customer_id
+        elif param.source == "uuid":
+            # Gera um UUID novo por execução (ex: eventId de rastreio do lead-form)
+            return str(uuid.uuid4())
         elif param.source == "fixed":
             # value is {"value": [...]} - always array
             if not param.value:

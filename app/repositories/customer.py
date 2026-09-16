@@ -467,6 +467,37 @@ class CustomerRepository:
         await self.db.refresh(customer)
         return customer, False
 
+    async def merge_customer_context(
+        self,
+        session_id: str,
+        company_id: int,
+        patch: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """
+        Shallow-merge `patch` into the customer's customer_context (JSONB).
+
+        Existing keys are preserved; keys in `patch` override them. Used by the
+        salvar_contexto tool to persist qualification state (produto, cidade,
+        nome, telefone) incrementally, so it survives the chat-history window.
+
+        Returns the merged context, or None if the session was not found.
+        """
+        result = await self.db.execute(
+            select(Customer).where(
+                Customer.sessionId == session_id,
+                Customer.company_id == company_id,
+                Customer.deleted_at.is_(None),
+            )
+        )
+        customer = result.scalar_one_or_none()
+        if not customer:
+            return None
+
+        merged = {**(customer.customer_context or {}), **patch}
+        customer.customer_context = merged
+        await self.db.commit()
+        return merged
+
     async def update_follow_up_on_message(
         self,
         cw_contact_id: int,

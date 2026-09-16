@@ -1,0 +1,7 @@
+# Anexos são pré-processados no canal, sem vision
+
+Ao levar o tratamento de anexos (áudio, imagem, vídeo, arquivo) do Chatwoot para o Helena, decidimos manter a mesma estratégia que o Chatwoot já usa: o serviço do canal resolve o anexo em **texto** antes de chamar o núcleo. Áudio é transcrito (Whisper, `transcribe_audio`, que já é agnóstico de canal); imagem, vídeo e arquivo viram uma frase descritiva em português ("O usuário enviou uma imagem"). A IA nunca recebe a mídia em si — não há vision/multimodal.
+
+Isso é deliberado, não uma limitação esquecida. O núcleo (`RequestManager.on_new_message` → `process_chat_in_memory` → `OpenAIMessage.content`) é puramente string-in/string-out: `content` é `str | None`, sem array de partes. Suportar vision de verdade exigiria mudar esse schema e o pipeline da OpenAI — e afetaria o Chatwoot também, que hoje tampouco enxerga imagens. O ganho não justifica o custo nesta fase: o caso real é o lead mandar um áudio, e transcrição cobre isso reusando código pronto.
+
+Consequência: quem chegar ao Helena esperando que a IA "veja" a imagem que o lead mandou não vai encontrar isso, e é de propósito. Se um cliente precisar de vision, é uma spec nova que mexe no núcleo, não um ajuste no canal. Também herdamos do Chatwoot a regra de que texto tem precedência sobre anexo — mensagem com texto + áudio descarta o áudio; mantido por paridade, mas é um canto conhecido.

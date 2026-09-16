@@ -51,7 +51,7 @@ class Settings(BaseSettings):
 
     # Helena channel (base URL fixa; token/apikey são per-tenant em companies).
     # Envio é por sessão: POST {helena_base_url}/v1/session/{id}/message.
-    helena_base_url: str = "https://api.helena.run/chat"
+    helena_base_url: str = "https://api.chat.fabriks.com.br/chat"
 
     # Alerting (WhatsApp via Evolution API)
     alert_enabled: bool = True

@@ -164,8 +164,20 @@ async def case_d_reebok_highest_count_wins() -> None:
 
     row = repo.rows[("fitness", "halter")]
     assert row["mother_category"] == "Acessórios", row
-    assert row["mother_category_slug"] == "acessorios_", row
-    print("  (d) reebok category picks highest-count term: OK")
+    # slug gravado com prefixo de marca, pronto pra virar 7ball.com.br/{slug} no CRM
+    assert row["mother_category_slug"] == "categorias-reebok/acessorios_", row
+
+    # sinuca usa o outro prefixo (/_categoria/); mesmo code path, mapa por marca
+    sinuca_tax = {20: {"name": "Mesa de Sinuca", "slug": "mesa-sinuca", "count": 14}}
+    repo2 = FakeRepo()
+    await run_sync(
+        source=fake_source([brand("sinuca", [pp(4, "oslo", term_ids=[20])], sinuca_tax)]),
+        render=fake_render({"oslo": "mesa de sinuca premium" * 5}),
+        repo=repo2,
+        mode=SyncMode.ADDITIVE,
+    )
+    assert repo2.rows[("sinuca", "oslo")]["mother_category_slug"] == "_categoria/mesa-sinuca"
+    print("  (d) reebok category picks highest-count term + brand url prefix: OK")
 
 
 async def case_e_one_render_failure_isolated() -> None:

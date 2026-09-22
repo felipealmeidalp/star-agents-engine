@@ -39,6 +39,10 @@ class ProductStore(Protocol):
 COMPANY_ID = 5  # 7ball; the sync is not multi-tenant this phase
 NO_DESCRIPTION_FALLBACK = "(descrição pendente — produto sem texto renderizado)"
 
+# A URL pública de uma categoria não é 7ball.com.br/{slug} (dá 404) — leva prefixo
+# por marca. O slug gravado já vem com o prefixo pra o CRM montar 7ball.com.br/{slug}.
+CATEGORY_URL_PREFIX = {"sinuca": "_categoria", "fitness": "categorias-reebok"}
+
 # ponytail: global in-memory lock — 1 worker/1 replica; Redis lock only if it scales.
 # A plain bool is race-free on a single event loop: check-and-set never awaits between them.
 _running = False
@@ -118,6 +122,8 @@ async def _row_for(product: PulledProduct, render: RenderFn, taxonomy: Taxonomy)
         )
 
     mother_name, mother_slug = resolve_mother_category(product.term_ids, taxonomy)
+    if mother_slug:
+        mother_slug = f"{CATEGORY_URL_PREFIX[product.type]}/{mother_slug}"
     return {
         "company_id": COMPANY_ID,
         "wp_id": product.wp_id,

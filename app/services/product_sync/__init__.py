@@ -10,6 +10,7 @@ The production source and render live in the submodules `rest.fetch_catalog` and
 testing it) never drags in httpx/playwright.
 """
 
+from app.services.product_sync.scheduler import start_weekly_sync
 from app.services.product_sync.sync import (
     PulledProduct,
     SyncInProgressError,
@@ -26,4 +27,5 @@ __all__ = [
     "SyncMode",
     "SyncInProgressError",
     "PulledProduct",
+    "start_weekly_sync",
 ]

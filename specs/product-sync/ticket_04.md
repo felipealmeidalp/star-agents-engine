@@ -27,20 +27,20 @@ This is thin wiring over ticket 02 — it does not reimplement any sync logic. I
 ## Tasks
 
 **1. Weekly sync loop module + lifespan wiring** (loop module with `start_weekly_sync`; start as task on startup and cancel on shutdown; next-Saturday-00:00 calc with explicit tz; skip under global lock; per-run resilience/alert; recomputed sleep)
-- [ ] Add a loop module inside the sync package `app/services/product_sync/` exposing a `start_weekly_sync()` (or equivalent name — register the chosen name), reexported from that package's `__init__.py`, following the `app/followUp` / `app/webhookRetry` `start_...` pattern.
-- [ ] Implement the loop coroutine: recompute the delta to the next Saturday 00:00 using `zoneinfo` in a configurable timezone (default `America/Sao_Paulo`, matching `app/utils/alerter.py`), `asyncio.sleep` that delta, then act. Container is UTC — the tz-aware calc supplies the offset. One-line `why` comment on the tz, no docstring bloat.
-- [ ] On wake, check the global lock from the sync module (ticket 02): if a sync is already running, skip this round (no wait, no queue) and loop back to sleep; otherwise call the sync function in **additive** mode.
-- [ ] Wrap each run so an exception is caught, logged, and alerted fire-and-forget via `send_critical_alert(...)`, then continue to the next week — the loop must never die. Follow the consumers' resilience pattern.
-- [ ] In `app/main.py` `lifespan`: import the `start_...` next to the other `start_...` imports; on startup launch the loop with `asyncio.create_task(...)` and keep the task handle; on shutdown `.cancel()` it and await it, swallowing `CancelledError`, in the existing shutdown block (near `close_redis_pool` / `close_rabbitmq_connection` / `engine.dispose`).
+- [x] Add a loop module inside the sync package `app/services/product_sync/` exposing a `start_weekly_sync()` (or equivalent name — register the chosen name), reexported from that package's `__init__.py`, following the `app/followUp` / `app/webhookRetry` `start_...` pattern.
+- [x] Implement the loop coroutine: recompute the delta to the next Saturday 00:00 using `zoneinfo` in a configurable timezone (default `America/Sao_Paulo`, matching `app/utils/alerter.py`), `asyncio.sleep` that delta, then act. Container is UTC — the tz-aware calc supplies the offset. One-line `why` comment on the tz, no docstring bloat.
+- [x] On wake, check the global lock from the sync module (ticket 02): if a sync is already running, skip this round (no wait, no queue) and loop back to sleep; otherwise call the sync function in **additive** mode.
+- [x] Wrap each run so an exception is caught, logged, and alerted fire-and-forget via `send_critical_alert(...)`, then continue to the next week — the loop must never die. Follow the consumers' resilience pattern.
+- [x] In `app/main.py` `lifespan`: import the `start_...` next to the other `start_...` imports; on startup launch the loop with `asyncio.create_task(...)` and keep the task handle; on shutdown `.cancel()` it and await it, swallowing `CancelledError`, in the existing shutdown block (near `close_redis_pool` / `close_rabbitmq_connection` / `engine.dispose`).
 
 ## Acceptance criteria
 
-- [ ] On startup the loop is launched as a task (`asyncio.create_task`); on shutdown it is cancelled and awaited cleanly (no dangling task, `CancelledError` swallowed).
-- [ ] The loop fires additive mode at Saturday 00:00 in the configured timezone; the "next Saturday 00:00" is computed tz-aware (not naive), so it is correct even though the container clock is UTC.
-- [ ] The sleep is recomputed each iteration from the current time to the next Saturday 00:00, not a single multi-day sleep.
-- [ ] If the global lock is already taken when the loop wakes, the round is skipped — no waiting, no queuing (distinct from the endpoint's 409).
-- [ ] An exception during a sync run does not kill the loop nor the app; it is logged and alerted via `send_critical_alert`, and the loop proceeds to the next week.
-- [ ] The `start_...` lives in a module inside `app/services/product_sync/` and is reexported from its `__init__.py`, matching the `app/followUp` / `app/webhookRetry` convention.
+- [x] On startup the loop is launched as a task (`asyncio.create_task`); on shutdown it is cancelled and awaited cleanly (no dangling task, `CancelledError` swallowed).
+- [x] The loop fires additive mode at Saturday 00:00 in the configured timezone; the "next Saturday 00:00" is computed tz-aware (not naive), so it is correct even though the container clock is UTC.
+- [x] The sleep is recomputed each iteration from the current time to the next Saturday 00:00, not a single multi-day sleep.
+- [x] If the global lock is already taken when the loop wakes, the round is skipped — no waiting, no queuing (distinct from the endpoint's 409).
+- [x] An exception during a sync run does not kill the loop nor the app; it is logged and alerted via `send_critical_alert`, and the loop proceeds to the next week.
+- [x] The `start_...` lives in a module inside `app/services/product_sync/` and is reexported from its `__init__.py`, matching the `app/followUp` / `app/webhookRetry` convention.
 
 ## Out of scope
 

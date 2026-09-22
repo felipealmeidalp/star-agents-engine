@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     alert_phone_number: str = "5551995567237"
     alert_rate_limit_seconds: int = 300  # 5 minutos
 
+    # Product sync (loop semanal)
+    # sábado 00:00 no fuso do dono; container é UTC, daí o tz explícito
+    product_sync_timezone: str = "America/Sao_Paulo"
+
     # Internal (não exposto no .env)
     tool_execution_timeout: int = 300  # 5 minutos
     openai_timeout: int = 300  # 5 minutos

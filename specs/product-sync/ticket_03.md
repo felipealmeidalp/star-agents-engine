@@ -25,19 +25,19 @@
 ## Tasks
 
 **1. Manual sync endpoint (route + auth; registration; lock/409; test)**
-- [ ] Create `app/routes/products.py` with `router = APIRouter()` and one handler `@router.post("/products/sync")`, async, signature `_api_key: str = Depends(verify_api_key)` — mirror how `voe.py` applies the dependency. Import `verify_api_key` from `app.dependencies`.
-- [ ] In the handler, acquire the global lock exposed by `app/services/product_sync/` (ticket 02). If already held, `raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="sync já em andamento")`. If acquired, schedule the additive sync in the background (`asyncio.create_task` or `BackgroundTasks`) and return `202` with a small confirmation body. The background wrapper releases the lock in a `finally`.
-- [ ] Register the router in `app/main.py`: add `products` to `from app.routes import chat, chatwoot, health, helena, meta, voe` and add `app.include_router(products.router, prefix="/api", tags=["Products"])` alongside the others.
-- [ ] Add `tests/test_products_sync_route.py` in the style of `tests/test_helena_route.py` (self-contained `asyncio.run(main())`, plain asserts, `httpx.ASGITransport`, sync module mocked). Cover: (a) no `X-API-Key` → `401`; (b) lock already held → `409` (patch the lock to appear taken); optionally (c) valid key + free lock → `202` and the additive function was scheduled.
+- [x] Create `app/routes/products.py` with `router = APIRouter()` and one handler `@router.post("/products/sync")`, async, signature `_api_key: str = Depends(verify_api_key)` — mirror how `voe.py` applies the dependency. Import `verify_api_key` from `app.dependencies`.
+- [x] In the handler, acquire the global lock exposed by `app/services/product_sync/` (ticket 02). If already held, `raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="sync já em andamento")`. If acquired, schedule the additive sync in the background (`asyncio.create_task` or `BackgroundTasks`) and return `202` with a small confirmation body. The background wrapper releases the lock in a `finally`.
+- [x] Register the router in `app/main.py`: add `products` to `from app.routes import chat, chatwoot, health, helena, meta, voe` and add `app.include_router(products.router, prefix="/api", tags=["Products"])` alongside the others.
+- [x] Add `tests/test_products_sync_route.py` in the style of `tests/test_helena_route.py` (self-contained `asyncio.run(main())`, plain asserts, `httpx.ASGITransport`, sync module mocked). Cover: (a) no `X-API-Key` → `401`; (b) lock already held → `409` (patch the lock to appear taken); optionally (c) valid key + free lock → `202` and the additive function was scheduled.
 
 ## Acceptance criteria
 
-- [ ] A request without `X-API-Key` gets `401`.
-- [ ] A request with a valid `X-API-Key` triggers the additive mode of the sync.
-- [ ] With the global lock already held, the endpoint responds `409` immediately (before scheduling any work).
-- [ ] The route is registered in `app/main.py` with `prefix="/api"`, so it answers at `POST /api/products/sync`.
-- [ ] The background task releases the lock even if the sync raises.
-- [ ] `tests/test_products_sync_route.py` proves the `401` and `409` cases with the sync module mocked (no real sync, no browser).
+- [x] A request without `X-API-Key` gets `401`.
+- [x] A request with a valid `X-API-Key` triggers the additive mode of the sync.
+- [x] With the global lock already held, the endpoint responds `409` immediately (before scheduling any work).
+- [x] The route is registered in `app/main.py` with `prefix="/api"`, so it answers at `POST /api/products/sync`.
+- [x] The background task releases the lock even if the sync raises.
+- [x] `tests/test_products_sync_route.py` proves the `401` and `409` cases with the sync module mocked (no real sync, no browser).
 
 ## Out of scope
 

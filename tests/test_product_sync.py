@@ -209,6 +209,42 @@ async def case_f_empty_description_fallback() -> None:
     print("  (f) empty description → fallback, product still written: OK")
 
 
+def case_g_upsert_compiles() -> None:
+    """O UPSERT real do ProductRepository compila e referencia as colunas camelCase.
+
+    O FakeRepo não exercita o SQL, então o excluded.<col> (que quebrou em produção
+    com KeyError: 'image_url', porque excluded é indexado por nome de coluna) não
+    tinha teste. Compila pra SQL sem banco.
+    """
+    from datetime import UTC, datetime
+
+    from sqlalchemy.dialects import postgresql
+    from sqlalchemy.dialects.postgresql import insert
+
+    from app.models.tables import Product
+
+    row = {
+        "company_id": 5, "wp_id": 1, "title": "T", "slug": "s", "description": "d",
+        "image_url": None, "url": "u", "mother_category": "C",
+        "mother_category_slug": "_categoria/c", "is_mother_category": False, "type": "sinuca",
+    }
+    now = datetime.now(UTC)
+    stmt = insert(Product).values([{**row, "updated_at": now}])
+    excluded, cols = stmt.excluded, Product.__table__.c
+    stmt = stmt.on_conflict_do_update(
+        constraint="uq_products_company_type_wp",
+        set_={
+            cols.title: excluded[cols.title.name],
+            cols.imageUrl: excluded[cols.imageUrl.name],
+            cols.motherCategory: excluded[cols.motherCategory.name],
+        },
+    )
+    sql = str(stmt.compile(dialect=postgresql.dialect()))
+    assert '"imageUrl" = excluded."imageUrl"' in sql, sql
+    assert '"motherCategory" = excluded."motherCategory"' in sql, sql
+    print("  (g) ProductRepository UPSERT compiles with camelCase columns: OK")
+
+
 async def main() -> None:
     print("Product sync behavioral tests (seam: run_sync)")
     await case_a_additive_inserts_only_missing()
@@ -217,6 +253,7 @@ async def main() -> None:
     await case_d_reebok_highest_count_wins()
     await case_e_one_render_failure_isolated()
     await case_f_empty_description_fallback()
+    case_g_upsert_compiles()
     print("\nOK - all product sync cases passed")
 
 

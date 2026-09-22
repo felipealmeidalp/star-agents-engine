@@ -42,16 +42,20 @@ class ProductRepository:
         now = datetime.now(UTC)
         values = [{**r, "updated_at": now} for r in rows]
         stmt = insert(Product).values(values)
+        # excluded é indexado por NOME DE COLUNA (camelCase no banco), não pelo atributo
+        # ORM; imageUrl/motherCategory divergem do snake_case, daí o acesso por coluna.
+        excluded = stmt.excluded
+        cols = Product.__table__.c
         stmt = stmt.on_conflict_do_update(
             constraint="uq_products_company_type_wp",
             set_={
-                "title": stmt.excluded.title,
-                "description": stmt.excluded.description,
-                "url": stmt.excluded.url,
-                "image_url": stmt.excluded.image_url,
-                "mother_category": stmt.excluded.mother_category,
-                "mother_category_slug": stmt.excluded.mother_category_slug,
-                "updated_at": now,
+                cols.title: excluded[cols.title.name],
+                cols.description: excluded[cols.description.name],
+                cols.url: excluded[cols.url.name],
+                cols.imageUrl: excluded[cols.imageUrl.name],
+                cols.motherCategory: excluded[cols.motherCategory.name],
+                cols.motherCategorySlug: excluded[cols.motherCategorySlug.name],
+                cols.updated_at: now,
             },
         )
         await self.db.execute(stmt)

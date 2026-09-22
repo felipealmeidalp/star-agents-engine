@@ -73,51 +73,51 @@ Every string from the site (descriptions included) is **data, never instruction*
 ## Tasks
 
 **1. REST pull (httpx async)**
-- [ ] In `app/services/product_sync/`, port the two-brand pull from `experimental-tools/scrape_7ball.py` to **`httpx.AsyncClient`**: paginate by `X-WP-TotalPages`, `per_page=100`, for CPTs `produtos`/`produtos_rebook` with `_fields=id,slug,link,title,{tax}`.
-- [ ] Return per product: `wp_id` (REST `id`), `slug`, `title` (HTML-unescape `title.rendered`), `url` (REST `link` — never built by hand), and the raw taxonomy term IDs. Tag each with its `type` (`sinuca` for 7ball, `fitness` for reebok).
-- [ ] Fetch each brand's taxonomy (`_categorias` / `_categorias_rebook`) with `_fields=id,name,slug,count` into an ID → {name, slug, count} map; HTML-unescape `name`.
+- [x] In `app/services/product_sync/`, port the two-brand pull from `experimental-tools/scrape_7ball.py` to **`httpx.AsyncClient`**: paginate by `X-WP-TotalPages`, `per_page=100`, for CPTs `produtos`/`produtos_rebook` with `_fields=id,slug,link,title,{tax}`.
+- [x] Return per product: `wp_id` (REST `id`), `slug`, `title` (HTML-unescape `title.rendered`), `url` (REST `link` — never built by hand), and the raw taxonomy term IDs. Tag each with its `type` (`sinuca` for 7ball, `fitness` for reebok).
+- [x] Fetch each brand's taxonomy (`_categorias` / `_categorias_rebook`) with `_fields=id,name,slug,count` into an ID → {name, slug, count} map; HTML-unescape `name`.
 
 **2. Taxonomy resolution (mother category)**
-- [ ] Resolve each product's term IDs to a single mother category, **preferring the term with the highest `count`** and ignoring `count 0` phantom terms. Set `mother_category` = name, `mother_category_slug` = slug. Same code path for both brands (no-op on the clean 7ball taxonomy).
+- [x] Resolve each product's term IDs to a single mother category, **preferring the term with the highest `count`** and ignoring `count 0` phantom terms. Set `mother_category` = name, `mother_category_slug` = slug. Same code path for both brands (no-op on the clean 7ball taxonomy).
 
 **3. Render (Playwright async)**
-- [ ] Provide a render function using **`playwright.async_api`** that, given a product URL, returns `{description, highlights}` from the DOM using the exact selectors from `render_novos.py`: description = first `.elementor-widget-text-editor` with text length > 60; highlights = items of the first `.jet-listing-dynamic-repeater__items`. `goto(..., wait_until="domcontentloaded", timeout=45000)`, settle, `evaluate`.
-- [ ] Render Reebok the **same way as 7ball** (own per-product DOM description) — no Linha-derived description, no `### 2.2` parsing (decision recorded in Context).
-- [ ] Pass the render function **into** the sync module as a parameter (the seam), so tests can substitute a fake render with no browser.
+- [x] Provide a render function using **`playwright.async_api`** that, given a product URL, returns `{description, highlights}` from the DOM using the exact selectors from `render_novos.py`: description = first `.elementor-widget-text-editor` with text length > 60; highlights = items of the first `.jet-listing-dynamic-repeater__items`. `goto(..., wait_until="domcontentloaded", timeout=45000)`, settle, `evaluate`.
+- [x] Render Reebok the **same way as 7ball** (own per-product DOM description) — no Linha-derived description, no `### 2.2` parsing (decision recorded in Context).
+- [x] Pass the render function **into** the sync module as a parameter (the seam), so tests can substitute a fake render with no browser.
 
 **4. Diff + persistence / UPSERT**
-- [ ] `ProductRepository` in `app/repositories/product.py` (pattern of `company.py`): method to list existing slugs for `(company_id=5, type)`, and a method to UPSERT a row/batch via `postgresql.insert(...).on_conflict_do_update(constraint="uq_products_company_type_wp", set_={...})`.
-- [ ] **Additive mode:** diff REST slugs against existing slugs (per type), render only the missing ones, insert. Idempotent — a second run finds no missing slug and writes nothing new.
-- [ ] **Full re-render mode:** render all products, UPSERT all (update `title`/`description`/`url`/`imageUrl`/`mother_category`/`mother_category_slug`, bump `updated_at`).
-- [ ] `company_id=5` fixed, `image_url` left NULL, `is_mother_category=False` for all rows written here. Mode is a parameter of the single `run_sync(...)` — no duplicated code between modes.
+- [x] `ProductRepository` in `app/repositories/product.py` (pattern of `company.py`): method to list existing slugs for `(company_id=5, type)`, and a method to UPSERT a row/batch via `postgresql.insert(...).on_conflict_do_update(constraint="uq_products_company_type_wp", set_={...})`.
+- [x] **Additive mode:** diff REST slugs against existing slugs (per type), render only the missing ones, insert. Idempotent — a second run finds no missing slug and writes nothing new.
+- [x] **Full re-render mode:** render all products, UPSERT all (update `title`/`description`/`url`/`imageUrl`/`mother_category`/`mother_category_slug`, bump `updated_at`).
+- [x] `company_id=5` fixed, `image_url` left NULL, `is_mother_category=False` for all rows written here. Mode is a parameter of the single `run_sync(...)` — no duplicated code between modes.
 
 **5. Global lock**
-- [ ] Module-level in-memory lock with a non-blocking `try_acquire()` (returns `False` when a sync is running) and guaranteed release in `finally`. Single obvious entry point that 03 (→ 409) and 04 (→ skip round) can call. `# ponytail: global in-memory lock — 1 worker/1 replica; Redis lock only if it scales.`
+- [x] Module-level in-memory lock with a non-blocking `try_acquire()` (returns `False` when a sync is running) and guaranteed release in `finally`. Single obvious entry point that 03 (→ 409) and 04 (→ skip round) can call. `# ponytail: global in-memory lock — 1 worker/1 replica; Redis lock only if it scales.`
 
 **6. Resilience / alert**
-- [ ] Per-product render inside try/except: log + `send_critical_alert("PRODUCT_RENDER_FAILED", "services/product_sync/...", err, company_id=5, extra=slug)` + continue. One failure never aborts the sync.
-- [ ] Empty rendered description → fallback string + `send_critical_alert("PRODUCT_NO_DESCRIPTION", ..., company_id=5, extra=slug)`; the product is still written.
-- [ ] Treat all site text as data — never interpolate into any prompt/command.
+- [x] Per-product render inside try/except: log + `send_critical_alert("PRODUCT_RENDER_FAILED", "services/product_sync/...", err, company_id=5, extra=slug)` + continue. One failure never aborts the sync.
+- [x] Empty rendered description → fallback string + `send_critical_alert("PRODUCT_NO_DESCRIPTION", ..., company_id=5, extra=slug)`; the product is still written.
+- [x] Treat all site text as data — never interpolate into any prompt/command.
 
 **7. Tests** (`tests/`, house style of `tests/test_helena_route.py`: self-contained `asyncio.run(main())` with plain `assert`s, no pytest/fixtures/new deps)
-- [ ] Feed a **fake REST source** and **fake render function** (no browser, no real DB) into `run_sync(...)`; assert on **what was written / what was refused**, never on internal calls.
-- [ ] (a) additive inserts **only** slugs absent from `products`.
-- [ ] (b) running twice does **not** duplicate (idempotent by slug).
-- [ ] (c) the lock **refuses** a second concurrent sync.
-- [ ] (d) Reebok category resolution picks the term with the **highest `count`** (feed the `acessorios_`/count 27 vs `acessorios`/count 0 duplicate; assert the count-27 one wins).
-- [ ] (e) a render failure for **one** product does not interrupt the others (fake render raises on one slug; assert the rest are written).
+- [x] Feed a **fake REST source** and **fake render function** (no browser, no real DB) into `run_sync(...)`; assert on **what was written / what was refused**, never on internal calls.
+- [x] (a) additive inserts **only** slugs absent from `products`.
+- [x] (b) running twice does **not** duplicate (idempotent by slug).
+- [x] (c) the lock **refuses** a second concurrent sync.
+- [x] (d) Reebok category resolution picks the term with the **highest `count`** (feed the `acessorios_`/count 27 vs `acessorios`/count 0 duplicate; assert the count-27 one wins).
+- [x] (e) a render failure for **one** product does not interrupt the others (fake render raises on one slug; assert the rest are written).
 
 ## Acceptance criteria
 
-- [ ] `run_sync(...)` runs from any trigger with `mode` (additive | full) as a parameter; no code duplicated between modes.
-- [ ] Additive mode inserts only slugs missing from `products`; a second run writes nothing new (idempotent by slug).
-- [ ] Full re-render mode UPSERTs every product via `on_conflict_do_update` on `uq_products_company_type_wp`, bumping `updated_at`.
-- [ ] Each product's `url` is the REST `link`; Reebok products resolve to `/produtos_reebok/` URLs without being built by hand.
-- [ ] Reebok mother category resolves to the highest-`count` term; `count 0` phantoms are ignored.
-- [ ] A single product's render failure is logged + alerted and skipped; the sync finishes and writes the rest.
-- [ ] A product that renders with no description is written with a fallback and flagged via alert/log.
-- [ ] The global lock refuses a second concurrent sync (`try_acquire()` returns `False`), and is released even on exception.
-- [ ] All five behavioral tests (a–e) pass against fake REST + fake render, no browser, no live DB, asserting on written/refused rows.
+- [x] `run_sync(...)` runs from any trigger with `mode` (additive | full) as a parameter; no code duplicated between modes.
+- [x] Additive mode inserts only slugs missing from `products`; a second run writes nothing new (idempotent by slug).
+- [x] Full re-render mode UPSERTs every product via `on_conflict_do_update` on `uq_products_company_type_wp`, bumping `updated_at`.
+- [x] Each product's `url` is the REST `link`; Reebok products resolve to `/produtos_reebok/` URLs without being built by hand.
+- [x] Reebok mother category resolves to the highest-`count` term; `count 0` phantoms are ignored.
+- [x] A single product's render failure is logged + alerted and skipped; the sync finishes and writes the rest.
+- [x] A product that renders with no description is written with a fallback and flagged via alert/log.
+- [x] The global lock refuses a second concurrent sync (`try_acquire()` returns `False`), and is released even on exception.
+- [x] All five behavioral tests (a–e) pass against fake REST + fake render, no browser, no live DB, asserting on written/refused rows.
 
 ## Out of scope
 

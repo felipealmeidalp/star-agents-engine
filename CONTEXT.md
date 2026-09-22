@@ -50,3 +50,23 @@ _Avoid_: transferência, handoff, transbordo
 **Anexo**:
 Mídia que o lead envia junto ou no lugar do texto (áudio, imagem, vídeo, arquivo). O tratamento vive no serviço do canal, **antes** do núcleo, que só conhece texto: áudio vira texto por transcrição (Whisper, `transcribe_audio`); imagem/vídeo/arquivo viram uma frase descritiva em português ("O usuário enviou uma imagem"). A IA não recebe a mídia em si — não há vision/multimodal no sistema. Texto tem precedência: uma mensagem com texto ignora o anexo.
 _Avoid_: mídia, attachment (no código a lista é `attachments`), arquivo (que aqui é um subtipo de anexo)
+
+**Produto**:
+Um item do catálogo de uma marca do 7ball.com.br, uma linha em `products`. Origem: dois Custom Post Types do WordPress (`produtos` = sinuca/7Ball, `produtos_rebook` = fitness/Reebok). Campos estruturais (title, slug, url, imagem, categoria-mãe) vêm da REST do WP; descrição e destaques só existem no DOM renderizado da página. Escopado por `company_id` como todo o resto.
+_Avoid_: item, artigo, SKU
+
+**Categoria-mãe**:
+A taxonomia raiz de um Produto no WP (`motherCategory`/`motherCategorySlug`). Também pode virar uma linha própria em `products` com `isMotherCategory=true`, distinguindo a linha "categoria" da linha "produto" na mesma tabela.
+_Avoid_: categoria (ambíguo com o blob antigo em `categories`), taxonomia
+
+**Sync de produtos**:
+O processo que mantém `products` em dia com o site 7ball.com.br. Um módulo único com dois modos. **Aditivo**: detecta slugs que existem no site e não na tabela, renderiza só esses com [[Playwright]], insere. É o modo do [[Sync semanal]] e do endpoint manual — leve porque só produtos novos pagam render. **Full re-render**: re-renderiza todos os produtos e faz UPSERT; roda só localmente (a máquina local aponta pro mesmo Neon de produção), para quando muitos produtos já existentes mudaram no site. Um lock global garante um sync por vez.
+_Avoid_: importação, scraping, atualização de catálogo
+
+**Sync semanal**:
+Disparo automático do [[Sync de produtos]] no modo aditivo, todo sábado à meia-noite, por um loop asyncio no `lifespan` do app (não cron do SO, não RabbitMQ). Horário escolhido pelo mínimo de concorrência com os requests de chat. O mesmo código roda pelo endpoint manual.
+_Avoid_: cron, agendador, job
+
+**Playwright**:
+O navegador headless (Chromium) que renderiza a página de um Produto para extrair descrição e destaques — os únicos campos que a REST do WP devolve vazios. Só o [[Sync de produtos]] usa. No modo aditivo renderiza pouquíssimas páginas por semana; o custo pesado (catálogo inteiro) fica no full re-render, que roda local, nunca no servidor.
+_Avoid_: headless browser, scraper, crawler

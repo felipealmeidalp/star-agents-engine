@@ -13,6 +13,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 
 # revision identifiers, used by Alembic.
@@ -32,8 +33,20 @@ def upgrade() -> None:
     if result.fetchone():
         return
 
-    product_type = sa.Enum("sinuca", "fitness", name="product_type")
-    product_type.create(conn, checkfirst=True)
+    # CREATE TYPE via DO block: o checkfirst do SQLAlchemy Enum não é confiável sob
+    # asyncpg (emitia o CREATE duas vezes na mesma transação → DuplicateObjectError).
+    # create_type=False impede o create_table abaixo de emitir um terceiro.
+    conn.execute(
+        sa.text(
+            "DO $$ BEGIN "
+            "IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'product_type') THEN "
+            "CREATE TYPE product_type AS ENUM ('sinuca', 'fitness'); "
+            "END IF; END $$;"
+        )
+    )
+    product_type = postgresql.ENUM(
+        "sinuca", "fitness", name="product_type", create_type=False
+    )
 
     op.create_table(
         "products",

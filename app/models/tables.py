@@ -14,6 +14,8 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Boolean,
+    Enum,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -544,3 +546,44 @@ class Category(Base):
         TIMESTAMP, default=datetime.utcnow, nullable=False
     )
     updated_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP, nullable=True)
+
+
+class Product(Base):
+    """Products table - per-brand catalog synced from 7ball.com.br (WP REST + render)."""
+
+    __tablename__ = "products"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    company_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("companies.id"))
+    # id do WP: repete entre CPTs/marcas, por isso é coluna e não PK
+    wp_id: Mapped[int] = mapped_column("wpId", BigInteger, nullable=False)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    slug: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    image_url: Mapped[Optional[str]] = mapped_column("imageUrl", String, nullable=True)
+    url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    mother_category: Mapped[Optional[str]] = mapped_column(
+        "motherCategory", String, nullable=True
+    )
+    mother_category_slug: Mapped[Optional[str]] = mapped_column(
+        "motherCategorySlug", String, nullable=True
+    )
+    is_mother_category: Mapped[bool] = mapped_column(
+        "isMotherCategory", Boolean, nullable=False, default=False
+    )
+    type: Mapped[str] = mapped_column(
+        Enum("sinuca", "fitness", name="product_type"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), default=datetime.utcnow, nullable=False
+    )
+    updated_at: Mapped[Optional[datetime]] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "company_id", "type", "wpId", "isMotherCategory",
+            name="uq_products_company_type_wp",
+        ),
+    )

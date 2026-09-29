@@ -194,15 +194,16 @@ class ContextBuilder:
         response_format = self._get_response_format(context.agent.output_type)
 
         # 8. Build payload: request override > variable prompt > sub-agent > default
+        # Effort rides only with the model it was set for: gpt-4.x rejects reasoning.effort
+        reasoning_effort = reasoning_effort_override
         if model_override:
             model = model_override
         elif variable_prompt:
             model = variable_prompt.model
+            reasoning_effort = reasoning_effort or variable_prompt.reasoning_effort
         else:
             model = context.sub_agent.model or "gpt-4"
-
-        # Only send effort when the request asked for it: gpt-4.x rejects reasoning.effort
-        reasoning_effort = reasoning_effort_override
+            reasoning_effort = reasoning_effort or context.sub_agent.reasoning_effort
 
         payload = OpenAIPayload(
             model=model,
@@ -286,6 +287,7 @@ class ContextBuilder:
             tools=sub_agent_data.get("tools"),
             model=sub_agent_data.get("model"),
             temperature=sub_agent_data.get("temperature"),
+            reasoning_effort=sub_agent_data.get("reasoning_effort"),
         )
 
         # Parse steps

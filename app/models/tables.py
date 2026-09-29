@@ -146,6 +146,7 @@ class SubAgent(Base):
     tools: Mapped[Optional[List[str]]] = mapped_column(ARRAY(String), nullable=True)
     model: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     temperature: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    reasoning_effort: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP, default=datetime.utcnow, nullable=False
     )
@@ -440,6 +441,7 @@ class Prompt(Base):
     reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     model: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     temperature: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    reasoning_effort: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     type: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

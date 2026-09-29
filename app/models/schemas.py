@@ -150,6 +150,7 @@ class SubAgentSchema(BaseModel):
     tools: list[str] | None = None
     model: str | None = None
     temperature: float | None = None
+    reasoning_effort: str | None = None
 
 
 class AgentSchema(BaseModel):

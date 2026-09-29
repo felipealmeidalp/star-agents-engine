@@ -91,18 +91,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         )
         # Note: We don't fail startup, follow-ups will just not work
 
-    weekly_sync_task = start_weekly_sync()
-    print("✅ Weekly product sync loop started")
+    weekly_sync_task = None
+    if settings.product_sync_enabled:
+        weekly_sync_task = start_weekly_sync()
+        print("✅ Weekly product sync loop started")
+    else:
+        print("⏸️ Weekly product sync disabled (PRODUCT_SYNC_ENABLED=false)")
 
     yield
 
     # Shutdown
     print("🛑 Shutting down...")
-    weekly_sync_task.cancel()
-    try:
-        await weekly_sync_task
-    except asyncio.CancelledError:
-        pass
+    if weekly_sync_task:
+        weekly_sync_task.cancel()
+        try:
+            await weekly_sync_task
+        except asyncio.CancelledError:
+            pass
     try:
         await close_redis_pool()
     except Exception as e:

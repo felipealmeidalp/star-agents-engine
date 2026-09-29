@@ -5,6 +5,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.config import settings
 from app.dependencies import verify_api_key
 from app.services.product_sync import SyncInProgressError, release, run_sync, try_acquire
 
@@ -43,6 +44,10 @@ async def _run_additive_sync() -> None:
 @router.post("/products/sync", status_code=status.HTTP_202_ACCEPTED)
 async def trigger_sync(_api_key: str = Depends(verify_api_key)) -> dict[str, str]:
     """Fire the additive sync in the background; 409 on the spot if one is running."""
+    if not settings.product_sync_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="sync de produtos desativado"
+        )
     if not try_acquire():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="sync já em andamento"

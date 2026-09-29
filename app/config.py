@@ -62,6 +62,8 @@ class Settings(BaseSettings):
     alert_rate_limit_seconds: int = 300  # 5 minutos
 
     # Product sync (loop semanal)
+    # desligado até o sync entrar em uso: nem loop de sábado nem endpoint manual rodam
+    product_sync_enabled: bool = False
     # sábado 00:00 no fuso do dono; container é UTC, daí o tz explícito
     product_sync_timezone: str = "America/Sao_Paulo"
 

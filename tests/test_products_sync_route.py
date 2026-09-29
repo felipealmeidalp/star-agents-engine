@@ -7,7 +7,8 @@ route imported (app.routes.products.try_acquire / release / _run_additive_sync),
 no real sync runs: no browser, no DB, no httpx to 7ball.
 
 Cases: (a) no X-API-Key → 401; (b) lock already held → 409 before scheduling;
-(c) valid key + free lock → 202 and the additive sync was scheduled.
+(c) valid key + free lock → 202 and the additive sync was scheduled; (d) toggle off
+→ 503 before touching the lock.
 
     API_KEY=test-key DATABASE_URL=postgresql+asyncpg://... \
         python tests/test_products_sync_route.py
@@ -78,12 +79,25 @@ async def case_c_free_lock_202_and_scheduled() -> None:
     print("  (c) valid key + free lock → 202, additive sync scheduled: OK")
 
 
+async def case_d_disabled_503() -> None:
+    acquired: list[int] = []
+    with patch.object(settings, "product_sync_enabled", False), patch(
+        "app.routes.products.try_acquire", lambda: acquired.append(1) or True
+    ):
+        resp = await _post({"X-API-Key": settings.api_key})
+    assert resp.status_code == 503, resp.status_code
+    assert acquired == [], "disabled sync must refuse before touching the lock"
+    print("  (d) toggle off → 503, lock untouched: OK")
+
+
 async def main() -> None:
     print("Products sync route tests (seam: POST /api/products/sync)")
     assert settings.api_key  # sanity: settings imported
     await case_a_missing_key_401()
-    await case_b_lock_held_409()
-    await case_c_free_lock_202_and_scheduled()
+    with patch.object(settings, "product_sync_enabled", True):
+        await case_b_lock_held_409()
+        await case_c_free_lock_202_and_scheduled()
+    await case_d_disabled_503()
     print("\nOK - all products sync route cases passed")
 
 

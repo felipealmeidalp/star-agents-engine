@@ -51,6 +51,26 @@ _Avoid_: transferência, handoff, transbordo
 Mídia que o lead envia junto ou no lugar do texto (áudio, imagem, vídeo, arquivo). O tratamento vive no serviço do canal, **antes** do núcleo, que só conhece texto: áudio vira texto por transcrição (Whisper, `transcribe_audio`); imagem/vídeo/arquivo viram uma frase descritiva em português ("O usuário enviou uma imagem"). A IA não recebe a mídia em si — não há vision/multimodal no sistema. Texto tem precedência: uma mensagem com texto ignora o anexo.
 _Avoid_: mídia, attachment (no código a lista é `attachments`), arquivo (que aqui é um subtipo de anexo)
 
+**Comentário elegível**:
+Comentário de primeiro nível feito por outra pessoa num post do Instagram da Company, o primeiro daquela pessoa naquele post. É o único que dispara [[Resposta pública]] e [[DM de boas-vindas]]. Comentários da própria conta, respostas a outros comentários e repetições da mesma pessoa no mesmo post não são elegíveis.
+_Avoid_: menção, interação, engajamento
+
+**DM de boas-vindas**:
+A mensagem direta única que o engine envia pela API da Meta a quem fez um [[Comentário elegível]], gerada por LLM a partir de um prompt da Company que recebe o @username e a legenda do post. Sai por fora do [[Helena]]; a conversa que nasce quando a pessoa responde segue pelo canal Helena.
+_Avoid_: private reply (termo da Meta, só na fronteira com a API), mensagem ativa, primeira mensagem
+
+**Boas-vindas pendente**:
+Uma [[DM de boas-vindas]] já enviada cuja conversa no [[Helena]] ainda não apareceu. Guarda o texto da DM e a [[Origem do comentário]] até a pessoa responder; nesse momento vira a primeira mensagem do assistente no [[ChatHistory]] do Customer recém-criado e deixa de estar pendente.
+_Avoid_: lead pendente, pré-contato, pré-customer
+
+**Origem do comentário**:
+O que o engine sabe sobre de onde o Customer veio quando a conversa nasce de um [[Comentário elegível]]: a legenda do post, o texto do comentário e, quando a legenda cita um, o produto. Entra no contexto do lead que a IA recebe. O produto é extraído da legenda pela mesma chamada de LLM que gera a [[DM de boas-vindas]]; sem produto na legenda, fica ausente.
+_Avoid_: UTM, fonte, campanha
+
+**Resposta pública**:
+O texto fixo, um por Company, que o engine publica como resposta ao [[Comentário elegível]]. Só é publicada depois que a [[DM de boas-vindas]] saiu com sucesso.
+_Avoid_: reply, comentário automático
+
 **Produto**:
 Um item do catálogo de uma marca do 7ball.com.br, uma linha em `products`. Origem: dois Custom Post Types do WordPress (`produtos` = sinuca/7Ball, `produtos_rebook` = fitness/Reebok). Campos estruturais (title, slug, url, imagem, categoria-mãe) vêm da REST do WP; descrição e destaques só existem no DOM renderizado da página. Escopado por `company_id` como todo o resto.
 _Avoid_: item, artigo, SKU

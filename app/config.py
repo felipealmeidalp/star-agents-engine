@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     meta_forward_timeout: int = 10     # Timeout forward pro Chatwoot (s)
     meta_cache_ttl: int = 300          # TTL cache imbox/company no Redis (5min)
 
+    # Instagram comments webhook (app próprio da Meta, não o do proxy de WhatsApp)
+    instagram_app_secret: str = ""     # Segredo que assina X-Hub-Signature-256
+    instagram_verify_token: str = ""   # hub.verify_token para verificação GET
+
     # Helena channel (base URL fixa; token/apikey são per-tenant em companies).
     # Envio é por sessão: POST {helena_base_url}/v1/session/{id}/message.
     helena_base_url: str = "https://api.chat.fabriks.com.br/chat"

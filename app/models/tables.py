@@ -51,6 +51,12 @@ class Company(Base):
     helena_apikey: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     # userId (UUID as text) of the fixed Helena attendant escalations are assigned to.
     helena_assignee_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    # Instagram comment welcome
+    instagram_account_id: Mapped[Optional[str]] = mapped_column(
+        String, nullable=True, unique=True, index=True
+    )
+    instagram_access_token: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    instagram_public_reply: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     # Unified inbox+contact filtering (replaces allowed_inboxes and allowed_contacts)
     # Structure: {"allowed_inboxes": [{"id": 1, "allowed_contacts": [1,2,3]}, ...]}
     # null or {"allowed_inboxes": []} = all allowed

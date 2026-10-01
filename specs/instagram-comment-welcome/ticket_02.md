@@ -93,63 +93,63 @@ class InstagramComment(BaseModel):
 
 **1. Global settings**
 
-- [ ] In the `Settings` class of `app.config`, add a block for this feature with `instagram_app_secret: str = ""` and `instagram_verify_token: str = ""`, declared like the `meta_app_secret` / `meta_verify_token` pair. Do not reuse or rename the `meta_*` settings.
-- [ ] In `.env.example`, add a commented block for `INSTAGRAM_APP_SECRET` and `INSTAGRAM_VERIFY_TOKEN` in the same style as the "Meta WhatsApp webhook" block, stating that they belong to the Instagram comments app and are not the WhatsApp proxy values.
+- [x] In the `Settings` class of `app.config`, add a block for this feature with `instagram_app_secret: str = ""` and `instagram_verify_token: str = ""`, declared like the `meta_app_secret` / `meta_verify_token` pair. Do not reuse or rename the `meta_*` settings.
+- [x] In `.env.example`, add a commented block for `INSTAGRAM_APP_SECRET` and `INSTAGRAM_VERIFY_TOKEN` in the same style as the "Meta WhatsApp webhook" block, stating that they belong to the Instagram comments app and are not the WhatsApp proxy values.
 
 **2. Company columns and migration 010**
 
-- [ ] In the `Company` class of `app.models.tables`, add an "Instagram" block after the Helena block with `instagram_account_id` declared like `helena_token` but as `String` (`Mapped[Optional[str]]`, `nullable=True, unique=True, index=True`), `instagram_access_token` declared like `helena_apikey` (`String`, nullable), and `instagram_public_reply` as `Text`, nullable.
-- [ ] Create the migration file `20261001_000000_010_add_instagram_columns_to_companies.py` in the migrations versions folder with `revision = "010"`, `down_revision = "009"`, `branch_labels` and `depends_on` set to `None`, and the header layout of revision 009.
-- [ ] In `upgrade()`, use `op.execute` with idempotent raw SQL, as revision 009 does: `ALTER TABLE companies ADD COLUMN IF NOT EXISTS` for `instagram_account_id VARCHAR`, `instagram_access_token VARCHAR` and `instagram_public_reply TEXT`, then `CREATE UNIQUE INDEX IF NOT EXISTS ix_companies_instagram_account_id ON companies (instagram_account_id)`.
-- [ ] In `downgrade()`, `DROP INDEX IF EXISTS ix_companies_instagram_account_id`, then `DROP COLUMN IF EXISTS` for the three columns.
-- [ ] Do **not** run `alembic upgrade` (or any other command that writes to the database) on your own: the local `.env` points at the production database. Deliver the migration file, tell the owner it is ready, and run it only after the owner's explicit go.
+- [x] In the `Company` class of `app.models.tables`, add an "Instagram" block after the Helena block with `instagram_account_id` declared like `helena_token` but as `String` (`Mapped[Optional[str]]`, `nullable=True, unique=True, index=True`), `instagram_access_token` declared like `helena_apikey` (`String`, nullable), and `instagram_public_reply` as `Text`, nullable.
+- [x] Create the migration file `20261001_000000_010_add_instagram_columns_to_companies.py` in the migrations versions folder with `revision = "010"`, `down_revision = "009"`, `branch_labels` and `depends_on` set to `None`, and the header layout of revision 009.
+- [x] In `upgrade()`, use `op.execute` with idempotent raw SQL, as revision 009 does: `ALTER TABLE companies ADD COLUMN IF NOT EXISTS` for `instagram_account_id VARCHAR`, `instagram_access_token VARCHAR` and `instagram_public_reply TEXT`, then `CREATE UNIQUE INDEX IF NOT EXISTS ix_companies_instagram_account_id ON companies (instagram_account_id)`.
+- [x] In `downgrade()`, `DROP INDEX IF EXISTS ix_companies_instagram_account_id`, then `DROP COLUMN IF EXISTS` for the three columns.
+- [x] Do **not** run `alembic upgrade` (or any other command that writes to the database) on your own: the local `.env` points at the production database. Deliver the migration file, tell the owner it is ready, and run it only after the owner's explicit go.
 
 **3. Repository lookup**
 
-- [ ] In `CompanyRepository` (`app.repositories.company`), add `async def get_by_instagram_account_id(self, instagram_account_id: str) -> Company | None`, mirroring `get_by_cw_account_id`: `select(Company).where(Company.instagram_account_id == instagram_account_id)` and `scalar_one_or_none()`.
+- [x] In `CompanyRepository` (`app.repositories.company`), add `async def get_by_instagram_account_id(self, instagram_account_id: str) -> Company | None`, mirroring `get_by_cw_account_id`: `select(Company).where(Company.instagram_account_id == instagram_account_id)` and `scalar_one_or_none()`.
 
 **4. Parser and hand-off (`app.services.instagram_welcome`)**
 
-- [ ] Create the module `app.services.instagram_welcome` with the `InstagramComment` model exactly as given in Context.
-- [ ] Add `parse_comments(body: dict) -> list[tuple[str, InstagramComment]]`, returning one `(instagram_account_id, comment)` pair per comment found, in payload order. It walks `body.get("entry", [])` and each entry's `changes` (absent `changes` counts as empty), using plain dict access — no alias or validator machinery.
-- [ ] In `parse_comments`, skip any change whose `field` is not `"comments"` without raising.
-- [ ] In `parse_comments`, take the account id from the entry's `id`, the comment id from `value["id"]` or, when absent, `value["comment_id"]`, the post id from `value["media"]["id"]`, the author from `value["from"]["id"]` and `value["from"]["username"]`, the text from `value["text"]` (empty string when absent) and the parent from `value["parent_id"]` (`None` when absent). Convert every id to `str`.
-- [ ] In `parse_comments`, when an item is malformed (entry without `id`, or comment without comment id, post id or author id, or any unexpected type), log a warning and continue with the next item: one bad item never drops the rest of the batch and never raises.
-- [ ] Add the hand-off `async def handle_comment(db: AsyncSession, company: Company, comment: InstagramComment) -> None`. In this ticket its whole body is one `logger.info` with the Company id, the comment id and the post id. Do not log the comment text, the author username or the access token. No class, no interface, no placeholder branches — ticket 03 replaces the body.
+- [x] Create the module `app.services.instagram_welcome` with the `InstagramComment` model exactly as given in Context.
+- [x] Add `parse_comments(body: dict) -> list[tuple[str, InstagramComment]]`, returning one `(instagram_account_id, comment)` pair per comment found, in payload order. It walks `body.get("entry", [])` and each entry's `changes` (absent `changes` counts as empty), using plain dict access — no alias or validator machinery.
+- [x] In `parse_comments`, skip any change whose `field` is not `"comments"` without raising.
+- [x] In `parse_comments`, take the account id from the entry's `id`, the comment id from `value["id"]` or, when absent, `value["comment_id"]`, the post id from `value["media"]["id"]`, the author from `value["from"]["id"]` and `value["from"]["username"]`, the text from `value["text"]` (empty string when absent) and the parent from `value["parent_id"]` (`None` when absent). Convert every id to `str`.
+- [x] In `parse_comments`, when an item is malformed (entry without `id`, or comment without comment id, post id or author id, or any unexpected type), log a warning and continue with the next item: one bad item never drops the rest of the batch and never raises.
+- [x] Add the hand-off `async def handle_comment(db: AsyncSession, company: Company, comment: InstagramComment) -> None`. In this ticket its whole body is one `logger.info` with the Company id, the comment id and the post id. Do not log the comment text, the author username or the access token. No class, no interface, no placeholder branches — ticket 03 replaces the body.
 
 **5. Route (`app.routes.instagram`)**
 
-- [ ] Create the module `app.routes.instagram` with `router = APIRouter()` and a module logger, like `app.routes.helena`.
-- [ ] Add the handshake `GET /instagram`: read `hub.verify_token` and `hub.challenge` from `request.query_params`. If `settings.instagram_verify_token` is empty or differs from the received token, log a warning and return `Response(content="Forbidden", status_code=403)`. Otherwise return the challenge as `Response(content=challenge, media_type="text/plain")`.
-- [ ] Add the event handler `POST /instagram` taking `request: Request` and `background_tasks: BackgroundTasks`. Read the raw body with `await request.body()` first.
-- [ ] In the event handler, if `settings.instagram_app_secret` is empty, log an error and return 403 without reading anything else (fail closed).
-- [ ] In the event handler, read the `X-Hub-Signature-256` header (default `""`) and call the existing `verify_signature(raw_body, signature, settings.instagram_app_secret)` imported from `app.services.meta_webhook`. On `False` (covers both missing and wrong signature), log a warning and return 403. Never log the secret or the received signature.
-- [ ] In the event handler, only after the signature passes, parse the raw body with `json.loads`. If it is not valid JSON or not a JSON object, log a warning and return `{"status": "ignored"}` with status 200 — a signed but unparseable body is acknowledged, not retried.
-- [ ] In the event handler, schedule `background_tasks.add_task(process_webhook_background, body)` and return `{"status": "received"}`. No parsing of the batch and no DB access in the handler.
-- [ ] Add `async def process_webhook_background(body: dict) -> None`, following `process_webhook_background` in `app.routes.helena`. It calls `parse_comments(body)`; if the result is empty, it logs at info level that the event has no comments and returns without opening a DB session.
-- [ ] In `process_webhook_background`, open one session with `async with AsyncSessionLocal() as db` and process the pairs one by one, in order. For each pair: if the comment has a `parent_id`, log at info level and skip it; otherwise resolve the Company with `CompanyRepository(db).get_by_instagram_account_id(account_id)`; if it is `None`, log a warning with the account id and skip it (no exception, no alert); otherwise `await handle_comment(db, company, comment)`.
-- [ ] In `process_webhook_background`, wrap the processing of each pair in its own `try/except Exception` that calls `logger.exception` and `send_critical_alert("INSTAGRAM_WEBHOOK_UNHANDLED_ERROR", "instagram.py:process_webhook_background", e, extra=f"account={account_id} comment={comment.comment_id}")`, then continues with the next pair, so one failing comment never loses the others. Wrap the whole function body in an outer `try/except Exception` with the same log and alert (without the comment in `extra`) for failures outside the loop.
-- [ ] In `app.main`, add `instagram` to the `from app.routes import ...` line and add `app.include_router(instagram.router, prefix="/api", tags=["Instagram"])` next to the other routers.
+- [x] Create the module `app.routes.instagram` with `router = APIRouter()` and a module logger, like `app.routes.helena`.
+- [x] Add the handshake `GET /instagram`: read `hub.verify_token` and `hub.challenge` from `request.query_params`. If `settings.instagram_verify_token` is empty or differs from the received token, log a warning and return `Response(content="Forbidden", status_code=403)`. Otherwise return the challenge as `Response(content=challenge, media_type="text/plain")`.
+- [x] Add the event handler `POST /instagram` taking `request: Request` and `background_tasks: BackgroundTasks`. Read the raw body with `await request.body()` first.
+- [x] In the event handler, if `settings.instagram_app_secret` is empty, log an error and return 403 without reading anything else (fail closed).
+- [x] In the event handler, read the `X-Hub-Signature-256` header (default `""`) and call the existing `verify_signature(raw_body, signature, settings.instagram_app_secret)` imported from `app.services.meta_webhook`. On `False` (covers both missing and wrong signature), log a warning and return 403. Never log the secret or the received signature.
+- [x] In the event handler, only after the signature passes, parse the raw body with `json.loads`. If it is not valid JSON or not a JSON object, log a warning and return `{"status": "ignored"}` with status 200 — a signed but unparseable body is acknowledged, not retried.
+- [x] In the event handler, schedule `background_tasks.add_task(process_webhook_background, body)` and return `{"status": "received"}`. No parsing of the batch and no DB access in the handler.
+- [x] Add `async def process_webhook_background(body: dict) -> None`, following `process_webhook_background` in `app.routes.helena`. It calls `parse_comments(body)`; if the result is empty, it logs at info level that the event has no comments and returns without opening a DB session.
+- [x] In `process_webhook_background`, open one session with `async with AsyncSessionLocal() as db` and process the pairs one by one, in order. For each pair: if the comment has a `parent_id`, log at info level and skip it; otherwise resolve the Company with `CompanyRepository(db).get_by_instagram_account_id(account_id)`; if it is `None`, log a warning with the account id and skip it (no exception, no alert); otherwise `await handle_comment(db, company, comment)`.
+- [x] In `process_webhook_background`, wrap the processing of each pair in its own `try/except Exception` that calls `logger.exception` and `send_critical_alert("INSTAGRAM_WEBHOOK_UNHANDLED_ERROR", "instagram.py:process_webhook_background", e, extra=f"account={account_id} comment={comment.comment_id}")`, then continues with the next pair, so one failing comment never loses the others. Wrap the whole function body in an outer `try/except Exception` with the same log and alert (without the comment in `extra`) for failures outside the loop.
+- [x] In `app.main`, add `instagram` to the `from app.routes import ...` line and add `app.include_router(instagram.router, prefix="/api", tags=["Instagram"])` next to the other routers.
 
 **6. Tests (`tests/test_instagram_route.py`)**
 
-- [ ] Create `tests/test_instagram_route.py` in the house style of `tests/test_helena_route.py`: `asyncio.run(main())`, plain `assert`s, placeholder `DATABASE_URL`/`API_KEY` set with `os.environ.setdefault` before importing the app, requests through `httpx.ASGITransport(app=app)`, one printed line per passing case. No pytest, no new dependency.
-- [ ] Add a helper that posts an event signed the way Meta does: serialize the payload to bytes once, compute `"sha256=" + hmac.new(secret.encode(), raw, hashlib.sha256).hexdigest()`, and send those same bytes with `content=raw` and the `X-Hub-Signature-256` header (not `json=`, which would re-serialize and break the signature). Set the settings per case with `patch.object(settings, "instagram_app_secret", ...)` / `patch.object(settings, "instagram_verify_token", ...)`.
-- [ ] Observe the hand-off by patching the name the route imported (`app.routes.instagram.handle_comment`) with an async recorder that stores `(company.id, comment)`; observe alerts by patching `app.routes.instagram.send_critical_alert` with a recorder.
-- [ ] Case, no DB: handshake with the right `hub.verify_token` returns 200 and the body is exactly the `hub.challenge` sent.
-- [ ] Case, no DB: handshake with a wrong `hub.verify_token` returns 403.
-- [ ] Case, no DB: handshake with `instagram_verify_token` unset and no `hub.verify_token` param returns 403.
-- [ ] Case, no DB: event without the signature header returns 403 and the hand-off is never called.
-- [ ] Case, no DB: event with a signature computed with another secret returns 403 and the hand-off is never called.
-- [ ] Case, no DB: with `instagram_app_secret` unset, an event signed with the empty string as secret returns 403 and the hand-off is never called.
-- [ ] Case, no DB: a validly signed non-comment event (one change with `field` other than `comments`, plus one entry with `messaging` and no `changes`) returns 200, with zero hand-off calls and zero alerts.
-- [ ] Case, no DB: a validly signed reply to another comment (`parent_id` present) returns 200 with zero hand-off calls.
-- [ ] Reuse the `db_reachable()` approach of the Helena test: when the database is unreachable, print which cases were skipped and why, and exit successfully having run the no-DB cases.
-- [ ] For the DB cases, stamp a fixed fake account id (for example `test-ig-account-0001`) onto the seeded Company `id=5` with an `UPDATE companies SET instagram_account_id = ...`, and set it back to `NULL` in a `finally` — the column is unique and the database behind the local `.env` is production. These cases need migration 010 applied, so run them only after the owner has approved and applied it.
-- [ ] Case, DB: a validly signed first-level comment for the stamped account, using `id` as the comment id name, returns 200 and the hand-off is called once with Company `5` and an `InstagramComment` carrying the comment id, post id, author id, author username and text from the payload, with `parent_id` `None`.
-- [ ] Case, DB: the same event using `comment_id` instead of `id` reaches the hand-off with the same `comment_id`.
-- [ ] Case, DB: a validly signed comment for an account id no Company has returns 200 with zero hand-off calls, zero alerts and no exception.
-- [ ] Case, DB: a batch with two first-level comments for the stamped account and one malformed comment between them (no `media`) returns 200 and the hand-off is called exactly twice, in payload order.
+- [x] Create `tests/test_instagram_route.py` in the house style of `tests/test_helena_route.py`: `asyncio.run(main())`, plain `assert`s, placeholder `DATABASE_URL`/`API_KEY` set with `os.environ.setdefault` before importing the app, requests through `httpx.ASGITransport(app=app)`, one printed line per passing case. No pytest, no new dependency.
+- [x] Add a helper that posts an event signed the way Meta does: serialize the payload to bytes once, compute `"sha256=" + hmac.new(secret.encode(), raw, hashlib.sha256).hexdigest()`, and send those same bytes with `content=raw` and the `X-Hub-Signature-256` header (not `json=`, which would re-serialize and break the signature). Set the settings per case with `patch.object(settings, "instagram_app_secret", ...)` / `patch.object(settings, "instagram_verify_token", ...)`.
+- [x] Observe the hand-off by patching the name the route imported (`app.routes.instagram.handle_comment`) with an async recorder that stores `(company.id, comment)`; observe alerts by patching `app.routes.instagram.send_critical_alert` with a recorder.
+- [x] Case, no DB: handshake with the right `hub.verify_token` returns 200 and the body is exactly the `hub.challenge` sent.
+- [x] Case, no DB: handshake with a wrong `hub.verify_token` returns 403.
+- [x] Case, no DB: handshake with `instagram_verify_token` unset and no `hub.verify_token` param returns 403.
+- [x] Case, no DB: event without the signature header returns 403 and the hand-off is never called.
+- [x] Case, no DB: event with a signature computed with another secret returns 403 and the hand-off is never called.
+- [x] Case, no DB: with `instagram_app_secret` unset, an event signed with the empty string as secret returns 403 and the hand-off is never called.
+- [x] Case, no DB: a validly signed non-comment event (one change with `field` other than `comments`, plus one entry with `messaging` and no `changes`) returns 200, with zero hand-off calls and zero alerts.
+- [x] Case, no DB: a validly signed reply to another comment (`parent_id` present) returns 200 with zero hand-off calls.
+- [x] Reuse the `db_reachable()` approach of the Helena test: when the database is unreachable, print which cases were skipped and why, and exit successfully having run the no-DB cases.
+- [x] For the DB cases, stamp a fixed fake account id (for example `test-ig-account-0001`) onto the seeded Company `id=5` with an `UPDATE companies SET instagram_account_id = ...`, and set it back to `NULL` in a `finally` — the column is unique and the database behind the local `.env` is production. These cases need migration 010 applied, so run them only after the owner has approved and applied it.
+- [x] Case, DB: a validly signed first-level comment for the stamped account, using `id` as the comment id name, returns 200 and the hand-off is called once with Company `5` and an `InstagramComment` carrying the comment id, post id, author id, author username and text from the payload, with `parent_id` `None`.
+- [x] Case, DB: the same event using `comment_id` instead of `id` reaches the hand-off with the same `comment_id`.
+- [x] Case, DB: a validly signed comment for an account id no Company has returns 200 with zero hand-off calls, zero alerts and no exception.
+- [x] Case, DB: a batch with two first-level comments for the stamped account and one malformed comment between them (no `media`) returns 200 and the hand-off is called exactly twice, in payload order.
 
 **7. Documentation**
 
@@ -163,23 +163,23 @@ class InstagramComment(BaseModel):
 
 **8. Code hygiene**
 
-- [ ] Follow the repo's comment rule in every file touched: no comment or docstring that restates what the code already says; comment only a non-obvious why (for example, why an empty secret is rejected before calling `verify_signature`), in one terse line. Docstrings, where the project convention asks for one, stay at one line — no repeated signature, types or parameter names.
-- [ ] Run Ruff (line length 100) and MyPy on the files touched and fix what they report.
-- [ ] Run `python tests/test_instagram_route.py` and confirm every no-DB case passes; report the DB cases as pending if migration 010 has not been applied yet.
+- [x] Follow the repo's comment rule in every file touched: no comment or docstring that restates what the code already says; comment only a non-obvious why (for example, why an empty secret is rejected before calling `verify_signature`), in one terse line. Docstrings, where the project convention asks for one, stay at one line — no repeated signature, types or parameter names.
+- [x] Run Ruff (line length 100) and MyPy on the files touched and fix what they report.
+- [x] Run `python tests/test_instagram_route.py` and confirm every no-DB case passes; report the DB cases as pending if migration 010 has not been applied yet.
 
 ## Acceptance criteria
 
-- [ ] `GET /api/instagram` with `hub.verify_token` equal to `INSTAGRAM_VERIFY_TOKEN` returns 200 with the `hub.challenge` value as plain text; with a wrong token, or with `INSTAGRAM_VERIFY_TOKEN` unset, it returns 403.
-- [ ] `POST /api/instagram` returns 403, and nothing is parsed, scheduled or handed off, when the `X-Hub-Signature-256` header is missing, when it does not match the HMAC-SHA256 of the raw body, or when `INSTAGRAM_APP_SECRET` is not configured (even if the caller signs with an empty secret).
-- [ ] A validly signed event is answered with 200 before any DB access; Company resolution and the hand-off happen in a background task with its own DB session.
-- [ ] A validly signed first-level comment for an account whose id is in a Company's `instagram_account_id` reaches `handle_comment` exactly once, with that Company and the parsed comment id, post id, author id, author username and text — whether Meta names the comment id `id` or `comment_id`.
-- [ ] A batch with several comments reaches `handle_comment` once per valid first-level comment, in order; a malformed item or an exception on one comment does not prevent the others from being processed.
-- [ ] A reply to another comment never reaches `handle_comment`.
-- [ ] A validly signed event that is not a comment returns 200, with no hand-off, no exception and no alert.
-- [ ] A validly signed comment from an account no Company has registered returns 200 and produces only a log line: no hand-off, no exception, no alert.
-- [ ] `companies` has `instagram_account_id` (unique index `ix_companies_instagram_account_id`), `instagram_access_token` and `instagram_public_reply`, all nullable; migration 010 can be applied twice without error and its downgrade removes the index and the three columns. The migration was applied only with the owner's explicit go.
-- [ ] `GET`/`POST /api/meta` and the `meta_*` settings behave exactly as before; a Company without `instagram_account_id` sees no behaviour change.
-- [ ] `python tests/test_instagram_route.py` passes: all no-DB cases always, the DB cases once migration 010 is applied, leaving `instagram_account_id` of Company `5` back at `NULL`.
+- [x] `GET /api/instagram` with `hub.verify_token` equal to `INSTAGRAM_VERIFY_TOKEN` returns 200 with the `hub.challenge` value as plain text; with a wrong token, or with `INSTAGRAM_VERIFY_TOKEN` unset, it returns 403.
+- [x] `POST /api/instagram` returns 403, and nothing is parsed, scheduled or handed off, when the `X-Hub-Signature-256` header is missing, when it does not match the HMAC-SHA256 of the raw body, or when `INSTAGRAM_APP_SECRET` is not configured (even if the caller signs with an empty secret).
+- [x] A validly signed event is answered with 200 before any DB access; Company resolution and the hand-off happen in a background task with its own DB session.
+- [x] A validly signed first-level comment for an account whose id is in a Company's `instagram_account_id` reaches `handle_comment` exactly once, with that Company and the parsed comment id, post id, author id, author username and text — whether Meta names the comment id `id` or `comment_id`.
+- [x] A batch with several comments reaches `handle_comment` once per valid first-level comment, in order; a malformed item or an exception on one comment does not prevent the others from being processed.
+- [x] A reply to another comment never reaches `handle_comment`.
+- [x] A validly signed event that is not a comment returns 200, with no hand-off, no exception and no alert.
+- [x] A validly signed comment from an account no Company has registered returns 200 and produces only a log line: no hand-off, no exception, no alert.
+- [x] `companies` has `instagram_account_id` (unique index `ix_companies_instagram_account_id`), `instagram_access_token` and `instagram_public_reply`, all nullable; migration 010 can be applied twice without error and its downgrade removes the index and the three columns. The migration was applied only with the owner's explicit go.
+- [x] `GET`/`POST /api/meta` and the `meta_*` settings behave exactly as before; a Company without `instagram_account_id` sees no behaviour change.
+- [x] `python tests/test_instagram_route.py` passes: all no-DB cases always, the DB cases once migration 010 is applied, leaving `instagram_account_id` of Company `5` back at `NULL`.
 - [ ] The file reference (routes, services, repositories, models, index) and the database schema documentation describe what this ticket added.
 
 ## Out of scope

@@ -108,6 +108,13 @@ class CompanyRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_by_instagram_account_id(self, instagram_account_id: str) -> Company | None:
+        """Find company by the Instagram account id that comes in comment events."""
+        result = await self.db.execute(
+            select(Company).where(Company.instagram_account_id == instagram_account_id)
+        )
+        return result.scalar_one_or_none()
+
     async def get_by_id(self, company_id: int) -> Company | None:
         """
         Buscar company por ID.

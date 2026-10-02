@@ -12,6 +12,8 @@
 
 **Why this exists.** The Customer is identified by the Helena `sessionId`, which only exists after Helena opens the session. So the DM de boas-vindas is stored as a Boas-vindas pendente and matched to the session on its first message. Which key does the matching is unknown until a real run (ADR 0001). This ticket blocks ticket 04 (Casamento da Boas-vindas pendente no canal Helena), which implements only the path confirmed here.
 
+**Already researched: [helena-api.md](./helena-api.md).** Real calls to Helena on an existing Instagram session answered part of items 3 and 4 (the session lookup works on the fabriks host and returns the channel type; the username is on the contact, not on the session; `details.from` is the Instagram id truncated) and list the six questions only a real comment can still answer. Read it before starting.
+
 **The decision rule (already decided, spec section "Casamento no canal Helena"):**
 
 1. If the sender identifier Helena sends on the event (`content.details.from`), in an Instagram session, equals the recipient id Meta returns when the DM is sent → match by it, no extra call.

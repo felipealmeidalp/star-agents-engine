@@ -14,6 +14,8 @@
 
 **The matching key is not decided in this ticket.** Ticket 01 writes `specs/instagram-comment-welcome/validation.md`; its last section, "Chave do casamento", states exactly one outcome. Outcome (1) → implement Path A below. Outcome (2) → implement Path B below. Outcome (3) → the design goes back to ADR 0001/0002 and this ticket does not start. Exactly one path is implemented, never both, never a fallback from one to the other.
 
+**Research done ahead of ticket 01: [helena-api.md](./helena-api.md).** Real calls to Helena showed two things that correct the path descriptions below. Path A: `details.from` is the person's Instagram id truncated like a phone number (`+0324193345627` for id `1090324193345627`), so the comparison with Meta's id would be by suffix, not equality. Path B: the session lookup returns the channel type and the `contactId` but `contactDetails.instagram` comes `null`; the username is only in `GET /core/v1/contact/{contactId}` (same host, `/core` base instead of `/chat`), so Path B takes two reads, not one. `validation.md` still decides which path is built.
+
 **The only code that changes behaviour is `HelenaService.process_webhook`** (module `app.helena.service`). Its order today:
 
 1. early return when there is neither text nor attachment;

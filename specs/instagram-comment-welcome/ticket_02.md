@@ -153,13 +153,13 @@ class InstagramComment(BaseModel):
 
 **7. Documentation**
 
-- [ ] In the file reference for routes (`routes.md`), add an `instagram.py` section in the format of the `meta.py` section: the handshake, the mandatory signature and the three rejection causes, the immediate acknowledgement, and the background pipeline (parse → drop replies → resolve Company by `instagram_account_id` → hand-off).
-- [ ] In the file reference for services (`services.md`), add an `instagram_welcome.py` section describing `InstagramComment`, `parse_comments` and `handle_comment` as the hand-off that ticket 03 fills in.
-- [ ] In the file reference for repositories (`repositories.md`), add `get_by_instagram_account_id(instagram_account_id)` to the `CompanyRepository` methods table.
-- [ ] In the file reference for models (`models.md`), add the `instagram_*` columns to the `Company` row.
-- [ ] In the file reference index (`app.md`), add the two new settings to the `config.py` section and the Instagram router to the routers listed for `main.py`.
-- [ ] In the database schema documentation, add the three columns and the unique index `ix_companies_instagram_account_id` to the `companies` section, stating that `instagram_account_id` is the key that resolves the Company for Instagram comment events.
-- [ ] Document only what this ticket adds; the reference is already stale for the Helena channel and fixing that is not part of this ticket.
+- [x] In the file reference for routes (`routes.md`), add an `instagram.py` section in the format of the `meta.py` section: the handshake, the mandatory signature and the three rejection causes, the immediate acknowledgement, and the background pipeline (parse → drop replies → resolve Company by `instagram_account_id` → hand-off).
+- [x] In the file reference for services (`services.md`), add an `instagram_welcome.py` section describing `InstagramComment`, `parse_comments` and `handle_comment` as the hand-off that ticket 03 fills in.
+- [x] In the file reference for repositories (`repositories.md`), add `get_by_instagram_account_id(instagram_account_id)` to the `CompanyRepository` methods table.
+- [x] In the file reference for models (`models.md`), add the `instagram_*` columns to the `Company` row.
+- [x] In the file reference index (`app.md`), add the two new settings to the `config.py` section and the Instagram router to the routers listed for `main.py`.
+- [x] In the database schema documentation, add the three columns and the unique index `ix_companies_instagram_account_id` to the `companies` section, stating that `instagram_account_id` is the key that resolves the Company for Instagram comment events.
+- [x] Document only what this ticket adds; the reference is already stale for the Helena channel and fixing that is not part of this ticket.
 
 **8. Code hygiene**
 
@@ -180,7 +180,7 @@ class InstagramComment(BaseModel):
 - [x] `companies` has `instagram_account_id` (unique index `ix_companies_instagram_account_id`), `instagram_access_token` and `instagram_public_reply`, all nullable; migration 010 can be applied twice without error and its downgrade removes the index and the three columns. The migration was applied only with the owner's explicit go.
 - [x] `GET`/`POST /api/meta` and the `meta_*` settings behave exactly as before; a Company without `instagram_account_id` sees no behaviour change.
 - [x] `python tests/test_instagram_route.py` passes: all no-DB cases always, the DB cases once migration 010 is applied, leaving `instagram_account_id` of Company `5` back at `NULL`.
-- [ ] The file reference (routes, services, repositories, models, index) and the database schema documentation describe what this ticket added.
+- [x] The file reference (routes, services, repositories, models, index) and the database schema documentation describe what this ticket added.
 
 ## Out of scope
 

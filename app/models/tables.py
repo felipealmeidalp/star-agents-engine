@@ -16,6 +16,7 @@ from sqlalchemy import (
     Boolean,
     Enum,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -594,4 +595,34 @@ class Product(Base):
             "company_id", "type", "wpId", "isMotherCategory",
             name="uq_products_company_type_wp",
         ),
+    )
+
+
+class InstagramWelcome(Base):
+    """One row per Comentário elegível processed (the Boas-vindas pendente lives here)."""
+
+    __tablename__ = "instagram_welcomes"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    # único por (company_id, media_id, commenter_id) via índice parcial só na migration 011
+    company_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("companies.id"), nullable=False
+    )
+    comment_id: Mapped[str] = mapped_column(Text, nullable=False)
+    media_id: Mapped[str] = mapped_column(Text, nullable=False)
+    commenter_id: Mapped[str] = mapped_column(Text, nullable=False)
+    commenter_username: Mapped[str | None] = mapped_column(Text, nullable=True)
+    comment_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    caption: Mapped[str | None] = mapped_column(Text, nullable=True)
+    product: Mapped[str | None] = mapped_column(Text, nullable=True)
+    dm_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    recipient_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # em_processamento → pendente → casada, ou falhou
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    session_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
+    )
+    matched_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
     )

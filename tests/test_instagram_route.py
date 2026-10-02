@@ -1,7 +1,8 @@
 """Behavioral tests for the Instagram comments webhook: GET/POST /api/instagram.
 
-The DB cases need a reachable Postgres with migration 010 applied and the seeded
-company_id=5; without it they SKIP with a clear message.
+The DB cases need a reachable Postgres with migration 011 applied and the seeded
+company_id=5 (with an OpenAI key); without it they SKIP with a clear message. Only the
+Instagram API client and the OpenAI call are mocked.
 
     DATABASE_URL=postgresql+asyncpg://... API_KEY=x python tests/test_instagram_route.py
 """
@@ -29,6 +30,7 @@ from sqlalchemy import text  # noqa: E402
 from app.config import settings  # noqa: E402
 from app.db.database import AsyncSessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
+from app.models.schemas import OpenAIChoice, OpenAIMessage, OpenAIResponse  # noqa: E402
 from app.services.instagram_welcome import InstagramComment  # noqa: E402
 
 SEED_COMPANY_ID = 5
@@ -37,7 +39,14 @@ VERIFY_TOKEN = "test-verify-token"
 APP_SECRET = "test-app-secret"
 KNOWN_ACCOUNT = "test-ig-account-0001"
 
+ACCESS_TOKEN = "test-ig-access-token"
+PUBLIC_REPLY = "Te chamei no direct!"
+DM_TEXT = "Oi @maria.sinuca, vi seu comentário no post da mesa!"
+POST = "18000000000000009"
+OTHER_POST = "18000000000000010"
+
 Handoffs = list[tuple[int, InstagramComment]]
+ClientCalls = list[tuple[str, ...]]
 
 
 def make_event(*values: dict[str, Any], account: str = KNOWN_ACCOUNT) -> dict[str, Any]:
@@ -64,6 +73,15 @@ def make_comment(comment_id: str = "17900000000000001", **overrides: Any) -> dic
     return value
 
 
+def _signed(payload: Any, signed_with: str | None) -> tuple[bytes, dict[str, str]]:
+    raw = payload if isinstance(payload, bytes) else json.dumps(payload).encode()
+    headers = {"Content-Type": "application/json"}
+    if signed_with is not None:
+        digest = hmac.new(signed_with.encode(), raw, hashlib.sha256).hexdigest()
+        headers["X-Hub-Signature-256"] = "sha256=" + digest
+    return raw, headers
+
+
 async def _post_event(
     payload: Any,
     *,
@@ -72,11 +90,7 @@ async def _post_event(
     failing_comment: str | None = None,
 ) -> tuple[httpx.Response, Handoffs, list[str]]:
     """Post an event signed the way Meta does; return (response, hand-offs, alerts)."""
-    raw = payload if isinstance(payload, bytes) else json.dumps(payload).encode()
-    headers = {"Content-Type": "application/json"}
-    if signed_with is not None:
-        digest = hmac.new(signed_with.encode(), raw, hashlib.sha256).hexdigest()
-        headers["X-Hub-Signature-256"] = "sha256=" + digest
+    raw, headers = _signed(payload, signed_with)
 
     handoffs: Handoffs = []
     alerts: list[str] = []
@@ -97,6 +111,83 @@ async def _post_event(
             # content=raw: json= would re-serialize and break the signature
             resp = await client.post("/api/instagram", content=raw, headers=headers)
     return resp, handoffs, alerts
+
+
+async def _post_welcome(
+    *payloads: Any,
+    failing: str | None = None,
+    media: dict[str, Any] | None = None,
+    llm_content: str | None = None,
+) -> tuple[httpx.Response, ClientCalls, list[str], list[tuple[str, Any]]]:
+    """`failing` names what raises: a client method, "<method>:<comment id>" or "openai"."""
+    calls: ClientCalls = []
+    alerts: list[str] = []
+    llm_calls: list[tuple[str, Any]] = []
+
+    def _record(name: str, *args: str) -> None:
+        calls.append((name, *args))
+        if failing in (name, f"{name}:{args[0]}"):
+            raise httpx.ConnectError(f"{name} boom")
+
+    async def _get_media(self: Any, media_id: str, access_token: str) -> dict[str, Any]:
+        _record("get_media", media_id)
+        if media is not None:
+            return media
+        return {"id": media_id, "caption": "Mesa de sinuca oficial", "permalink": "https://ig/p/x"}
+
+    async def _send_private_reply(
+        self: Any, comment_id: str, text: str, access_token: str
+    ) -> dict[str, Any]:
+        _record("send_private_reply", comment_id, text)
+        return {"recipient_id": "7770001", "message_id": "mid.1"}
+
+    async def _reply_to_comment(
+        self: Any, comment_id: str, text: str, access_token: str
+    ) -> dict[str, Any]:
+        _record("reply_to_comment", comment_id, text)
+        return {"id": "17900000000000999"}
+
+    async def _chat_completion(self: Any, llm_payload: Any) -> OpenAIResponse:
+        llm_calls.append((self.client.api_key, llm_payload))
+        if failing == "openai":
+            raise RuntimeError("openai boom")
+        content = llm_content
+        if content is None:
+            content = json.dumps({"dm": DM_TEXT, "product": "Mesa de sinuca oficial"})
+        return OpenAIResponse(
+            id="resp-test",
+            model="gpt-test",
+            choices=[
+                OpenAIChoice(
+                    index=0,
+                    message=OpenAIMessage(role="assistant", content=content),
+                    finish_reason="stop",
+                )
+            ],
+        )
+
+    def _alert(error_type: str, *args: Any, **kwargs: Any) -> None:
+        alerts.append(error_type)
+
+    client = "app.services.instagram_client.InstagramClient"
+    transport = httpx.ASGITransport(app=app)
+    with patch.object(settings, "instagram_app_secret", APP_SECRET), patch(
+        f"{client}.get_media", _get_media
+    ), patch(f"{client}.send_private_reply", _send_private_reply), patch(
+        f"{client}.reply_to_comment", _reply_to_comment
+    ), patch(
+        "app.services.openai.OpenAIService.chat_completion", _chat_completion
+    ), patch("app.services.instagram_welcome.send_critical_alert", _alert), patch(
+        "app.routes.instagram.send_critical_alert", _alert
+    ):
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as http:
+            responses = await asyncio.gather(
+                *(
+                    http.post("/api/instagram", content=raw, headers=headers)
+                    for raw, headers in (_signed(p, APP_SECRET) for p in payloads)
+                )
+            )
+    return responses[-1], calls, alerts, llm_calls
 
 
 async def _get(params: dict[str, str]) -> httpx.Response:
@@ -192,7 +283,7 @@ async def db_ready() -> bool:
     try:
         async with AsyncSessionLocal() as db:
             await asyncio.wait_for(
-                db.execute(text("SELECT instagram_account_id FROM companies LIMIT 1")), timeout=5
+                db.execute(text("SELECT id FROM instagram_welcomes LIMIT 1")), timeout=5
             )
         return True
     except Exception as e:
@@ -207,6 +298,75 @@ async def stamp_account(account_id: str | None) -> None:
             {"acc": account_id, "cid": SEED_COMPANY_ID},
         )
         await db.commit()
+
+
+WELCOME_PROMPT = (
+    "Escreva uma DM curta de boas-vindas.\n"
+    "<dados>\nusuário: [USERNAME]\nlegenda: [LEGENDA]\n</dados>"
+)
+PROMPT_KEY = {"cid": SEED_COMPANY_ID, "name": "instagram_welcome_dm", "reason": "instagram_welcome"}
+PROMPT_WHERE = "company_id = :cid AND name = :name AND reason = :reason"
+
+
+async def _execute(sql: str, **params: Any) -> Any:
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(text(sql), params)
+        await db.commit()
+        return result
+
+
+IG_COLUMNS = "instagram_account_id, instagram_access_token, instagram_public_reply"
+
+
+async def take_snapshot() -> tuple[Any, list[dict[str, Any]]]:
+    """What the script overwrites on the seeded Company, to put back at the end."""
+    company = await _execute(
+        f"SELECT {IG_COLUMNS} FROM companies WHERE id = :cid", cid=SEED_COMPANY_ID
+    )
+    prompts = await _execute(f"SELECT * FROM prompts WHERE {PROMPT_WHERE}", **PROMPT_KEY)
+    return company.one(), [dict(row) for row in prompts.mappings()]
+
+
+async def restore_snapshot(snapshot: tuple[Any, list[dict[str, Any]]]) -> None:
+    company, prompts = snapshot
+    await stamp_account(company.instagram_account_id)
+    await stamp_config(company.instagram_access_token, company.instagram_public_reply)
+    await set_prompt(False)
+    for row in prompts:
+        columns = ", ".join(row)
+        values = ", ".join(f":{c}" for c in row)
+        await _execute(f"INSERT INTO prompts ({columns}) VALUES ({values})", **row)
+    await clear_welcomes()
+
+
+async def stamp_config(token: str | None, public_reply: str | None) -> None:
+    await _execute(
+        "UPDATE companies SET instagram_access_token = :tok, instagram_public_reply = :reply "
+        "WHERE id = :cid",
+        tok=token,
+        reply=public_reply,
+        cid=SEED_COMPANY_ID,
+    )
+
+
+async def set_prompt(present: bool) -> None:
+    await _execute(f"DELETE FROM prompts WHERE {PROMPT_WHERE}", **PROMPT_KEY)
+    if present:
+        await _execute(
+            "INSERT INTO prompts (company_id, name, reason, prompt, model, reasoning_effort, "
+            "created_at) VALUES (:cid, :name, :reason, :prompt, 'gpt-test-welcome', 'low', now())",
+            prompt=WELCOME_PROMPT,
+            **PROMPT_KEY,
+        )
+
+
+async def clear_welcomes() -> None:
+    await _execute(
+        "DELETE FROM instagram_welcomes WHERE company_id = :cid AND media_id IN (:a, :b)",
+        cid=SEED_COMPANY_ID,
+        a=POST,
+        b=OTHER_POST,
+    )
 
 
 async def case_first_level_comment_reaches_handoff() -> None:
@@ -277,6 +437,258 @@ async def case_failing_comment_does_not_drop_the_others() -> None:
     print("  hand-off failing on one comment → alert, next comment still handed off: OK")
 
 
+def full_flow(comment_id: str = "17900000000000001", post: str = POST) -> ClientCalls:
+    return [
+        ("get_media", post),
+        ("send_private_reply", comment_id, DM_TEXT),
+        ("reply_to_comment", comment_id, PUBLIC_REPLY),
+    ]
+
+
+FULL_FLOW = full_flow()
+
+
+async def case_eligible_comment_gets_dm_then_public_reply() -> None:
+    await clear_welcomes()
+    resp, calls, alerts, llm_calls = await _post_welcome(make_event(make_comment()))
+    assert resp.status_code == 200, resp.status_code
+    assert calls == FULL_FLOW, calls
+    assert alerts == [], alerts
+
+    assert len(llm_calls) == 1, llm_calls
+    api_key, llm_payload = llm_calls[0]
+    seeded_key = await _execute(
+        'SELECT "openAi_apiKey" FROM companies WHERE id = :cid', cid=SEED_COMPANY_ID
+    )
+    assert api_key == seeded_key.scalar_one(), "the LLM call must use the Company's key"
+    assert llm_payload.model == "gpt-test-welcome", llm_payload.model
+    assert llm_payload.reasoning_effort == "low", llm_payload.reasoning_effort
+    assert [m.role for m in llm_payload.messages] == ["user"], llm_payload.messages
+    assert not llm_payload.tools, llm_payload.tools
+    print("  Comentário elegível → caption read, one DM, then the Resposta pública: OK")
+
+
+async def case_own_account_comment() -> None:
+    await clear_welcomes()
+    own = make_comment(
+        "17900000000000001", **{"from": {"id": KNOWN_ACCOUNT, "username": "loja.oficial"}}
+    )
+    resp, calls, alerts, llm_calls = await _post_welcome(make_event(own))
+    assert resp.status_code == 200, resp.status_code
+    assert calls == [], calls
+    assert llm_calls == [], llm_calls
+    assert alerts == [], alerts
+    print("  comment by the Company's own account → no client call, no LLM call: OK")
+
+
+async def case_reply_gets_no_welcome() -> None:
+    await clear_welcomes()
+    reply = make_comment("17900000000000002", parent_id="17900000000000001")
+    resp, calls, alerts, llm_calls = await _post_welcome(make_event(reply))
+    assert resp.status_code == 200, resp.status_code
+    assert calls == [], calls
+    assert llm_calls == [], llm_calls
+    assert alerts == [], alerts
+    print("  reply to another comment → no client call, no LLM call: OK")
+
+
+async def case_second_comment_same_post() -> None:
+    await clear_welcomes()
+    _, first, _, _ = await _post_welcome(make_event(make_comment("17900000000000001")))
+    assert first == FULL_FLOW, first
+    resp, calls, alerts, llm_calls = await _post_welcome(
+        make_event(make_comment("17900000000000002"))
+    )
+    assert resp.status_code == 200, resp.status_code
+    assert calls == [], calls
+    assert llm_calls == [], llm_calls
+    assert alerts == [], alerts
+    print("  same person, same post, second comment → no client call: OK")
+
+
+async def case_event_delivered_twice() -> None:
+    await clear_welcomes()
+    event = make_event(make_comment())
+    _, first, _, _ = await _post_welcome(event)
+    assert first == FULL_FLOW, first
+    resp, calls, alerts, _ = await _post_welcome(event)
+    assert resp.status_code == 200, resp.status_code
+    assert calls == [], calls
+    assert alerts == [], alerts
+    print("  same event delivered twice → one DM and one Resposta pública only: OK")
+
+
+async def case_same_person_other_post() -> None:
+    await clear_welcomes()
+    _, first, _, _ = await _post_welcome(make_event(make_comment("17900000000000001")))
+    assert first == FULL_FLOW, first
+    other = make_comment("17900000000000005", media={"id": OTHER_POST})
+    _, calls, alerts, _ = await _post_welcome(make_event(other))
+    assert calls == full_flow("17900000000000005", OTHER_POST), calls
+    assert alerts == [], alerts
+    print("  same person on another post → a new DM and a new Resposta pública: OK")
+
+
+async def case_dm_failure_then_retry_on_new_comment() -> None:
+    await clear_welcomes()
+    resp, calls, alerts, _ = await _post_welcome(
+        make_event(make_comment("17900000000000001")), failing="send_private_reply"
+    )
+    assert resp.status_code == 200, resp.status_code
+    assert calls == [
+        ("get_media", POST),
+        ("send_private_reply", "17900000000000001", DM_TEXT),
+    ], calls
+    assert alerts == ["INSTAGRAM_WELCOME_FAILED"], alerts
+
+    _, calls, alerts, _ = await _post_welcome(make_event(make_comment("17900000000000002")))
+    assert calls == full_flow("17900000000000002"), calls
+    assert alerts == [], alerts
+    print("  DM send fails → nothing published, alert; new comment → the flow runs again: OK")
+
+
+async def case_public_reply_failure_keeps_welcome_pending() -> None:
+    await clear_welcomes()
+    resp, calls, alerts, _ = await _post_welcome(
+        make_event(make_comment("17900000000000001")), failing="reply_to_comment"
+    )
+    assert resp.status_code == 200, resp.status_code
+    assert calls == FULL_FLOW, calls
+    assert alerts == ["INSTAGRAM_PUBLIC_REPLY_FAILED"], alerts
+
+    _, calls, alerts, _ = await _post_welcome(make_event(make_comment("17900000000000002")))
+    assert calls == [], calls
+    assert alerts == [], alerts
+    print("  Resposta pública fails → alert, DM sent, the person's turn stays taken: OK")
+
+
+async def case_unknown_account_gets_no_welcome() -> None:
+    await clear_welcomes()
+    resp, calls, alerts, llm_calls = await _post_welcome(
+        make_event(make_comment(), account="test-ig-account-unknown")
+    )
+    assert resp.status_code == 200, resp.status_code
+    assert calls == [], calls
+    assert llm_calls == [], llm_calls
+    assert alerts == [], alerts
+    print("  account no Company has → 200, no client call, no alert: OK")
+
+
+SECOND_PERSON = {"id": "5550002", "username": "joao.taco"}
+
+
+async def case_batch_with_two_eligible_comments() -> None:
+    await clear_welcomes()
+    resp, calls, alerts, _ = await _post_welcome(
+        make_event(
+            make_comment("17900000000000001"),
+            make_comment("17900000000000002", **{"from": SECOND_PERSON}),
+        )
+    )
+    assert resp.status_code == 200, resp.status_code
+    assert calls == [*FULL_FLOW, *full_flow("17900000000000002")], calls
+    assert alerts == [], alerts
+    print("  one POST with two eligible comments → two DMs and two Respostas públicas: OK")
+
+
+async def case_batch_first_fails_second_goes() -> None:
+    await clear_welcomes()
+    resp, calls, alerts, _ = await _post_welcome(
+        make_event(
+            make_comment("17900000000000001"),
+            make_comment("17900000000000002", **{"from": SECOND_PERSON}),
+        ),
+        failing="send_private_reply:17900000000000001",
+    )
+    assert resp.status_code == 200, resp.status_code
+    assert calls == [
+        ("get_media", POST),
+        ("send_private_reply", "17900000000000001", DM_TEXT),
+        *full_flow("17900000000000002"),
+    ], calls
+    assert alerts == ["INSTAGRAM_WELCOME_FAILED"], alerts
+    print("  batch whose first DM fails → alert, the second comment still gets its DM: OK")
+
+
+async def case_caption_fetch_failure() -> None:
+    await clear_welcomes()
+    resp, calls, alerts, llm_calls = await _post_welcome(
+        make_event(make_comment()), failing="get_media"
+    )
+    assert resp.status_code == 200, resp.status_code
+    assert calls == [("get_media", POST)], calls
+    assert llm_calls == [], llm_calls
+    assert alerts == ["INSTAGRAM_WELCOME_FAILED"], alerts
+    print("  caption fetch fails → no DM, no Resposta pública, alert: OK")
+
+
+async def case_llm_failure() -> None:
+    await clear_welcomes()
+    resp, calls, alerts, _ = await _post_welcome(make_event(make_comment()), failing="openai")
+    assert resp.status_code == 200, resp.status_code
+    assert calls == [("get_media", POST)], calls
+    assert alerts == ["INSTAGRAM_WELCOME_FAILED"], alerts
+    print("  OpenAI raises → no DM, no Resposta pública, alert: OK")
+
+
+async def case_llm_returns_unusable_dm() -> None:
+    for content in ("", "not json", '{"dm": "  ", "product": null}'):
+        await clear_welcomes()
+        _, calls, alerts, _ = await _post_welcome(
+            make_event(make_comment()), llm_content=content
+        )
+        assert calls == [("get_media", POST)], (content, calls)
+        assert alerts == ["INSTAGRAM_WELCOME_FAILED"], (content, alerts)
+    print("  LLM returns empty content, invalid JSON or an empty dm → no DM, alert: OK")
+
+
+async def case_post_without_caption() -> None:
+    await clear_welcomes()
+    resp, calls, alerts, _ = await _post_welcome(make_event(make_comment()), media={"id": POST})
+    assert resp.status_code == 200, resp.status_code
+    assert calls == FULL_FLOW, calls
+    assert alerts == [], alerts
+    print("  post without caption → DM sent and Resposta pública published: OK")
+
+
+async def case_feature_off() -> None:
+    async def _assert_nothing_leaves(why: str) -> None:
+        resp, calls, alerts, llm_calls = await _post_welcome(make_event(make_comment()))
+        assert resp.status_code == 200, (why, resp.status_code)
+        assert calls == [], (why, calls)
+        assert llm_calls == [], (why, llm_calls)
+        assert alerts == [], (why, alerts)
+
+    await clear_welcomes()
+    try:
+        await set_prompt(False)
+        await _assert_nothing_leaves("no prompt row")
+        await set_prompt(True)
+        await stamp_config(ACCESS_TOKEN, "")
+        await _assert_nothing_leaves("empty Resposta pública")
+        await stamp_config(None, PUBLIC_REPLY)
+        await _assert_nothing_leaves("no access token")
+    finally:
+        await set_prompt(True)
+        await stamp_config(ACCESS_TOKEN, PUBLIC_REPLY)
+
+    # no turn was taken while the feature was off
+    _, calls, _, _ = await _post_welcome(make_event(make_comment()))
+    assert calls == FULL_FLOW, calls
+    print("  Company without prompt row, Resposta pública or token → nothing leaves, no alert: OK")
+
+
+async def case_concurrent_deliveries() -> None:
+    await clear_welcomes()
+    _, calls, alerts, _ = await _post_welcome(
+        make_event(make_comment("17900000000000001")),
+        make_event(make_comment("17900000000000002")),
+    )
+    assert [c[0] for c in calls] == ["get_media", "send_private_reply", "reply_to_comment"], calls
+    assert alerts == [], alerts
+    print("  two concurrent deliveries for the same person and post → one DM: OK")
+
+
 async def main() -> None:
     print("Instagram route behavioral tests (seam: GET/POST /api/instagram)")
     await case_handshake_right_token()
@@ -291,14 +703,15 @@ async def main() -> None:
 
     if not await db_ready():
         print(
-            "\nSKIPPED (DB unreachable or migration 010 not applied): the cases that resolve "
+            "\nSKIPPED (DB unreachable or migration 011 not applied): the cases that resolve "
             "the Company by instagram_account_id (first-level comment, comment_id alias, "
-            "unknown account, batch). Point DATABASE_URL at a Postgres with migration 010 "
-            "applied and the seeded company_id=5 to run them."
+            "unknown account, batch) and the whole welcome flow. Point DATABASE_URL at a Postgres "
+            "with migration 011 applied and the seeded company_id=5 to run them."
         )
         print("\nOK - no-DB cases passed; DB cases pending")
         return
 
+    snapshot = await take_snapshot()
     await stamp_account(KNOWN_ACCOUNT)
     try:
         await case_first_level_comment_reaches_handoff()
@@ -308,9 +721,29 @@ async def main() -> None:
         await case_unknown_account()
         await case_batch_with_malformed_item()
         await case_failing_comment_does_not_drop_the_others()
+
+        await stamp_config(ACCESS_TOKEN, PUBLIC_REPLY)
+        await set_prompt(True)
+        await case_eligible_comment_gets_dm_then_public_reply()
+        await case_own_account_comment()
+        await case_reply_gets_no_welcome()
+        await case_second_comment_same_post()
+        await case_event_delivered_twice()
+        await case_same_person_other_post()
+        await case_dm_failure_then_retry_on_new_comment()
+        await case_public_reply_failure_keeps_welcome_pending()
+        await case_unknown_account_gets_no_welcome()
+        await case_batch_with_two_eligible_comments()
+        await case_batch_first_fails_second_goes()
+        await case_caption_fetch_failure()
+        await case_llm_failure()
+        await case_llm_returns_unusable_dm()
+        await case_post_without_caption()
+        await case_feature_off()
+        await case_concurrent_deliveries()
     finally:
-        # the column is unique: never leave the fake id on the seeded Company
-        await stamp_account(None)
+        # the seeded Company may be a real one: leave its Instagram config as it was
+        await restore_snapshot(snapshot)
     print("\nOK - all Instagram route cases passed")
 
 

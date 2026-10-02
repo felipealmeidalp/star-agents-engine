@@ -118,72 +118,72 @@
 
 **1. Tabela `instagram_welcomes` (migration 011 + ORM)**
 
-- [ ] Create migration `011` (`down_revision = "010"`, after confirming ticket 02's revision id) that creates `instagram_welcomes` with exactly the columns, types and nullability of the schema table in Context, using `op.create_table`. Make it idempotent the way migrations 006/008 are: return early when `information_schema.tables` already has the table.
-- [ ] In the same migration, create the partial unique index `uq_instagram_welcomes_company_media_commenter` on `(company_id, media_id, commenter_id)` with `unique=True` and `postgresql_where=sa.text("status <> 'falhou'")`, following migration 004.
-- [ ] Write `downgrade()` dropping the index and then the table.
-- [ ] Keep `status` as `sa.Text()`. Do not introduce a Postgres enum or a CHECK constraint.
-- [ ] Add the `InstagramWelcome` ORM model to the tables module with the same columns (attribute name equal to column name, all snake_case). Add one terse comment on the model saying the uniqueness is a partial index declared only in migration 011 (failed records do not count).
-- [ ] Do NOT run the migration locally: the local `.env` points at production. Running it requires the owner's explicit go; say so when handing the work back.
+- [x] Create migration `011` (`down_revision = "010"`, after confirming ticket 02's revision id) that creates `instagram_welcomes` with exactly the columns, types and nullability of the schema table in Context, using `op.create_table`. Make it idempotent the way migrations 006/008 are: return early when `information_schema.tables` already has the table.
+- [x] In the same migration, create the partial unique index `uq_instagram_welcomes_company_media_commenter` on `(company_id, media_id, commenter_id)` with `unique=True` and `postgresql_where=sa.text("status <> 'falhou'")`, following migration 004.
+- [x] Write `downgrade()` dropping the index and then the table.
+- [x] Keep `status` as `sa.Text()`. Do not introduce a Postgres enum or a CHECK constraint.
+- [x] Add the `InstagramWelcome` ORM model to the tables module with the same columns (attribute name equal to column name, all snake_case). Add one terse comment on the model saying the uniqueness is a partial index declared only in migration 011 (failed records do not count).
+- [x] Do NOT run the migration locally: the local `.env` points at production. Running it requires the owner's explicit go; say so when handing the work back.
 
 **2. `InstagramWelcomeRepository`**
 
-- [ ] Create `InstagramWelcomeRepository(db)` in a new `instagram_welcome` module under repositories, in the shape of `ProductRepository` (holds the session, commits inside each write method).
-- [ ] Add `reserve(company_id, comment_id, media_id, commenter_id, commenter_username, comment_text) -> int | None`: PostgreSQL `insert` with `status="em_processamento"`, `on_conflict_do_nothing(index_elements=["company_id", "media_id", "commenter_id"], index_where=text("status <> 'falhou'"))`, `returning(InstagramWelcome.id)`, then commit. Return the new id, or `None` when the conflict swallowed the insert.
-- [ ] Add `mark_pending(welcome_id, caption, product, dm_text, recipient_id) -> None`: one `update` setting those four columns and `status="pendente"`, then commit.
-- [ ] Add `mark_failed(welcome_id) -> None`: one `update` setting `status="falhou"`, then commit.
-- [ ] Add nothing else. Reading pending records and moving to `casada` belong to ticket 04.
+- [x] Create `InstagramWelcomeRepository(db)` in a new `instagram_welcome` module under repositories, in the shape of `ProductRepository` (holds the session, commits inside each write method).
+- [x] Add `reserve(company_id, comment_id, media_id, commenter_id, commenter_username, comment_text) -> int | None`: PostgreSQL `insert` with `status="em_processamento"`, `on_conflict_do_nothing(index_elements=["company_id", "media_id", "commenter_id"], index_where=text("status <> 'falhou'"))`, `returning(InstagramWelcome.id)`, then commit. Return the new id, or `None` when the conflict swallowed the insert.
+- [x] Add `mark_pending(welcome_id, caption, product, dm_text, recipient_id) -> None`: one `update` setting those four columns and `status="pendente"`, then commit.
+- [x] Add `mark_failed(welcome_id) -> None`: one `update` setting `status="falhou"`, then commit.
+- [x] Add nothing else. Reading pending records and moving to `casada` belong to ticket 04.
 
 **3. `InstagramClient`**
 
-- [ ] Create `InstagramClient` modelled on `HelenaClient`: `timeout` in `__init__`, one `httpx.AsyncClient` per call, `raise_for_status()`, return `response.json()`, the Company's access token passed as an argument on every call. Keep the API base URL (host + version) as one module-level constant; add no new setting.
-- [ ] Add `get_media(media_id, access_token) -> dict`: reads the post by id asking for caption and link. Confirm host, path and field names against Meta's Instagram Login docs / ticket 01 findings.
-- [ ] Add `send_private_reply(comment_id, text, access_token) -> dict`: sends a text-only message whose recipient is identified by the comment id; returns Meta's response (recipient id and message id). Confirm path, body shape and response field names against Meta's Instagram Login docs / ticket 01 findings.
-- [ ] Add `reply_to_comment(comment_id, text, access_token) -> dict`: creates a reply to the comment by id. Confirm path and parameter name against Meta's Instagram Login docs / ticket 01 findings.
-- [ ] Let HTTP errors propagate (`httpx.HTTPStatusError` / `httpx.RequestError`); the client does not alert and does not retry. Never log the access token.
-- [ ] Do not add the token-refresh call; it belongs to ticket 05.
+- [x] Create `InstagramClient` modelled on `HelenaClient`: `timeout` in `__init__`, one `httpx.AsyncClient` per call, `raise_for_status()`, return `response.json()`, the Company's access token passed as an argument on every call. Keep the API base URL (host + version) as one module-level constant; add no new setting.
+- [x] Add `get_media(media_id, access_token) -> dict`: reads the post by id asking for caption and link. Confirm host, path and field names against Meta's Instagram Login docs / ticket 01 findings.
+- [x] Add `send_private_reply(comment_id, text, access_token) -> dict`: sends a text-only message whose recipient is identified by the comment id; returns Meta's response (recipient id and message id). Confirm path, body shape and response field names against Meta's Instagram Login docs / ticket 01 findings.
+- [x] Add `reply_to_comment(comment_id, text, access_token) -> dict`: creates a reply to the comment by id. Confirm path and parameter name against Meta's Instagram Login docs / ticket 01 findings.
+- [x] Let HTTP errors propagate (`httpx.HTTPStatusError` / `httpx.RequestError`); the client does not alert and does not retry. Never log the access token.
+- [x] Do not add the token-refresh call; it belongs to ticket 05.
 
 **4. Serviço de boas-vindas (replace the hand-off stub delivered by ticket 02)**
 
-- [ ] Replace the body of the hand-off stub delivered by ticket 02 with the flow below, keeping its signature. Read the Company's id, Instagram account id, access token and Resposta pública text into locals before the first `await`.
-- [ ] Feature gate: if the access token or the Resposta pública text is empty, log and return. Then fetch the prompt with `PromptRepository.get_prompt_with_config(company_id, "instagram_welcome_dm", "instagram_welcome")`; if it returns `None`, log and return. No record, no alert, no outbound call in either case.
-- [ ] Eligibility: if the parsed comment has a parent comment id, log and return. If the comment's author id equals the Company's Instagram account id, log and return. If the comment id, the post id or the author id is missing, log and return (it cannot be reserved). No record, no alert, no outbound call.
-- [ ] Reservation: call `InstagramWelcomeRepository.reserve(...)` before any external call. If it returns `None`, return silently (debug-level log at most): this covers the second comment by the same person on the same post, the lost race, and Meta redelivery.
-- [ ] Fetch the caption with `InstagramClient.get_media`. A missing or null caption becomes `""` and the flow continues. An error in the call is a failure of the flow (next-to-last task of this group). The link is requested as the spec says but is not persisted; use it only in log lines.
-- [ ] Build the prompt text from `PromptWithConfig.prompt` with `str.replace`: `[USERNAME]` → `"@" + username` first, `[LEGENDA]` → caption last.
-- [ ] Generate the DM de boas-vindas with exactly one call: `OpenAIService(await CompanyRepository(db).get_openai_api_key(company_id)).chat_completion(OpenAIPayload(model=config.model, reasoning_effort=config.reasoning_effort, messages=[OpenAIMessage(role="user", content=<filled prompt>)], response_format=<the shape in Context>))`. No `tools`, no streaming, no system message.
-- [ ] Parse `response.choices[0].message.content` with `json.loads`. Empty content, invalid JSON or an empty `dm` is a failure of the flow. Normalise an empty or whitespace-only `product` to `None`. Do not validate the product against the catalog and do not truncate the DM.
-- [ ] Send the DM with `InstagramClient.send_private_reply(comment_id, dm, access_token)` and take the recipient id from Meta's response (field name per ticket 01 findings). If the send succeeded but the response carries no recipient id, log a warning and continue with `None`.
-- [ ] Call `mark_pending(welcome_id, caption, product, dm, recipient_id)`.
-- [ ] Failure path for everything from the caption fetch through `mark_pending`: one `try/except Exception` around those steps that rolls the session back, calls `mark_failed(welcome_id)` inside its own `try/except` (a DB failure there must not swallow the alert), fires `send_critical_alert("INSTAGRAM_WELCOME_FAILED", <module:function>, e, company_id=company_id, extra=<comment id, post id and which step failed>)`, and returns without publishing anything.
-- [ ] Only after `mark_pending` succeeded, publish the Resposta pública with `InstagramClient.reply_to_comment(comment_id, <Company's Resposta pública text>, access_token)` in a separate `try/except Exception` that fires `send_critical_alert("INSTAGRAM_PUBLIC_REPLY_FAILED", <module:function>, e, company_id=company_id, extra=<comment id and post id>)` and does nothing else: the record stays `pendente`.
-- [ ] The function must never raise: in a batch, one comment's failure cannot stop the next comment. Process comments one at a time, as ticket 02's background task hands them over.
-- [ ] Add no automatic retry, no rate limiter, no queue, no Customer creation, no ChatHistory write.
+- [x] Replace the body of the hand-off stub delivered by ticket 02 with the flow below, keeping its signature. Read the Company's id, Instagram account id, access token and Resposta pública text into locals before the first `await`.
+- [x] Feature gate: if the access token or the Resposta pública text is empty, log and return. Then fetch the prompt with `PromptRepository.get_prompt_with_config(company_id, "instagram_welcome_dm", "instagram_welcome")`; if it returns `None`, log and return. No record, no alert, no outbound call in either case.
+- [x] Eligibility: if the parsed comment has a parent comment id, log and return. If the comment's author id equals the Company's Instagram account id, log and return. If the comment id, the post id or the author id is missing, log and return (it cannot be reserved). No record, no alert, no outbound call.
+- [x] Reservation: call `InstagramWelcomeRepository.reserve(...)` before any external call. If it returns `None`, return silently (debug-level log at most): this covers the second comment by the same person on the same post, the lost race, and Meta redelivery.
+- [x] Fetch the caption with `InstagramClient.get_media`. A missing or null caption becomes `""` and the flow continues. An error in the call is a failure of the flow (next-to-last task of this group). The link is requested as the spec says but is not persisted; use it only in log lines.
+- [x] Build the prompt text from `PromptWithConfig.prompt` with `str.replace`: `[USERNAME]` → `"@" + username` first, `[LEGENDA]` → caption last.
+- [x] Generate the DM de boas-vindas with exactly one call: `OpenAIService(await CompanyRepository(db).get_openai_api_key(company_id)).chat_completion(OpenAIPayload(model=config.model, reasoning_effort=config.reasoning_effort, messages=[OpenAIMessage(role="user", content=<filled prompt>)], response_format=<the shape in Context>))`. No `tools`, no streaming, no system message.
+- [x] Parse `response.choices[0].message.content` with `json.loads`. Empty content, invalid JSON or an empty `dm` is a failure of the flow. Normalise an empty or whitespace-only `product` to `None`. Do not validate the product against the catalog and do not truncate the DM.
+- [x] Send the DM with `InstagramClient.send_private_reply(comment_id, dm, access_token)` and take the recipient id from Meta's response (field name per ticket 01 findings). If the send succeeded but the response carries no recipient id, log a warning and continue with `None`.
+- [x] Call `mark_pending(welcome_id, caption, product, dm, recipient_id)`.
+- [x] Failure path for everything from the caption fetch through `mark_pending`: one `try/except Exception` around those steps that rolls the session back, calls `mark_failed(welcome_id)` inside its own `try/except` (a DB failure there must not swallow the alert), fires `send_critical_alert("INSTAGRAM_WELCOME_FAILED", <module:function>, e, company_id=company_id, extra=<comment id, post id and which step failed>)`, and returns without publishing anything.
+- [x] Only after `mark_pending` succeeded, publish the Resposta pública with `InstagramClient.reply_to_comment(comment_id, <Company's Resposta pública text>, access_token)` in a separate `try/except Exception` that fires `send_critical_alert("INSTAGRAM_PUBLIC_REPLY_FAILED", <module:function>, e, company_id=company_id, extra=<comment id and post id>)` and does nothing else: the record stays `pendente`.
+- [x] The function must never raise: in a batch, one comment's failure cannot stop the next comment. Process comments one at a time, as ticket 02's background task hands them over.
+- [x] Add no automatic retry, no rate limiter, no queue, no Customer creation, no ChatHistory write.
 
 **5. Regra de comentários no código**
 
-- [ ] Follow the repo's code-comment rule in everything this ticket writes: no comment that restates what the code says; comment only a non-obvious why (an external constraint, a workaround, a trap), in one terse line. No inflated docstrings repeating signature, types or parameter names.
+- [x] Follow the repo's code-comment rule in everything this ticket writes: no comment that restates what the code says; comment only a non-obvious why (an external constraint, a workaround, a trap), in one terse line. No inflated docstrings repeating signature, types or parameter names.
 
 **6. Testes do Seam 1 (extend the script ticket 02 created)**
 
-- [ ] Add helpers to the Seam 1 script: a patch of the three `InstagramClient` methods at class level that records every call, in order, into one shared list (so order across methods is assertable) and can be told to raise on a chosen method; a `chat_completion` stub returning an `OpenAIResponse` whose content is the JSON `{"dm": ..., "product": ...}`; a patch of `send_critical_alert` at the name the welcome service module imported, recording `error_type`.
-- [ ] Add a setup step that prepares the test Company from the script itself: fills the three Instagram columns on the test Company ticket 02's script uses, inserts (or updates) its `instagram_welcome_dm` / `instagram_welcome` prompt row, and deletes the `instagram_welcomes` rows of that Company for the post ids the script uses, so the script is re-runnable.
-- [ ] Keep the Helena test's behaviour for an unreachable database: the DB-dependent cases SKIP with a clear message instead of passing falsely.
-- [ ] Case: Comentário elegível → exactly one DM send followed by exactly one Resposta pública, in that order; the DM text is the `dm` the OpenAI stub returned; the reply text is the Company's fixed Resposta pública; both target the comment id of the event.
-- [ ] Case: comment authored by the Company's own account → no client call, OpenAI not called.
-- [ ] Case: reply to another comment (parent id present) → no client call, OpenAI not called.
-- [ ] Case: same person, same post, second comment (different comment id) → no client call for the second.
-- [ ] Case: the same event delivered twice → one DM only, one Resposta pública only.
-- [ ] Case: same person on another post → a new DM and a new Resposta pública.
-- [ ] Case: DM send fails → Resposta pública not published, `INSTAGRAM_WELCOME_FAILED` alert fired; then a new comment by the same person on the same post → the flow runs again and the DM is sent.
-- [ ] Case: Resposta pública fails → `INSTAGRAM_PUBLIC_REPLY_FAILED` alert fired, DM was sent, and a further comment by the same person on the same post triggers no client call (observable proof the welcome stayed pendente).
-- [ ] Case: Instagram account that no Company has → no client call, no exception, 200 from the route. If ticket 02 already has this case, extend it to assert on the new client patch.
-- [ ] Case: one POST carrying two eligible comments → two DMs and two Respostas públicas.
-- [ ] Case (story 30): caption fetch fails → no DM, no Resposta pública, `INSTAGRAM_WELCOME_FAILED` alert fired.
-- [ ] Case (story 27): OpenAI stub raises → no DM, no Resposta pública, `INSTAGRAM_WELCOME_FAILED` alert fired.
-- [ ] Case (story 21): post with no caption (the media stub returns no caption) → DM sent and Resposta pública published.
-- [ ] Case (story 16): Company without the `instagram_welcome_dm` prompt row, and Company with an empty Resposta pública text → no client call, OpenAI not called, no alert.
-- [ ] Assert only on what leaves through the patched client, the OpenAI stub and the alert patch. Do not assert on the record's columns, on internal call order of functions or on the prompt content.
-- [ ] The DB-dependent cases need migration 011 applied to the database the script points at, and they write to it. With the local `.env` that database is production: do not run them (nor the migration) without the owner's explicit go.
+- [x] Add helpers to the Seam 1 script: a patch of the three `InstagramClient` methods at class level that records every call, in order, into one shared list (so order across methods is assertable) and can be told to raise on a chosen method; a `chat_completion` stub returning an `OpenAIResponse` whose content is the JSON `{"dm": ..., "product": ...}`; a patch of `send_critical_alert` at the name the welcome service module imported, recording `error_type`.
+- [x] Add a setup step that prepares the test Company from the script itself: fills the three Instagram columns on the test Company ticket 02's script uses, inserts (or updates) its `instagram_welcome_dm` / `instagram_welcome` prompt row, and deletes the `instagram_welcomes` rows of that Company for the post ids the script uses, so the script is re-runnable.
+- [x] Keep the Helena test's behaviour for an unreachable database: the DB-dependent cases SKIP with a clear message instead of passing falsely.
+- [x] Case: Comentário elegível → exactly one DM send followed by exactly one Resposta pública, in that order; the DM text is the `dm` the OpenAI stub returned; the reply text is the Company's fixed Resposta pública; both target the comment id of the event.
+- [x] Case: comment authored by the Company's own account → no client call, OpenAI not called.
+- [x] Case: reply to another comment (parent id present) → no client call, OpenAI not called.
+- [x] Case: same person, same post, second comment (different comment id) → no client call for the second.
+- [x] Case: the same event delivered twice → one DM only, one Resposta pública only.
+- [x] Case: same person on another post → a new DM and a new Resposta pública.
+- [x] Case: DM send fails → Resposta pública not published, `INSTAGRAM_WELCOME_FAILED` alert fired; then a new comment by the same person on the same post → the flow runs again and the DM is sent.
+- [x] Case: Resposta pública fails → `INSTAGRAM_PUBLIC_REPLY_FAILED` alert fired, DM was sent, and a further comment by the same person on the same post triggers no client call (observable proof the welcome stayed pendente).
+- [x] Case: Instagram account that no Company has → no client call, no exception, 200 from the route. If ticket 02 already has this case, extend it to assert on the new client patch.
+- [x] Case: one POST carrying two eligible comments → two DMs and two Respostas públicas.
+- [x] Case (story 30): caption fetch fails → no DM, no Resposta pública, `INSTAGRAM_WELCOME_FAILED` alert fired.
+- [x] Case (story 27): OpenAI stub raises → no DM, no Resposta pública, `INSTAGRAM_WELCOME_FAILED` alert fired.
+- [x] Case (story 21): post with no caption (the media stub returns no caption) → DM sent and Resposta pública published.
+- [x] Case (story 16): Company without the `instagram_welcome_dm` prompt row, and Company with an empty Resposta pública text → no client call, OpenAI not called, no alert.
+- [x] Assert only on what leaves through the patched client, the OpenAI stub and the alert patch. Do not assert on the record's columns, on internal call order of functions or on the prompt content.
+- [x] The DB-dependent cases need migration 011 applied to the database the script points at, and they write to it. With the local `.env` that database is production: do not run them (nor the migration) without the owner's explicit go.
 
 **7. Documentação**
 
@@ -195,20 +195,20 @@
 
 ## Acceptance criteria
 
-- [ ] A signed POST to the Instagram webhook route carrying one Comentário elegível for a configured Company results in one caption read, one LLM call, one DM send by comment id, and then one reply to the comment with the Company's Resposta pública, in that order.
-- [ ] The DM text is exactly the `dm` field of the LLM's structured response; the LLM call used the Company's OpenAI key, the model and reasoning effort of the Company's `instagram_welcome_dm` prompt row, a single `user` message, no tools and no streaming.
-- [ ] After a successful flow the record is `pendente` and holds the caption, the product (or `NULL`), the DM text and the recipient id Meta returned.
-- [ ] A comment by the Company's own account, a reply to another comment, and a second comment by the same person on the same post each produce no outbound call.
-- [ ] The same event delivered twice produces one DM and one Resposta pública.
-- [ ] The same person commenting on a different post gets a new DM de boas-vindas.
-- [ ] Two concurrent deliveries for the same Company + post + author produce one DM: the loser of the reservation exits silently.
-- [ ] A failure fetching the caption, generating the DM or sending the DM leaves the record `falhou`, fires `INSTAGRAM_WELCOME_FAILED` with the Company id, and publishes nothing; a later comment by that person on that post runs the flow again.
-- [ ] A failure publishing the Resposta pública fires `INSTAGRAM_PUBLIC_REPLY_FAILED` and leaves the record `pendente`.
-- [ ] A post without caption still gets the DM and the Resposta pública.
-- [ ] A Company missing the access token, the Resposta pública text or the welcome prompt row produces no record, no outbound call and no alert.
-- [ ] A batch with two eligible comments produces two DMs; a failure on the first does not prevent the second.
-- [ ] Migration 011 creates `instagram_welcomes` with `status` as text and the partial unique index, is idempotent, and has a working downgrade. It has not been run against production without the owner's go.
-- [ ] The Seam 1 script passes with every case listed in task group 6.
+- [x] A signed POST to the Instagram webhook route carrying one Comentário elegível for a configured Company results in one caption read, one LLM call, one DM send by comment id, and then one reply to the comment with the Company's Resposta pública, in that order.
+- [x] The DM text is exactly the `dm` field of the LLM's structured response; the LLM call used the Company's OpenAI key, the model and reasoning effort of the Company's `instagram_welcome_dm` prompt row, a single `user` message, no tools and no streaming.
+- [x] After a successful flow the record is `pendente` and holds the caption, the product (or `NULL`), the DM text and the recipient id Meta returned.
+- [x] A comment by the Company's own account, a reply to another comment, and a second comment by the same person on the same post each produce no outbound call.
+- [x] The same event delivered twice produces one DM and one Resposta pública.
+- [x] The same person commenting on a different post gets a new DM de boas-vindas.
+- [x] Two concurrent deliveries for the same Company + post + author produce one DM: the loser of the reservation exits silently.
+- [x] A failure fetching the caption, generating the DM or sending the DM leaves the record `falhou`, fires `INSTAGRAM_WELCOME_FAILED` with the Company id, and publishes nothing; a later comment by that person on that post runs the flow again.
+- [x] A failure publishing the Resposta pública fires `INSTAGRAM_PUBLIC_REPLY_FAILED` and leaves the record `pendente`.
+- [x] A post without caption still gets the DM and the Resposta pública.
+- [x] A Company missing the access token, the Resposta pública text or the welcome prompt row produces no record, no outbound call and no alert.
+- [x] A batch with two eligible comments produces two DMs; a failure on the first does not prevent the second.
+- [x] Migration 011 creates `instagram_welcomes` with `status` as text and the partial unique index, is idempotent, and has a working downgrade. It has not been run against production without the owner's go.
+- [x] The Seam 1 script passes with every case listed in task group 6.
 - [ ] `docs/file_reference/` and `docs/database_schema_documentation.md` describe the new table, repository, client and flow.
 
 ## Out of scope

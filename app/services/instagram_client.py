@@ -8,6 +8,11 @@ import httpx
 logger = logging.getLogger(__name__)
 
 API_BASE_URL = "https://graph.instagram.com/v25.0"
+# Meta documents this one endpoint without a version segment
+REFRESH_URL = "https://graph.instagram.com/refresh_access_token"
+
+# the refresh URL carries the token and httpx logs every request URL at INFO
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 class InstagramClient:
@@ -52,3 +57,23 @@ class InstagramClient:
         return await self._request(
             "POST", f"{comment_id}/replies", access_token, data={"message": text}
         )
+
+    async def refresh_access_token(self, access_token: str) -> str:
+        """Exchange a long-lived token for a new 60-day one."""
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                REFRESH_URL,
+                params={"grant_type": "ig_refresh_token", "access_token": access_token},
+            )
+        logger.info("[InstagramClient] GET refresh_access_token: status=%d", response.status_code)
+        if not response.is_success:
+            # not raise_for_status(): its message quotes the URL, which here carries the token
+            raise httpx.HTTPStatusError(
+                f"refresh_access_token: status={response.status_code}",
+                request=response.request,
+                response=response,
+            )
+        new_token: str = response.json().get("access_token") or ""
+        if not new_token:
+            raise ValueError("refresh_access_token: response without access_token")
+        return new_token

@@ -187,11 +187,11 @@
 
 **7. Documentação**
 
-- [ ] Update the models reference under `docs/file_reference/` with the `InstagramWelcome` model: columns, the four `status` values, and the note that uniqueness is a partial index living only in migration 011.
-- [ ] Update the repositories reference with `InstagramWelcomeRepository` and its three methods, stating that `reserve` returning `None` means "turn already taken".
-- [ ] Update the services reference (and the Instagram section ticket 02 added to the file reference, if any) with `InstagramClient` (three calls) and the welcome flow: feature gate, eligibility, call order, the two alert types, no retry.
-- [ ] Document the prompt row convention where the prompts are documented: `name="instagram_welcome_dm"`, `reason="instagram_welcome"`, placeholders `[USERNAME]` and `[LEGENDA]`, output forced to `{dm, product}`, model and reasoning effort from the row, and the guidance that the prompt must ask for a short message and must present the two markers inside a block it labels as data.
-- [ ] Add an `instagram_welcomes` section to `docs/database_schema_documentation.md`: purpose (one row per Comentário elegível processed), columns, the state machine, the partial unique index and what it guarantees, and that a Boas-vindas pendente never expires. List the index in the document's unique-constraints section.
+- [x] Update the models reference under `docs/file_reference/` with the `InstagramWelcome` model: columns, the four `status` values, and the note that uniqueness is a partial index living only in migration 011.
+- [x] Update the repositories reference with `InstagramWelcomeRepository` and its three methods, stating that `reserve` returning `None` means "turn already taken".
+- [x] Update the services reference (and the Instagram section ticket 02 added to the file reference, if any) with `InstagramClient` (three calls) and the welcome flow: feature gate, eligibility, call order, the two alert types, no retry.
+- [x] Document the prompt row convention where the prompts are documented: `name="instagram_welcome_dm"`, `reason="instagram_welcome"`, placeholders `[USERNAME]` and `[LEGENDA]`, output forced to `{dm, product}`, model and reasoning effort from the row, and the guidance that the prompt must ask for a short message and must present the two markers inside a block it labels as data.
+- [x] Add an `instagram_welcomes` section to `docs/database_schema_documentation.md`: purpose (one row per Comentário elegível processed), columns, the state machine, the partial unique index and what it guarantees, and that a Boas-vindas pendente never expires. List the index in the document's unique-constraints section.
 
 ## Acceptance criteria
 
@@ -209,7 +209,7 @@
 - [x] A batch with two eligible comments produces two DMs; a failure on the first does not prevent the second.
 - [x] Migration 011 creates `instagram_welcomes` with `status` as text and the partial unique index, is idempotent, and has a working downgrade. It has not been run against production without the owner's go.
 - [x] The Seam 1 script passes with every case listed in task group 6.
-- [ ] `docs/file_reference/` and `docs/database_schema_documentation.md` describe the new table, repository, client and flow.
+- [x] `docs/file_reference/` and `docs/database_schema_documentation.md` describe the new table, repository, client and flow.
 
 ## Out of scope
 

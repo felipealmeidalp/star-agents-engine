@@ -20,6 +20,7 @@ from app.rabbitmq import (
     init_follow_up_queues,
     init_webhook_retry_queue,
 )
+from app.services.instagram_token_renewal import start_weekly_token_renewal
 from app.services.product_sync import start_weekly_sync
 from app.utils.alerter import send_critical_alert_sync
 from app.webhookRetry import start_webhook_retry_consumer
@@ -98,6 +99,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     else:
         print("⏸️ Weekly product sync disabled (PRODUCT_SYNC_ENABLED=false)")
 
+    token_renewal_task = start_weekly_token_renewal()
+    print("✅ Weekly Instagram token renewal loop started")
+
     yield
 
     # Shutdown
@@ -108,6 +112,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             await weekly_sync_task
         except asyncio.CancelledError:
             pass
+    token_renewal_task.cancel()
+    try:
+        await token_renewal_task
+    except asyncio.CancelledError:
+        pass
     try:
         await close_redis_pool()
     except Exception as e:

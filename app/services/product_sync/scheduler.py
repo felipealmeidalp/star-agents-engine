@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 _SATURDAY = 5  # datetime.weekday(): Mon=0
 
 
-def _seconds_until_next_saturday(now: datetime) -> float:
+def seconds_until_next_saturday(now: datetime) -> float:
     """Delta from now to the next Saturday 00:00 in the same tz. Always > 0 (rolls
     forward when now already is the target, so the loop never busy-loops)."""
     days_ahead = (_SATURDAY - now.weekday()) % 7
@@ -55,7 +55,7 @@ async def _weekly_loop() -> None:
     tz = ZoneInfo(settings.product_sync_timezone)
     while True:
         # recomputa a cada volta: sleep de dias é frágil (drift, "próximo sábado" errado)
-        delay = _seconds_until_next_saturday(datetime.now(tz))
+        delay = seconds_until_next_saturday(datetime.now(tz))
         logger.info("[ProductSync] next weekly sync in %.0fs", delay)
         await asyncio.sleep(delay)
         try:
@@ -79,8 +79,8 @@ if __name__ == "__main__":
     tz = ZoneInfo("America/Sao_Paulo")
     # quinta 2026-09-24 10:00 → sábado 2026-09-26 00:00 = 1 dia e 14h
     thu = datetime(2026, 9, 24, 10, 0, tzinfo=tz)
-    assert _seconds_until_next_saturday(thu) == (14 + 24) * 3600
+    assert seconds_until_next_saturday(thu) == (14 + 24) * 3600
     # já é sábado 00:00 → rola pro seguinte (nunca 0)
     sat = datetime(2026, 9, 26, 0, 0, tzinfo=tz)
-    assert _seconds_until_next_saturday(sat) == 7 * 24 * 3600
+    assert seconds_until_next_saturday(sat) == 7 * 24 * 3600
     print("ok")

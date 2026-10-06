@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     # Instagram comments webhook (app próprio da Meta, não o do proxy de WhatsApp)
     instagram_app_secret: str = ""     # Segredo que assina X-Hub-Signature-256
     instagram_verify_token: str = ""   # hub.verify_token para verificação GET
+    instagram_dm_dev_mode: bool = False  # True = só o autor de teste recebe boas-vindas
+    ig_test_account_id: str = ""       # id do autor (from.id do evento) liberado no dev mode
+    ig_test_username: str = ""         # ou o username dele, para perfil que nunca interagiu
 
     # Helena channel (base URL fixa; token/apikey são per-tenant em companies).
     # Envio é por sessão: POST {helena_base_url}/v1/session/{id}/message.

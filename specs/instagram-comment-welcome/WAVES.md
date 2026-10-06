@@ -1,6 +1,6 @@
 # Execution plan — Boas-vindas por comentário do Instagram
 
-5 tickets in 3 waves. Each wave runs in parallel; the next wave starts when the current one is merged.
+6 tickets in 4 waves. Each wave runs in parallel; the next wave starts when the current one is merged.
 
 > **Depends on** [`specs/helena-channel/spec.md`](../helena-channel/spec.md) and [`specs/helena-channel-parity/spec.md`](../helena-channel-parity/spec.md) — both already shipped. This plan assumes them.
 
@@ -22,7 +22,7 @@ Ticket 02 runs on the working branch, in place. Ticket 01 is done by the owner o
 # 01 — manual, no worktree
 ```
 
-Ticket 01 gates only ticket 04. Wave 2 starts as soon as 02 is merged, even if 01 is still waiting on the App Review.
+Ticket 01 no longer gates ticket 04: the real runs of 2026-10-05/06 answered it (see ticket 04, "Validated on real traffic"). Wave 2 starts as soon as 02 is merged.
 
 ## Wave 2 — 1 ticket
 
@@ -36,11 +36,11 @@ Alone in its wave: no worktree, runs on the working branch.
 
 ## Wave 3 — 2 tickets in parallel
 
-Starts once wave 2 is merged. Ticket 04 also needs ticket 01's `validation.md`; if it is not ready, 05 runs alone and 04 starts when it lands.
+Starts once wave 2 is merged.
 
 | Ticket | Delivers | Blocked by | Touches |
 |---|---|---|---|
-| [04 — Casamento da Boas-vindas pendente no canal Helena](./ticket_04.md) | On the first message of a new Helena session, the DM becomes the first assistant message in ChatHistory, the Origem do comentário enters `customer_context`, the record goes to casada; echo protection; Seam 2 tests. Implements only the key 01 confirmed | 01, 03 | `HelenaService.process_webhook`, `InstagramWelcomeRepository`, `HelenaClient` (Path B only), `tests/test_helena_route.py`, docs |
+| [04 — Casamento da Boas-vindas pendente no canal Helena](./ticket_04.md) | On the first message of a new Helena session, the DM becomes the first assistant message in ChatHistory, the Origem do comentário enters `customer_context`, the record goes to casada; echo protection; Seam 2 tests. Matches by the suffix of the author id against `details.from` | 03 | `HelenaService.process_webhook`, `InstagramWelcomeRepository`, `HelenaClient` (Path B only), `tests/test_helena_route.py`, docs |
 | [05 — Renovação semanal do token do Instagram](./ticket_05.md) | Weekly loop in `lifespan` that renews and saves each Company's Instagram token, critical alert per failing Company, test of the function behind the loop | 03 | `InstagramClient` (4th call), `CompanyRepository`, new renewal module, `app.services.product_sync.scheduler` (helper made public), `app.main`, new test script, docs |
 
 Ticket 04 runs on the working branch, in place. The other gets a worktree:
@@ -49,6 +49,16 @@ Ticket 04 runs on the working branch, in place. The other gets a worktree:
 # 04 — no worktree: runs on the branch already checked out
 git worktree add ../instagram-comment-welcome-05 -b instagram-comment-welcome/05-renovacao-token
 ```
+
+## Wave 4 — 1 ticket
+
+Starts once ticket 04 is merged.
+
+| Ticket | Delivers | Blocked by | Touches |
+|---|---|---|---|
+| [06 — Comentário de quem já conversou: histórico na geração e DM no histórico](./ticket_06.md) | For a commenter who already has a Customer: previous conversation sent as chat turns to the DM generation, DM written into that session's ChatHistory at send time, Origem do comentário in the lead context, and the 7-day limit on ticket 04's match | 04 | `app.services.instagram_welcome`, `CustomerRepository`, `InstagramWelcomeRepository`, both route test scripts, docs |
+
+Alone in its wave: no worktree, runs on the working branch.
 
 ## Dependency graph
 
@@ -68,10 +78,9 @@ Tickets in the same wave whose work overlaps. They still run in parallel — thi
 
 ## Critical path
 
-02 → 03 → 04. In wall-clock terms the real bottleneck is likely ticket 01: it is manual and may wait on the App Review, and 04 cannot start without it.
+02 → 03 → 04. Ticket 01 is manual and may wait on the App Review, but nothing waits on it any more.
 
 ## Notes for the orchestrator
 
 - **Migrations 010 and 011 must not be run locally without the owner's explicit go** — the local `.env` points at the production database. The DB-dependent test cases of 02, 03 and 04 write to whatever database the script points at.
 - If ticket 01 finds different field names in the real comment event or in Meta's responses, the adjustment lands in `parse_comments` (02) and `InstagramClient` (03); neither ticket waits for it.
-- If ticket 01 ends in outcome (3) — neither matching key works — ticket 04 does not start and the design goes back to ADR 0001/0002.

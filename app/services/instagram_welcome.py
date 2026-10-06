@@ -2,11 +2,14 @@
 
 import json
 import logging
+import re
 from typing import Any
 
+import httpx
 from pydantic import BaseModel, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.models.schemas import OpenAIMessage, OpenAIPayload
 from app.models.tables import Company
 from app.repositories.company import CompanyRepository
@@ -88,6 +91,14 @@ def parse_comments(body: dict[str, Any]) -> list[tuple[str, InstagramComment]]:
     return pairs
 
 
+def _is_test_author(comment: InstagramComment) -> bool:
+    # an unset setting must not match anyone: dev mode fails closed
+    test_username = settings.ig_test_username.lstrip("@").lower()
+    return comment.author_id == settings.ig_test_account_id or (
+        test_username != "" and (comment.author_username or "").lower() == test_username
+    )
+
+
 async def handle_comment(db: AsyncSession, company: Company, comment: InstagramComment) -> None:
     """Send the DM de boas-vindas for a Comentário elegível, then the Resposta pública."""
     company_id = company.id
@@ -104,6 +115,14 @@ async def handle_comment(db: AsyncSession, company: Company, comment: InstagramC
         return
     if not (comment_id and media_id and comment.author_id):
         logger.info("[InstagramWelcome] Comment without ids, cannot be reserved")
+        return
+    if settings.instagram_dm_dev_mode and not _is_test_author(comment):
+        logger.info(
+            "[InstagramWelcome] Dev mode: ignoring comment %s from author %s (@%s)",
+            comment_id,
+            comment.author_id,
+            comment.author_username,
+        )
         return
 
     welcomes = InstagramWelcomeRepository(db)
@@ -135,12 +154,22 @@ async def handle_comment(db: AsyncSession, company: Company, comment: InstagramC
         caption = media.get("caption") or ""
         logger.info("[InstagramWelcome] Post of comment %s: %s", comment_id, media.get("permalink"))
 
+        step = "fetch_name"
+        try:
+            name = await client.get_user_name(comment.author_id, access_token)
+        except httpx.HTTPError:
+            # Meta does not expose every commenter's profile: the DM goes out without the name
+            logger.warning("[InstagramWelcome] No profile name for comment %s", comment_id)
+            name = ""
+
         step = "generate_dm"
-        username = f"@{comment.author_username}" if comment.author_username else ""
-        # caption last: a caption holding the literal "[USERNAME]" must not be re-substituted
-        prompt = config.prompt.replace("[USERNAME]", username).replace("[LEGENDA]", caption)
+        values = {"NOME": name, "COMENTARIO": comment.text, "LEGENDA": caption}
+        # single pass: a placeholder written inside third-party text is never re-substituted
+        prompt = re.sub(
+            r"\[(NOME|COMENTARIO|LEGENDA)\]", lambda m: values[m.group(1)], config.prompt
+        )
         api_key = await CompanyRepository(db).get_openai_api_key(company_id)
-        # one user message, no tools, strict schema: caption and username are third-party data
+        # one user message, no tools, strict schema: name, comment and caption are third-party data
         response = await OpenAIService(api_key).chat_completion(
             OpenAIPayload(
                 model=config.model,
@@ -160,6 +189,20 @@ async def handle_comment(db: AsyncSession, company: Company, comment: InstagramC
         recipient_id = sent.get("recipient_id")
         if not recipient_id:
             logger.warning("[InstagramWelcome] DM sent, no recipient id: comment=%s", comment_id)
+
+        # Meta routes the conversation to the app that sent the DM: without the release the
+        # person's reply never reaches Helena. A failure here must not undo a DM already sent.
+        try:
+            await client.release_thread_control(recipient_id or comment.author_id, access_token)
+        except Exception as e:
+            logger.exception("[InstagramWelcome] Thread release failed: comment=%s", comment_id)
+            send_critical_alert(
+                "INSTAGRAM_THREAD_RELEASE_FAILED",
+                "instagram_welcome.py:handle_comment",
+                e,
+                company_id=company_id,
+                extra=f"comment={comment_id} media={media_id}",
+            )
 
         step = "mark_pending"
         await welcomes.mark_pending(welcome_id, caption, product, dm, recipient_id)

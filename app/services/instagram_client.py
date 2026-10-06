@@ -40,6 +40,11 @@ class InstagramClient:
             "GET", media_id, access_token, params={"fields": "caption,permalink"}
         )
 
+    async def get_user_name(self, user_id: str, access_token: str) -> str:
+        """Display name of a commenter; empty when the profile has none."""
+        profile = await self._request("GET", user_id, access_token, params={"fields": "name"})
+        return profile.get("name") or ""
+
     async def send_private_reply(
         self, comment_id: str, text: str, access_token: str
     ) -> dict[str, Any]:
@@ -49,6 +54,17 @@ class InstagramClient:
             "me/messages",
             access_token,
             json={"recipient": {"comment_id": comment_id}, "message": {"text": text}},
+        )
+
+    async def release_thread_control(
+        self, recipient_id: str, access_token: str
+    ) -> dict[str, Any]:
+        """Give the conversation back so the person's reply reaches the other connected apps."""
+        return await self._request(
+            "POST",
+            "me/release_thread_control",
+            access_token,
+            json={"recipient": {"id": recipient_id}},
         )
 
     async def reply_to_comment(

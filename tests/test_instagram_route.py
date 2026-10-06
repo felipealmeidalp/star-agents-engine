@@ -135,11 +135,20 @@ async def _post_welcome(
             return media
         return {"id": media_id, "caption": "Mesa de sinuca oficial", "permalink": "https://ig/p/x"}
 
+    async def _get_user_name(self: Any, user_id: str, access_token: str) -> str:
+        return "Maria Sinuca"
+
     async def _send_private_reply(
         self: Any, comment_id: str, text: str, access_token: str
     ) -> dict[str, Any]:
         _record("send_private_reply", comment_id, text)
         return {"recipient_id": "7770001", "message_id": "mid.1"}
+
+    async def _release_thread_control(
+        self: Any, recipient_id: str, access_token: str
+    ) -> dict[str, Any]:
+        _record("release_thread_control", recipient_id)
+        return {"success": True}
 
     async def _reply_to_comment(
         self: Any, comment_id: str, text: str, access_token: str
@@ -171,9 +180,13 @@ async def _post_welcome(
 
     client = "app.services.instagram_client.InstagramClient"
     transport = httpx.ASGITransport(app=app)
-    with patch.object(settings, "instagram_app_secret", APP_SECRET), patch(
-        f"{client}.get_media", _get_media
+    with patch.object(settings, "instagram_app_secret", APP_SECRET), patch.object(
+        settings, "instagram_dm_dev_mode", False
+    ), patch(f"{client}.get_media", _get_media), patch(
+        f"{client}.get_user_name", _get_user_name
     ), patch(f"{client}.send_private_reply", _send_private_reply), patch(
+        f"{client}.release_thread_control", _release_thread_control
+    ), patch(
         f"{client}.reply_to_comment", _reply_to_comment
     ), patch(
         "app.services.openai.OpenAIService.chat_completion", _chat_completion
@@ -302,7 +315,7 @@ async def stamp_account(account_id: str | None) -> None:
 
 WELCOME_PROMPT = (
     "Escreva uma DM curta de boas-vindas.\n"
-    "<dados>\nusuário: [USERNAME]\nlegenda: [LEGENDA]\n</dados>"
+    "<dados>\nnome: [NOME]\ncomentário: [COMENTARIO]\nlegenda: [LEGENDA]\n</dados>"
 )
 PROMPT_KEY = {"cid": SEED_COMPANY_ID, "name": "instagram_welcome_dm", "reason": "instagram_welcome"}
 PROMPT_WHERE = "company_id = :cid AND name = :name AND reason = :reason"
@@ -441,6 +454,7 @@ def full_flow(comment_id: str = "17900000000000001", post: str = POST) -> Client
     return [
         ("get_media", post),
         ("send_private_reply", comment_id, DM_TEXT),
+        ("release_thread_control", "7770001"),
         ("reply_to_comment", comment_id, PUBLIC_REPLY),
     ]
 
@@ -560,6 +574,17 @@ async def case_public_reply_failure_keeps_welcome_pending() -> None:
     assert calls == [], calls
     assert alerts == [], alerts
     print("  Resposta pública fails → alert, DM sent, the person's turn stays taken: OK")
+
+
+async def case_thread_release_failure_keeps_the_flow() -> None:
+    await clear_welcomes()
+    resp, calls, alerts, _ = await _post_welcome(
+        make_event(make_comment("17900000000000001")), failing="release_thread_control"
+    )
+    assert resp.status_code == 200, resp.status_code
+    assert calls == FULL_FLOW, calls
+    assert alerts == ["INSTAGRAM_THREAD_RELEASE_FAILED"], alerts
+    print("  thread release fails → alert, DM sent, Resposta pública still published: OK")
 
 
 async def case_unknown_account_gets_no_welcome() -> None:
@@ -684,7 +709,12 @@ async def case_concurrent_deliveries() -> None:
         make_event(make_comment("17900000000000001")),
         make_event(make_comment("17900000000000002")),
     )
-    assert [c[0] for c in calls] == ["get_media", "send_private_reply", "reply_to_comment"], calls
+    assert [c[0] for c in calls] == [
+        "get_media",
+        "send_private_reply",
+        "release_thread_control",
+        "reply_to_comment",
+    ], calls
     assert alerts == [], alerts
     print("  two concurrent deliveries for the same person and post → one DM: OK")
 
@@ -732,6 +762,7 @@ async def main() -> None:
         await case_same_person_other_post()
         await case_dm_failure_then_retry_on_new_comment()
         await case_public_reply_failure_keeps_welcome_pending()
+        await case_thread_release_failure_keeps_the_flow()
         await case_unknown_account_gets_no_welcome()
         await case_batch_with_two_eligible_comments()
         await case_batch_first_fails_second_goes()

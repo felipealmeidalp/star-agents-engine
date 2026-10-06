@@ -27,6 +27,7 @@ like a legit clean no-op. Run all five with:
 import asyncio
 import os
 import sys
+import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
 from unittest.mock import patch
@@ -44,7 +45,7 @@ os.environ.setdefault(
 os.environ.setdefault("API_KEY", "test-key")
 
 import httpx  # noqa: E402
-from sqlalchemy import text  # noqa: E402
+from sqlalchemy import delete, text  # noqa: E402
 
 from app.config import settings  # noqa: E402
 from app.db.database import AsyncSessionLocal  # noqa: E402
@@ -54,6 +55,7 @@ from app.models.schemas import (  # noqa: E402
     OpenAIMessage,
     OpenAIResponse,
 )
+from app.models.tables import InstagramWelcome  # noqa: E402
 
 # The seeded fixture company (see test_categories_tool.py: company_id=5 has a
 # real agent/sub_agent/prompt + openai key, which ContextBuilder needs even with
@@ -66,6 +68,19 @@ LEAD_PHONE = "+5511999998888"  # details.from — kept only in the customer reco
 HELENA_APIKEY = "test-helena-apikey"
 ALLOWED_CHANNEL = 7  # content.channel (injected by n8n) that the allowlist permits
 BLOCKED_CHANNEL = 9  # a channel NOT in the allowlist → gated out
+
+IG_ACCOUNT_ID = "test-ig-account-helena"
+WELCOME_AUTHOR_ID = "9990001234567890"
+# Helena sends only the last 13 digits of the Instagram id, behind a "+".
+WELCOME_FROM = "+0001234567890"
+WELCOME_DM = "Oi @joao.sinuca, vi seu comentário no post da mesa oficial!"
+WELCOME_CAPTION = "Mesa de sinuca oficial com tampo de ardósia"
+WELCOME_COMMENT = "quanto custa essa mesa?"
+WELCOME_PRODUCT = "Mesa Oficial Ardósia"
+LOOKUP = (
+    "app.repositories.instagram_welcome.InstagramWelcomeRepository"
+    ".find_pending_by_commenter_suffix"
+)
 
 
 def make_payload(**overrides: Any) -> dict[str, Any]:
@@ -260,6 +275,91 @@ async def seed_company_token() -> None:
         await db.commit()
 
 
+async def seed_company_instagram() -> None:
+    async with AsyncSessionLocal() as db:
+        await db.execute(
+            text(
+                "UPDATE companies SET instagram_account_id = :acc, "
+                "instagram_access_token = :tok, instagram_public_reply = :reply "
+                "WHERE id = :cid"
+            ),
+            {
+                "acc": IG_ACCOUNT_ID,
+                "tok": "test-ig-access-token",
+                "reply": "Te chamei no direct!",
+                "cid": SEED_COMPANY_ID,
+            },
+        )
+        await db.commit()
+
+
+async def seed_pending_welcome(
+    dm_text: str = WELCOME_DM,
+    caption: str = WELCOME_CAPTION,
+    comment_text: str = WELCOME_COMMENT,
+    product: str | None = WELCOME_PRODUCT,
+    username: str = "joao.sinuca",
+    recipient_id: str | None = WELCOME_AUTHOR_ID,
+    *,
+    media_id: str = "18000000000000404",
+    keep_existing: bool = False,
+) -> None:
+    """Add a Boas-vindas pendente for the test author, dropping this test's earlier ones."""
+    async with AsyncSessionLocal() as db:
+        if not keep_existing:
+            await db.execute(
+                delete(InstagramWelcome).where(
+                    InstagramWelcome.company_id == SEED_COMPANY_ID,
+                    InstagramWelcome.commenter_id == WELCOME_AUTHOR_ID,
+                )
+            )
+        db.add(
+            InstagramWelcome(
+                company_id=SEED_COMPANY_ID,
+                comment_id="17900000000000404",
+                media_id=media_id,
+                commenter_id=WELCOME_AUTHOR_ID,
+                commenter_username=username,
+                comment_text=comment_text,
+                caption=caption,
+                product=product,
+                dm_text=dm_text,
+                recipient_id=recipient_id,
+                status="pendente",
+            )
+        )
+        await db.commit()
+
+
+def new_session_payload(session_id: str, **content: Any) -> dict[str, Any]:
+    return make_payload(
+        content={"sessionId": session_id, "details": {"from": WELCOME_FROM}, **content}
+    )
+
+
+async def _run_recording(
+    payload: dict[str, Any], reply_messages: list[str]
+) -> tuple[httpx.Response, list[tuple[str, str]], list[list[OpenAIMessage]]]:
+    """Like _run_pipeline, also returning the messages of each call that reached OpenAI."""
+    sends: list[tuple[str, str]] = []
+    requests: list[list[OpenAIMessage]] = []
+
+    async def _recording_completion(self: Any, payload: Any) -> OpenAIResponse:
+        requests.append(list(payload.messages))
+        return await fake_openai_response(reply_messages)(self, payload)
+
+    with patch_send_text(sends), patch(
+        "app.services.openai.OpenAIService.chat_completion",
+        _recording_completion,
+    ), patch("app.helena.client.calculate_humanized_delay", lambda _msg: 0):
+        resp = await _post(payload, KNOWN_TOKEN)
+    return resp, sends, requests
+
+
+def _turns(messages: list[OpenAIMessage]) -> list[tuple[str, str | None]]:
+    return [(m.role, m.content) for m in messages[1:]]
+
+
 # --------------------------------------------------------------------------- #
 # The five cases
 # --------------------------------------------------------------------------- #
@@ -312,20 +412,19 @@ async def case_e_n_messages_ordered() -> None:
     print("  (e) N-message reply → N ordered send/text POSTs: OK")
 
 
-async def set_customer_status_false(session_id: str, company_id: int) -> None:
-    """Silence the AI for a session by setting customers.status = False.
+async def set_customer_status(session_id: str, company_id: int, status: bool) -> None:
+    """Flip customers.status, the Gate de IA (False = escalated to a human).
 
     The customer row is created by upsert_api_customer during a normal pass, so
-    the caller runs one pipeline pass first to create it, then flips the DB flag
-    that transfer_to_human sets (status=False = escalated to a human).
+    the caller runs one pipeline pass first to create it.
     """
     async with AsyncSessionLocal() as db:
         await db.execute(
             text(
-                'UPDATE customers SET status = false '
+                'UPDATE customers SET status = :status '
                 'WHERE "sessionId" = :sid AND company_id = :cid'
             ),
-            {"sid": session_id, "cid": company_id},
+            {"status": status, "sid": session_id, "cid": company_id},
         )
         await db.commit()
 
@@ -339,7 +438,7 @@ async def case_h_status_false_gates_ai() -> None:
     assert len(calls) >= 1, f"expected first pass to dispatch, got {calls}"
 
     # Escalate: flip status to False, as transfer_to_human would.
-    await set_customer_status_false(SESSION_ID, SEED_COMPANY_ID)
+    await set_customer_status(SESSION_ID, SEED_COMPANY_ID, False)
 
     # Second pass: count chat_completion invocations; assert the gate blocks it.
     completion_calls = 0
@@ -361,6 +460,8 @@ async def case_h_status_false_gates_ai() -> None:
     assert completion_calls == 0, (
         f"expected zero OpenAI calls when status=False, got {completion_calls}"
     )
+    # SESSION_ID is shared: left closed, the gate swallows every later case.
+    await set_customer_status(SESSION_ID, SEED_COMPANY_ID, True)
     print("  (h) status=False → message saved, zero sends, zero OpenAI calls: OK")
 
 
@@ -477,6 +578,144 @@ async def case_l_empty_transcript_uses_empty_string() -> None:
     print("  (l) empty transcript → 'Não consegui entender' string, alert, no AI: OK")
 
 
+async def case_m_new_session_matches_welcome() -> None:
+    await seed_pending_welcome()
+    lead_text = "oi, quero saber o preço"
+    resp, sends, requests = await _run_recording(
+        new_session_payload(str(uuid.uuid4()), text=lead_text), ["a mesa sai por 5 mil"]
+    )
+    assert resp.status_code == 200, resp.status_code
+    assert len(requests) == 1, f"expected one OpenAI call, got {len(requests)}"
+    turns = _turns(requests[0])
+    assert turns == [("assistant", WELCOME_DM), ("user", lead_text)], turns
+    system = requests[0][0].content or ""
+    assert "## Contexto sobre o Lead" in system, system[-400:]
+    for expected in (WELCOME_CAPTION, WELCOME_COMMENT, WELCOME_PRODUCT):
+        assert expected in system, f"{expected!r} missing from the lead context"
+    assert [sent for _sid, sent in sends] == ["a mesa sai por 5 mil"], sends
+    print("  (m) new session with Boas-vindas pendente → DM + Origem do comentário: OK")
+
+
+async def case_n_welcome_without_product() -> None:
+    await seed_pending_welcome(product=None)
+    resp, _sends, requests = await _run_recording(
+        new_session_payload(str(uuid.uuid4())), ["oi de novo"]
+    )
+    assert resp.status_code == 200, resp.status_code
+    system = requests[0][0].content or ""
+    assert WELCOME_CAPTION in system and WELCOME_COMMENT in system, system[-400:]
+    assert '"produto"' not in system, system[-400:]
+    print("  (n) Boas-vindas pendente without product → no produto in the lead context: OK")
+
+
+async def case_o_second_message_keeps_single_dm() -> None:
+    await seed_pending_welcome()
+    session_id = str(uuid.uuid4())
+    await _run_recording(new_session_payload(session_id), ["primeira resposta"])
+    resp, _sends, requests = await _run_recording(
+        new_session_payload(session_id, text="e o frete?"), ["segunda resposta"]
+    )
+    assert resp.status_code == 200, resp.status_code
+    dm_turns = [t for t in _turns(requests[0]) if t == ("assistant", WELCOME_DM)]
+    assert len(dm_turns) == 1, _turns(requests[0])
+    print("  (o) second message of the matched session → DM appears once: OK")
+
+
+async def case_p_new_session_without_match() -> None:
+    await seed_pending_welcome()
+    lead_text = "boa tarde"
+    # make_payload's default details.from is LEAD_PHONE, not a suffix of the author id.
+    resp, sends, requests = await _run_recording(
+        make_payload(content={"sessionId": str(uuid.uuid4()), "text": lead_text}), ["olá!"]
+    )
+    assert resp.status_code == 200, resp.status_code
+    assert [sent for _sid, sent in sends] == ["olá!"], sends
+    assert _turns(requests[0]) == [("user", lead_text)], _turns(requests[0])
+    assert "origem_comentario_instagram" not in (requests[0][0].content or "")
+    print("  (p) new session of someone else → current behaviour, no comment context: OK")
+
+
+async def case_q_company_without_instagram() -> None:
+    await seed_pending_welcome()
+    lookups: list[tuple[Any, ...]] = []
+
+    async def _spy(self: Any, *args: Any) -> None:
+        lookups.append(args)
+
+    async with AsyncSessionLocal() as db:
+        await db.execute(
+            text("UPDATE companies SET instagram_account_id = NULL WHERE id = :cid"),
+            {"cid": SEED_COMPANY_ID},
+        )
+        await db.commit()
+    try:
+        with patch(LOOKUP, _spy):
+            resp, sends, _requests = await _run_recording(
+                new_session_payload(str(uuid.uuid4())), ["olá!"]
+            )
+    finally:
+        await seed_company_instagram()
+    assert resp.status_code == 200, resp.status_code
+    assert [sent for _sid, sent in sends] == ["olá!"], sends
+    assert lookups == [], f"expected no welcome lookup, got {lookups}"
+    print("  (q) Company without Instagram configured → no welcome lookup, reply sent: OK")
+
+
+async def case_r_own_dm_echo_is_not_answered() -> None:
+    await seed_pending_welcome()
+    session_id = str(uuid.uuid4())
+    resp, sends, requests = await _run_recording(
+        new_session_payload(session_id, text=f" {WELCOME_DM}\n"), ["should not be sent"]
+    )
+    assert resp.status_code == 200, resp.status_code
+    assert requests == [], f"expected zero OpenAI calls, got {len(requests)}"
+    assert sends == [], f"expected zero sends, got {sends}"
+    async with AsyncSessionLocal() as db:
+        rows = (
+            await db.execute(
+                text('SELECT role, content FROM chat_history WHERE "sessionId" = :sid'),
+                {"sid": session_id},
+            )
+        ).all()
+    assert [tuple(r) for r in rows] == [("assistant", WELCOME_DM)], rows
+    print("  (r) incoming text equals the pending DM → matched, AI not called: OK")
+
+
+async def case_s_matching_error_keeps_the_reply() -> None:
+    await seed_pending_welcome()
+
+    async def _boom(self: Any, *args: Any) -> None:
+        raise RuntimeError("lookup boom")
+
+    with patch(LOOKUP, _boom):
+        resp, sends, requests = await _run_recording(
+            new_session_payload(str(uuid.uuid4())), ["olá!"]
+        )
+    assert resp.status_code == 200, resp.status_code
+    assert [sent for _sid, sent in sends] == ["olá!"], sends
+    assert "origem_comentario_instagram" not in (requests[0][0].content or "")
+    print("  (s) error in the matching → AI replies without the comment context: OK")
+
+
+async def case_t_most_recent_welcome_wins_each_consumed_once() -> None:
+    await seed_pending_welcome(dm_text="DM do post antigo")
+    await seed_pending_welcome(
+        dm_text="DM do post novo", media_id="18000000000000405", keep_existing=True
+    )
+    first_turns = []
+    for _ in range(3):
+        _resp, _sends, requests = await _run_recording(
+            new_session_payload(str(uuid.uuid4())), ["olá!"]
+        )
+        first_turns.append(_turns(requests[0])[0])
+    assert first_turns == [
+        ("assistant", "DM do post novo"),
+        ("assistant", "DM do post antigo"),
+        ("user", "olá, quero saber sobre os produtos"),
+    ], first_turns
+    print("  (t) two Boas-vindas pendentes → most recent first, each consumed once: OK")
+
+
 async def main() -> None:
     print("Helena route behavioral tests (seam: POST /api/helena/{token})")
     assert settings.helena_base_url  # sanity: settings imported
@@ -491,15 +730,17 @@ async def main() -> None:
 
     if not await db_reachable():
         print(
-            "\nSKIPPED (no reachable DB): (a), (c), (d), (e) drive the background "
-            "task which opens a DB session and resolves the company by token.\n"
-            "Point DATABASE_URL at a dev Postgres with seeded company_id=5 to run "
+            "\nSKIPPED (no reachable DB): every case but (b) drives the background "
+            "task, which opens a DB session and resolves the company by token; the "
+            "Boas-vindas pendente cases (m)-(t) also write welcome records.\n"
+            "Point DATABASE_URL at a throwaway Postgres with seeded company_id=5 to run "
             "them. Ran here: (b). Not a logic failure — DB reachability only."
         )
-        print("\nOK - (b) passed; (a),(c),(d),(e) require a live DB")
+        print("\nOK - (b) passed; every other case requires a live DB")
         return
 
     await seed_company_token()
+    await seed_company_instagram()
     await case_a_text_dispatches()
     await case_c_no_text_ignored()
     await case_d_unknown_token_noops()
@@ -512,6 +753,14 @@ async def main() -> None:
     await case_j_text_precedence()
     await case_k_transcription_failure_alerts_and_notifies()
     await case_l_empty_transcript_uses_empty_string()
+    await case_m_new_session_matches_welcome()
+    await case_n_welcome_without_product()
+    await case_o_second_message_keeps_single_dm()
+    await case_p_new_session_without_match()
+    await case_q_company_without_instagram()
+    await case_r_own_dm_echo_is_not_answered()
+    await case_s_matching_error_keeps_the_reply()
+    await case_t_most_recent_welcome_wins_each_consumed_once()
     print("\nOK - all Helena route cases passed")
 
 

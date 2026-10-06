@@ -14,6 +14,7 @@ from app.models.tables import Company
 from app.repositories.chat_history import ChatHistoryRepository
 from app.repositories.company import CompanyRepository
 from app.repositories.customer import CustomerRepository
+from app.repositories.instagram_welcome import InstagramWelcomeRepository
 from app.services.openai import OpenAIService
 from app.utils.alerter import send_critical_alert
 from app.utils.attachments import (
@@ -46,6 +47,7 @@ class HelenaService:
         self.customer_repo = CustomerRepository(db)
         self.chat_history_repo = ChatHistoryRepository(db)
         self.company_repo = CompanyRepository(db)
+        self.welcome_repo = InstagramWelcomeRepository(db)
         self.buffer = MessageBuffer()
         self.client = HelenaClient()
         # Shared singleton so locks/buffer state stay consistent across channels.
@@ -84,10 +86,12 @@ class HelenaService:
         # lazy-load outside the greenlet (mirrors ChatwootService.process_webhook).
         helena_apikey = company.helena_apikey
         company_id = company.id
+        instagram_account_id = company.instagram_account_id
         # Optional lead phone, kept only for the customer record (custom_information).
         # It is NOT the send target: replies route by sessionId via
         # POST /v1/session/{id}/message, the only contract that works on
-        # non-WhatsApp channels (Instagram/Facebook), where details.from is absent.
+        # non-WhatsApp channels (Instagram/Facebook). On Instagram details.from is
+        # the last 13 digits of the person's Instagram id behind a "+".
         phone = payload.content.details.from_ if payload.content.details else None
 
         # No Bearer configured → every send would 401; abort before touching the AI.
@@ -155,7 +159,7 @@ class HelenaService:
             company.id,
         )
 
-        await self.customer_repo.upsert_api_customer(
+        customer, is_new = await self.customer_repo.upsert_api_customer(
             session_id=session_id,
             company_id=company.id,
             agent_id=None,
@@ -165,12 +169,54 @@ class HelenaService:
             custom_information_patch={"phone": phone},
         )
 
+        if is_new and instagram_account_id:
+            # Casamento da Boas-vindas pendente: a failure here must never cost the lead a reply.
+            try:
+                commenter_id_suffix = (phone or "").removeprefix("+")
+                welcome = (
+                    await self.welcome_repo.find_pending_by_commenter_suffix(
+                        company_id, commenter_id_suffix
+                    )
+                    if len(commenter_id_suffix) >= 10 and commenter_id_suffix.isdigit()
+                    else None
+                )
+                if welcome:
+                    is_own_dm = (text or "").strip() == (welcome.dm_text or "").strip()
+                    await self.welcome_repo.match(welcome, customer)
+                    logger.info(
+                        "[HelenaService] Boas-vindas pendente %d matched to session %s "
+                        "(company %d)",
+                        welcome.id,
+                        session_id,
+                        company_id,
+                    )
+                    if is_own_dm:
+                        logger.info(
+                            "[HelenaService] Incoming message of session %s is our own "
+                            "DM de boas-vindas, ignored",
+                            session_id,
+                        )
+                        return {
+                            "status": "ignored",
+                            "reason": "welcome_echo",
+                            "session_id": session_id,
+                        }
+            except Exception:
+                logger.exception(
+                    "[HelenaService] Boas-vindas matching failed for session %s "
+                    "(company %d)",
+                    session_id,
+                    company_id,
+                )
+                # Also expires `company`: from here on only the company_id local is safe.
+                await self.db.rollback()
+
         # Gate de IA: se a conversa foi escalada para um humano (status=False), a
         # IA fica calada. A mensagem do lead é gravada no histórico (o atendente vê
         # o contexto) mas nenhuma chamada à IA acontece — mesma semântica do
         # Chatwoot (passo "1.5"). status None/True → IA ativa, segue o fluxo.
         # Helena não tem follow-up, então _update_follow_up_and_schedule não é replicado.
-        status = await self.customer_repo.get_status(session_id, company.id)
+        status = await self.customer_repo.get_status(session_id, company_id)
         if status is False:
             logger.info(
                 "[HelenaService] AI deactivated for session %s (status=False), "
@@ -180,7 +226,7 @@ class HelenaService:
             await self.chat_history_repo.insert_user_message(
                 session_id=session_id,
                 message=message,
-                company_id=company.id,
+                company_id=company_id,
             )
             return {"status": "ai_deactivated", "session_id": session_id}
 
@@ -192,7 +238,7 @@ class HelenaService:
             contact_id=contact_id,
             message=message,
             session_id=session_id,
-            company_id=company.id,
+            company_id=company_id,
             db=self.db,
             on_send_messages=on_send_messages,
             on_send_private_notes=None,

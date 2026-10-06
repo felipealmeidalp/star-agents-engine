@@ -13,6 +13,7 @@ import hmac
 import json
 import os
 import sys
+from datetime import datetime, timedelta
 from typing import Any
 from unittest.mock import patch
 
@@ -25,12 +26,13 @@ os.environ.setdefault(
 os.environ.setdefault("API_KEY", "test-key")
 
 import httpx  # noqa: E402
-from sqlalchemy import text  # noqa: E402
+from sqlalchemy import delete, select, text  # noqa: E402
 
 from app.config import settings  # noqa: E402
 from app.db.database import AsyncSessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models.schemas import OpenAIChoice, OpenAIMessage, OpenAIResponse  # noqa: E402
+from app.models.tables import ChatHistory, Company, Customer  # noqa: E402
 from app.services.instagram_welcome import InstagramComment  # noqa: E402
 
 SEED_COMPANY_ID = 5
@@ -44,6 +46,15 @@ PUBLIC_REPLY = "Te chamei no direct!"
 DM_TEXT = "Oi @maria.sinuca, vi seu comentário no post da mesa!"
 POST = "18000000000000009"
 OTHER_POST = "18000000000000010"
+# a commenter whose id is long enough to be looked up as a Customer: "+" + its last 13 digits
+KNOWN_AUTHOR = {"id": "8880009876543210", "username": "maria.sinuca"}
+KNOWN_PHONE = "+0009876543210"
+TEST_SESSION = "ig-welcome-test-"
+FILLED_PROMPT = (
+    "Escreva uma DM curta de boas-vindas.\n"
+    "<dados>\nnome: Maria Sinuca\ncomentário: quanto custa?\nlegenda: Mesa de sinuca oficial\n"
+    "</dados>"
+)
 
 Handoffs = list[tuple[int, InstagramComment]]
 ClientCalls = list[tuple[str, ...]]
@@ -350,6 +361,7 @@ async def restore_snapshot(snapshot: tuple[Any, list[dict[str, Any]]]) -> None:
         values = ", ".join(f":{c}" for c in row)
         await _execute(f"INSERT INTO prompts ({columns}) VALUES ({values})", **row)
     await clear_welcomes()
+    await clear_customers()
 
 
 async def stamp_config(token: str | None, public_reply: str | None) -> None:
@@ -676,6 +688,208 @@ async def case_post_without_caption() -> None:
     print("  post without caption → DM sent and Resposta pública published: OK")
 
 
+async def clear_customers() -> None:
+    async with AsyncSessionLocal() as db:
+        for table in (ChatHistory, Customer):
+            await db.execute(
+                delete(table).where(
+                    table.company_id == SEED_COMPANY_ID, table.sessionId.like(TEST_SESSION + "%")
+                )
+            )
+        await db.commit()
+
+
+async def seed_customer(
+    session_id: str, history: list[dict[str, Any]], *, created_at: datetime | None = None
+) -> None:
+    """Add a Customer of the known commenter with a conversation already in its ChatHistory."""
+    # naive UTC, as the customers and chat_history columns store it
+    created_at = created_at or datetime.utcnow() - timedelta(hours=1)
+    async with AsyncSessionLocal() as db:
+        company = await db.get(Company, SEED_COMPANY_ID)
+        assert company is not None
+        ids = {
+            "company_id": SEED_COMPANY_ID,
+            "agent_id": company.standard_agent_id,
+            "sub_agent_id": company.standard_sub_agent_id,
+            "sessionId": session_id,
+        }
+        db.add(
+            Customer(
+                **ids,
+                custom_information={"phone": KNOWN_PHONE},
+                customer_context={"etapa": "orçamento"},
+                created_at=created_at,
+            )
+        )
+        for offset, row in enumerate(history):
+            db.add(ChatHistory(**ids, **row, created_at=created_at + timedelta(seconds=offset)))
+        await db.commit()
+
+
+async def session_rows(session_id: str) -> list[tuple[str, str | None]]:
+    async with AsyncSessionLocal() as db:
+        rows = await db.execute(
+            select(ChatHistory.role, ChatHistory.content)
+            .where(ChatHistory.sessionId == session_id)
+            .order_by(ChatHistory.created_at, ChatHistory.id)
+        )
+        return [(role, content) for role, content in rows]
+
+
+async def customer_context(session_id: str) -> Any:
+    result = await _execute(
+        'SELECT customer_context FROM customers WHERE "sessionId" = :sid', sid=session_id
+    )
+    return result.scalar_one()
+
+
+async def welcome_states() -> list[tuple[Any, ...]]:
+    result = await _execute(
+        "SELECT status, session_id, matched_at FROM instagram_welcomes "
+        "WHERE company_id = :cid AND media_id = :post",
+        cid=SEED_COMPANY_ID,
+        post=POST,
+    )
+    return [tuple(row) for row in result]
+
+
+def _sent_messages(llm_calls: list[tuple[str, Any]]) -> list[tuple[str, str | None]]:
+    assert len(llm_calls) == 1, llm_calls
+    return [(m.role, m.content) for m in llm_calls[0][1].messages]
+
+
+async def case_commenter_with_customer() -> None:
+    await clear_welcomes()
+    await clear_customers()
+    session_id = TEST_SESSION + "open"
+    tool_call = {"id": "call_1", "type": "function", "function": {"name": "rag", "arguments": "{}"}}
+    await seed_customer(
+        session_id,
+        [
+            {"role": "user", "content": "oi, tem mesa de sinuca?"},
+            {"role": "assistant", "content": None, "tool_calls": [tool_call]},
+            {"role": "tool", "content": "catálogo: mesa oficial", "tool_call_id": "call_1"},
+            {"role": "assistant", "content": "Temos sim! Qual tamanho?"},
+            {"role": "user", "content": "a oficial"},
+        ],
+    )
+    resp, calls, alerts, llm_calls = await _post_welcome(
+        make_event(make_comment(**{"from": KNOWN_AUTHOR}))
+    )
+    assert resp.status_code == 200, resp.status_code
+    assert calls == FULL_FLOW, calls
+    assert alerts == [], alerts
+    conversation = [
+        ("user", "oi, tem mesa de sinuca?"),
+        ("assistant", "Temos sim! Qual tamanho?"),
+        ("user", "a oficial"),
+    ]
+    assert _sent_messages(llm_calls) == [*conversation, ("user", FILLED_PROMPT)], llm_calls
+    assert not llm_calls[0][1].tools, llm_calls[0][1].tools
+
+    rows = await session_rows(session_id)
+    assert rows[-1] == ("assistant", DM_TEXT), rows
+    assert rows.count(("assistant", DM_TEXT)) == 1, rows
+    assert await customer_context(session_id) == {
+        "etapa": "orçamento",
+        "origem_comentario_instagram": {
+            "legenda_do_post": "Mesa de sinuca oficial",
+            "comentario": "quanto custa?",
+            "produto": "Mesa de sinuca oficial",
+        },
+    }
+    assert await welcome_states() == [("pendente", None, None)], await welcome_states()
+    print("  commenter with a Customer → conversation in the request, DM in the session: OK")
+
+
+async def case_commenter_without_customer() -> None:
+    await clear_welcomes()
+    await clear_customers()
+    resp, calls, alerts, llm_calls = await _post_welcome(
+        make_event(make_comment(**{"from": KNOWN_AUTHOR}))
+    )
+    assert resp.status_code == 200, resp.status_code
+    assert calls == FULL_FLOW, calls
+    assert alerts == [], alerts
+    assert _sent_messages(llm_calls) == [("user", FILLED_PROMPT)], llm_calls
+    written = await _execute(
+        "SELECT count(*) FROM chat_history WHERE company_id = :cid AND content = :dm",
+        cid=SEED_COMPANY_ID,
+        dm=DM_TEXT,
+    )
+    assert written.scalar_one() == 0, "no ChatHistory row may be written without a Customer"
+    print("  commenter without a Customer → single-message request, nothing written: OK")
+
+
+async def case_most_recent_customer_wins() -> None:
+    await clear_welcomes()
+    await clear_customers()
+    old_session, new_session = TEST_SESSION + "old", TEST_SESSION + "new"
+    await seed_customer(
+        old_session,
+        [{"role": "user", "content": "mensagem da sessão antiga"}],
+        created_at=datetime(2025, 1, 1),
+    )
+    await seed_customer(new_session, [{"role": "user", "content": "mensagem da sessão nova"}])
+    _, calls, alerts, llm_calls = await _post_welcome(
+        make_event(make_comment(**{"from": KNOWN_AUTHOR}))
+    )
+    assert calls == FULL_FLOW, calls
+    assert alerts == [], alerts
+    assert _sent_messages(llm_calls) == [
+        ("user", "mensagem da sessão nova"),
+        ("user", FILLED_PROMPT),
+    ], llm_calls
+    assert await session_rows(new_session) == [
+        ("user", "mensagem da sessão nova"),
+        ("assistant", DM_TEXT),
+    ]
+    assert await session_rows(old_session) == [("user", "mensagem da sessão antiga")]
+    assert "origem_comentario_instagram" not in await customer_context(old_session)
+    print("  two Customers of the same person → only the most recent is read and written: OK")
+
+
+async def case_customer_lookup_failure_keeps_the_welcome() -> None:
+    await clear_welcomes()
+    await clear_customers()
+    await seed_customer(TEST_SESSION + "open", [{"role": "user", "content": "oi"}])
+
+    async def _boom(self: Any, *args: Any) -> None:
+        raise RuntimeError("customer lookup boom")
+
+    with patch("app.repositories.customer.CustomerRepository.find_latest_by_phone", _boom):
+        resp, calls, alerts, llm_calls = await _post_welcome(
+            make_event(make_comment(**{"from": KNOWN_AUTHOR}))
+        )
+    assert resp.status_code == 200, resp.status_code
+    assert calls == FULL_FLOW, calls
+    assert alerts == [], alerts
+    assert _sent_messages(llm_calls) == [("user", FILLED_PROMPT)], llm_calls
+    print("  Customer lookup fails → single-message DM, Resposta pública published: OK")
+
+
+async def case_session_write_failure_keeps_the_welcome() -> None:
+    await clear_welcomes()
+    await clear_customers()
+    await seed_customer(TEST_SESSION + "open", [{"role": "user", "content": "oi"}])
+
+    async def _boom(self: Any, *args: Any) -> None:
+        raise RuntimeError("session write boom")
+
+    with patch(
+        "app.repositories.instagram_welcome.InstagramWelcomeRepository.write_dm_to_session", _boom
+    ):
+        resp, calls, alerts, _ = await _post_welcome(
+            make_event(make_comment(**{"from": KNOWN_AUTHOR}))
+        )
+    assert resp.status_code == 200, resp.status_code
+    assert calls == FULL_FLOW, calls
+    assert alerts == [], alerts
+    assert await welcome_states() == [("pendente", None, None)], await welcome_states()
+    print("  write to the session fails → Resposta pública published, record pendente: OK")
+
+
 async def case_feature_off() -> None:
     async def _assert_nothing_leaves(why: str) -> None:
         resp, calls, alerts, llm_calls = await _post_welcome(make_event(make_comment()))
@@ -770,6 +984,11 @@ async def main() -> None:
         await case_llm_failure()
         await case_llm_returns_unusable_dm()
         await case_post_without_caption()
+        await case_commenter_with_customer()
+        await case_commenter_without_customer()
+        await case_most_recent_customer_wins()
+        await case_customer_lookup_failure_keeps_the_welcome()
+        await case_session_write_failure_keeps_the_welcome()
         await case_feature_off()
         await case_concurrent_deliveries()
     finally:

@@ -52,51 +52,52 @@ No critical alert in either case.
 
 **1. Find the person's Customer**
 
-- [ ] Add one method to `CustomerRepository` that returns the most recent Customer of a Company whose `custom_information["phone"]` equals a given value, or `None`. It does not commit.
-- [ ] In `handle_comment`, after the reservation and before the generation, build the key (`"+" + author_id[-13:]`, only when the author id is all digits and at least 13 long) and call it. Keep the Customer's `sessionId`, `agent_id`, `sub_agent_id` and `customer_context` in locals right away — the flow has awaits and a possible rollback ahead.
-- [ ] Follow the repo's code-comment rule: comment only a non-obvious why, in one terse line.
+- [x] Add one method to `CustomerRepository` that returns the most recent Customer of a Company whose `custom_information["phone"]` equals a given value, or `None`. It does not commit.
+- [x] In `handle_comment`, after the reservation and before the generation, build the key (`"+" + author_id[-13:]`, only when the author id is all digits and at least 13 long) and call it. Keep the Customer's `sessionId`, `agent_id`, `sub_agent_id` and `customer_context` in locals right away — the flow has awaits and a possible rollback ahead.
+  - Implemented as: only the Customer's `id` is kept; `write_dm_to_session` re-reads the Customer and the record by id, so the `customer_context` merge never starts from a value read before the DM was generated.
+- [x] Follow the repo's code-comment rule: comment only a non-obvious why, in one terse line.
 
 **2. Generate with the conversation**
 
-- [ ] When a Customer was found, load its history with `get_history_with_orphan_handling`, keep the `user` / `assistant` rows with non-empty text, and send them as `OpenAIMessage`s before the filled prompt.
-- [ ] Wrap lookup and history read in one `try/except Exception` that logs, rolls back and falls back to the single-message request.
-- [ ] Change nothing else in the generation: model, reasoning effort, response format and placeholder substitution stay as they are.
+- [x] When a Customer was found, load its history with `get_history_with_orphan_handling`, keep the `user` / `assistant` rows with non-empty text, and send them as `OpenAIMessage`s before the filled prompt.
+- [x] Wrap lookup and history read in one `try/except Exception` that logs, rolls back and falls back to the single-message request.
+- [x] Change nothing else in the generation: model, reasoning effort, response format and placeholder substitution stay as they are.
 
 **3. Write the DM into the session**
 
-- [ ] Add one method to `InstagramWelcomeRepository` (or reuse ticket 04's, if it can take a flag for "do not mark casada") that adds the assistant `ChatHistory` row and the `customer_context` merge and commits once.
-- [ ] Call it in `handle_comment` right after `mark_pending`, only when a Customer was found, inside its own `try/except Exception` (log, rollback, continue).
-- [ ] Do not change the record's state, matched `sessionId` or match date here.
+- [x] Add one method to `InstagramWelcomeRepository` (or reuse ticket 04's, if it can take a flag for "do not mark casada") that adds the assistant `ChatHistory` row and the `customer_context` merge and commits once.
+- [x] Call it in `handle_comment` right after `mark_pending`, only when a Customer was found, inside its own `try/except Exception` (log, rollback, continue).
+- [x] Do not change the record's state, matched `sessionId` or match date here.
 
 **4. Limit the match to 7 days**
 
-- [ ] In the lookup ticket 04 added for the pending record, add the filter "created within the last 7 days".
-- [ ] In `ticket_04.md`, replace the Out of scope line "Expiry of a Boas-vindas pendente. It does not expire." with a pointer to this ticket.
+- [x] In the lookup ticket 04 added for the pending record, add the filter "created within the last 7 days".
+- [x] In `ticket_04.md`, replace the Out of scope line "Expiry of a Boas-vindas pendente. It does not expire." with a pointer to this ticket.
 
 **5. Tests — `tests/test_instagram_route.py`**
 
-- [ ] Case — person with a Customer: seed a Customer with that `phone` and a history holding user, assistant and tool rows. Assert the messages that reached the LLM stub are the user/assistant turns in order followed by the filled prompt as the last `user` message, with no tool row; assert that session's ChatHistory gained one assistant row with the DM text; assert `customer_context` holds `origem_comentario_instagram`; assert the record is still pendente.
-- [ ] Case — person without a Customer: one message reaches the LLM stub and no ChatHistory row is written.
-- [ ] Case — two Customers with the same `phone`: only the most recent one's history is sent and only it receives the DM row.
-- [ ] Case — lookup raises: the DM is still sent with the single-message request and the Resposta pública is published.
-- [ ] Case — the write after the DM raises: the Resposta pública is still published and the record is pendente.
-- [ ] In `tests/test_helena_route.py`, add a case for task 4: a pending record older than 7 days is not matched on a new session.
-- [ ] Run both scripts against a throwaway Postgres and `ruff check` / `mypy` on the modules touched.
+- [x] Case — person with a Customer: seed a Customer with that `phone` and a history holding user, assistant and tool rows. Assert the messages that reached the LLM stub are the user/assistant turns in order followed by the filled prompt as the last `user` message, with no tool row; assert that session's ChatHistory gained one assistant row with the DM text; assert `customer_context` holds `origem_comentario_instagram`; assert the record is still pendente.
+- [x] Case — person without a Customer: one message reaches the LLM stub and no ChatHistory row is written.
+- [x] Case — two Customers with the same `phone`: only the most recent one's history is sent and only it receives the DM row.
+- [x] Case — lookup raises: the DM is still sent with the single-message request and the Resposta pública is published.
+- [x] Case — the write after the DM raises: the Resposta pública is still published and the record is pendente.
+- [x] In `tests/test_helena_route.py`, add a case for task 4: a pending record older than 7 days is not matched on a new session.
+- [x] Run both scripts against a throwaway Postgres and `ruff check` / `mypy` on the modules touched.
 
 **6. Documentation and prompt**
 
-- [ ] Update `docs/file_reference/` for `handle_comment` (the two new steps and their failure behaviour) and for the new repository methods.
-- [ ] Hand the owner the sentence to add to the `instagram_welcome_dm` prompt of each Company that uses the feature. Do not write to the production database from this ticket.
+- [x] Update `docs/file_reference/` for `handle_comment` (the two new steps and their failure behaviour) and for the new repository methods.
+- [x] Hand the owner the sentence to add to the `instagram_welcome_dm` prompt of each Company that uses the feature. Do not write to the production database from this ticket.
 
 ## Acceptance criteria
 
-- [ ] A comment from a person with a Customer produces a generation request whose earlier messages are that Customer's user/assistant turns, with the filled prompt as the last `user` message and no tool message.
-- [ ] After the DM is sent, the same session's ChatHistory has the DM as an assistant message and the Customer's lead context has the Origem do comentário.
-- [ ] The welcome record of that person is pendente, and a later new Helena session within 7 days is still matched by ticket 04.
-- [ ] A pending record older than 7 days is never matched.
-- [ ] With several Customers for the same person, only the most recent is read and written.
-- [ ] A comment from a person without a Customer behaves exactly as before this ticket.
-- [ ] An error in the lookup, in the history read or in the write never prevents the DM, the conversation release or the Resposta pública.
+- [x] A comment from a person with a Customer produces a generation request whose earlier messages are that Customer's user/assistant turns, with the filled prompt as the last `user` message and no tool message.
+- [x] After the DM is sent, the same session's ChatHistory has the DM as an assistant message and the Customer's lead context has the Origem do comentário.
+- [x] The welcome record of that person is pendente, and a later new Helena session within 7 days is still matched by ticket 04.
+- [x] A pending record older than 7 days is never matched.
+- [x] With several Customers for the same person, only the most recent is read and written.
+- [x] A comment from a person without a Customer behaves exactly as before this ticket.
+- [x] An error in the lookup, in the history read or in the write never prevents the DM, the conversation release or the Resposta pública.
 
 ## Out of scope
 

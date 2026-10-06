@@ -29,6 +29,7 @@ import os
 import sys
 import uuid
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import patch
 
@@ -303,6 +304,7 @@ async def seed_pending_welcome(
     *,
     media_id: str = "18000000000000404",
     keep_existing: bool = False,
+    created_at: datetime | None = None,
 ) -> None:
     """Add a Boas-vindas pendente for the test author, dropping this test's earlier ones."""
     async with AsyncSessionLocal() as db:
@@ -326,6 +328,8 @@ async def seed_pending_welcome(
                 dm_text=dm_text,
                 recipient_id=recipient_id,
                 status="pendente",
+                # None leaves the column to the server default, now()
+                created_at=created_at,
             )
         )
         await db.commit()
@@ -716,6 +720,25 @@ async def case_t_most_recent_welcome_wins_each_consumed_once() -> None:
     print("  (t) two Boas-vindas pendentes → most recent first, each consumed once: OK")
 
 
+async def case_u_welcome_older_than_7_days_is_not_matched() -> None:
+    await seed_pending_welcome(created_at=datetime.now(UTC) - timedelta(days=7, minutes=1))
+    lead_text = "oi, voltei"
+    resp, sends, requests = await _run_recording(
+        new_session_payload(str(uuid.uuid4()), text=lead_text), ["olá!"]
+    )
+    assert resp.status_code == 200, resp.status_code
+    assert [sent for _sid, sent in sends] == ["olá!"], sends
+    assert _turns(requests[0]) == [("user", lead_text)], _turns(requests[0])
+    assert "origem_comentario_instagram" not in (requests[0][0].content or "")
+
+    await seed_pending_welcome(created_at=datetime.now(UTC) - timedelta(days=6, hours=23))
+    _resp, _sends, requests = await _run_recording(
+        new_session_payload(str(uuid.uuid4()), text=lead_text), ["olá!"]
+    )
+    assert _turns(requests[0]) == [("assistant", WELCOME_DM), ("user", lead_text)]
+    print("  (u) Boas-vindas pendente matches a new session for 7 days, not after: OK")
+
+
 async def main() -> None:
     print("Helena route behavioral tests (seam: POST /api/helena/{token})")
     assert settings.helena_base_url  # sanity: settings imported
@@ -761,6 +784,7 @@ async def main() -> None:
     await case_r_own_dm_echo_is_not_answered()
     await case_s_matching_error_keeps_the_reply()
     await case_t_most_recent_welcome_wins_each_consumed_once()
+    await case_u_welcome_older_than_7_days_is_not_matched()
     print("\nOK - all Helena route cases passed")
 
 

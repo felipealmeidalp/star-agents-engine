@@ -1,8 +1,8 @@
 """Repository for the Instagram welcome records (instagram_welcomes)."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, text, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -85,6 +85,8 @@ class InstagramWelcomeRepository:
                 InstagramWelcome.company_id == company_id,
                 InstagramWelcome.status == "pendente",
                 InstagramWelcome.commenter_id.endswith(commenter_id_suffix),
+                # the window Meta gives to answer a private reply
+                InstagramWelcome.created_at > func.now() - timedelta(days=7),
             )
             .order_by(InstagramWelcome.created_at.desc())
             .limit(1)
@@ -92,22 +94,18 @@ class InstagramWelcomeRepository:
         )
         return (await self.db.execute(stmt)).scalar_one_or_none()
 
-    async def match(
-        self, welcome: InstagramWelcome, customer: Customer, *, write_dm: bool = True
-    ) -> None:
-        """Seed the Customer's conversation from the welcome and mark it casada, in one commit."""
-        if write_dm:
-            self.db.add(
-                ChatHistory(
-                    sessionId=customer.sessionId,
-                    role="assistant",
-                    content=welcome.dm_text,
-                    agent_id=customer.agent_id,
-                    sub_agent_id=customer.sub_agent_id,
-                    company_id=customer.company_id,
-                    isHuman=False,
-                )
+    def _seed_conversation(self, welcome: InstagramWelcome, customer: Customer) -> None:
+        self.db.add(
+            ChatHistory(
+                sessionId=customer.sessionId,
+                role="assistant",
+                content=welcome.dm_text,
+                agent_id=customer.agent_id,
+                sub_agent_id=customer.sub_agent_id,
+                company_id=customer.company_id,
+                isHuman=False,
             )
+        )
         origem = {
             "legenda_do_post": welcome.caption or "",
             "comentario": welcome.comment_text or "",
@@ -119,6 +117,18 @@ class InstagramWelcomeRepository:
             **(customer.customer_context or {}),
             "origem_comentario_instagram": origem,
         }
+
+    async def write_dm_to_session(self, welcome_id: int, customer_id: int) -> None:
+        """Put the DM and the Origem do comentário in the Customer's session; stays pendente."""
+        welcome = await self.db.get_one(InstagramWelcome, welcome_id)
+        # re-read: the Customer's context may have changed while the DM was generated and sent
+        customer = await self.db.get_one(Customer, customer_id, populate_existing=True)
+        self._seed_conversation(welcome, customer)
+        await self.db.commit()
+
+    async def match(self, welcome: InstagramWelcome, customer: Customer) -> None:
+        """Seed the Customer's conversation from the welcome and mark it casada, in one commit."""
+        self._seed_conversation(welcome, customer)
         welcome.status = "casada"
         welcome.session_id = customer.sessionId
         welcome.matched_at = datetime.now(UTC)

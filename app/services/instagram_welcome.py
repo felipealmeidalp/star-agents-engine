@@ -3,6 +3,7 @@
 import json
 import logging
 import re
+from contextlib import suppress
 from typing import Any
 
 import httpx
@@ -12,7 +13,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.models.schemas import OpenAIMessage, OpenAIPayload
 from app.models.tables import Company
+from app.repositories.chat_history import ChatHistoryRepository
 from app.repositories.company import CompanyRepository
+from app.repositories.customer import CustomerRepository
 from app.repositories.instagram_welcome import InstagramWelcomeRepository
 from app.repositories.prompt import PromptRepository
 from app.services.instagram_client import InstagramClient
@@ -99,6 +102,40 @@ def _is_test_author(comment: InstagramComment) -> bool:
     )
 
 
+async def _previous_conversation(
+    db: AsyncSession, company_id: int, comment: InstagramComment
+) -> tuple[int | None, list[OpenAIMessage]]:
+    """The commenter's most recent Customer id and its user/assistant turns, when there is one."""
+    author_id = comment.author_id
+    if not (len(author_id) >= 13 and author_id.isdigit()):
+        return None, []
+    # A failure here must never cost the welcome: the DM goes out as if there were no Customer.
+    try:
+        # Helena stores the person as "+" and the last 13 digits of the Instagram id
+        customer = await CustomerRepository(db).find_latest_by_phone(
+            company_id, "+" + author_id[-13:]
+        )
+        if customer is None:
+            return None, []
+        customer_id = customer.id
+        history = await ChatHistoryRepository(db).get_history_with_orphan_handling(
+            customer.sessionId, company_id
+        )
+        # the generation call has no tools: an orphan tool message is rejected by the API
+        return customer_id, [
+            OpenAIMessage(role=row["role"], content=row["content"])
+            for row in history
+            if row["role"] in ("user", "assistant") and (row["content"] or "").strip()
+        ]
+    except Exception:
+        logger.exception(
+            "[InstagramWelcome] Customer lookup failed: comment=%s", comment.comment_id
+        )
+        with suppress(Exception):
+            await db.rollback()
+        return None, []
+
+
 async def handle_comment(db: AsyncSession, company: Company, comment: InstagramComment) -> None:
     """Send the DM de boas-vindas for a Comentário elegível, then the Resposta pública."""
     company_id = company.id
@@ -128,6 +165,7 @@ async def handle_comment(db: AsyncSession, company: Company, comment: InstagramC
     welcomes = InstagramWelcomeRepository(db)
     client = InstagramClient()
     welcome_id = None
+    customer_id = None
     step = "reserve"
     try:
         config = await PromptRepository(db).get_prompt_with_config(
@@ -169,12 +207,15 @@ async def handle_comment(db: AsyncSession, company: Company, comment: InstagramC
             r"\[(NOME|COMENTARIO|LEGENDA)\]", lambda m: values[m.group(1)], config.prompt
         )
         api_key = await CompanyRepository(db).get_openai_api_key(company_id)
-        # one user message, no tools, strict schema: name, comment and caption are third-party data
+
+        customer_id, previous_turns = await _previous_conversation(db, company_id, comment)
+
+        # no tools, strict schema: name, comment and caption are third-party data
         response = await OpenAIService(api_key).chat_completion(
             OpenAIPayload(
                 model=config.model,
                 reasoning_effort=config.reasoning_effort,
-                messages=[OpenAIMessage(role="user", content=prompt)],
+                messages=[*previous_turns, OpenAIMessage(role="user", content=prompt)],
                 response_format=DM_RESPONSE_FORMAT,
             )
         )
@@ -222,6 +263,15 @@ async def handle_comment(db: AsyncSession, company: Company, comment: InstagramC
             extra=f"comment={comment_id} media={media_id} step={step}",
         )
         return
+
+    if customer_id is not None:
+        try:
+            await welcomes.write_dm_to_session(welcome_id, customer_id)
+        except Exception:
+            logger.exception("[InstagramWelcome] DM not written to session: comment=%s", comment_id)
+            # a rollback that fails too must not cost the Resposta pública
+            with suppress(Exception):
+                await db.rollback()
 
     try:
         await client.reply_to_comment(comment_id, public_reply, access_token)

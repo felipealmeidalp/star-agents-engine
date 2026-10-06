@@ -6,7 +6,7 @@ from sqlalchemy import func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.tables import ChatHistory, Customer, InstagramWelcome
+from app.models.tables import ChatHistory, Company, Customer, InstagramWelcome
 
 
 class InstagramWelcomeRepository:
@@ -94,14 +94,20 @@ class InstagramWelcomeRepository:
         )
         return (await self.db.execute(stmt)).scalar_one_or_none()
 
-    def _seed_conversation(self, welcome: InstagramWelcome, customer: Customer) -> None:
+    async def _seed_conversation(self, welcome: InstagramWelcome, customer: Customer) -> None:
+        agent_id, sub_agent_id = customer.agent_id, customer.sub_agent_id
+        if agent_id is None or sub_agent_id is None:
+            # old Customers have no agent of their own; chat_history requires one
+            company = await self.db.get_one(Company, customer.company_id)
+            agent_id = agent_id or company.standard_agent_id
+            sub_agent_id = sub_agent_id or company.standard_sub_agent_id
         self.db.add(
             ChatHistory(
                 sessionId=customer.sessionId,
                 role="assistant",
                 content=welcome.dm_text,
-                agent_id=customer.agent_id,
-                sub_agent_id=customer.sub_agent_id,
+                agent_id=agent_id,
+                sub_agent_id=sub_agent_id,
                 company_id=customer.company_id,
                 isHuman=False,
             )
@@ -123,12 +129,12 @@ class InstagramWelcomeRepository:
         welcome = await self.db.get_one(InstagramWelcome, welcome_id)
         # re-read: the Customer's context may have changed while the DM was generated and sent
         customer = await self.db.get_one(Customer, customer_id, populate_existing=True)
-        self._seed_conversation(welcome, customer)
+        await self._seed_conversation(welcome, customer)
         await self.db.commit()
 
     async def match(self, welcome: InstagramWelcome, customer: Customer) -> None:
         """Seed the Customer's conversation from the welcome and mark it casada, in one commit."""
-        self._seed_conversation(welcome, customer)
+        await self._seed_conversation(welcome, customer)
         welcome.status = "casada"
         welcome.session_id = customer.sessionId
         welcome.matched_at = datetime.now(UTC)

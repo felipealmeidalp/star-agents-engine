@@ -700,7 +700,11 @@ async def clear_customers() -> None:
 
 
 async def seed_customer(
-    session_id: str, history: list[dict[str, Any]], *, created_at: datetime | None = None
+    session_id: str,
+    history: list[dict[str, Any]],
+    *,
+    created_at: datetime | None = None,
+    with_agent: bool = True,
 ) -> None:
     """Add a Customer of the known commenter with a conversation already in its ChatHistory."""
     # naive UTC, as the customers and chat_history columns store it
@@ -716,7 +720,7 @@ async def seed_customer(
         }
         db.add(
             Customer(
-                **ids,
+                **(ids if with_agent else {"company_id": SEED_COMPANY_ID, "sessionId": session_id}),
                 custom_information={"phone": KNOWN_PHONE},
                 customer_context={"etapa": "orçamento"},
                 created_at=created_at,
@@ -801,6 +805,20 @@ async def case_commenter_with_customer() -> None:
     }
     assert await welcome_states() == [("pendente", None, None)], await welcome_states()
     print("  commenter with a Customer → conversation in the request, DM in the session: OK")
+
+
+async def case_customer_without_agent_gets_the_dm() -> None:
+    await clear_welcomes()
+    await clear_customers()
+    session_id = TEST_SESSION + "no-agent"
+    await seed_customer(session_id, [], with_agent=False)
+    resp, calls, alerts, _ = await _post_welcome(
+        make_event(make_comment(**{"from": KNOWN_AUTHOR}))
+    )
+    assert resp.status_code == 200, resp.status_code
+    assert calls == FULL_FLOW, calls
+    assert await session_rows(session_id) == [("assistant", DM_TEXT)]
+    print("  Customer without an agent → DM written with the Company's standard agent: OK")
 
 
 async def case_commenter_without_customer() -> None:
@@ -985,6 +1003,7 @@ async def main() -> None:
         await case_llm_returns_unusable_dm()
         await case_post_without_caption()
         await case_commenter_with_customer()
+        await case_customer_without_agent_gets_the_dm()
         await case_commenter_without_customer()
         await case_most_recent_customer_wins()
         await case_customer_lookup_failure_keeps_the_welcome()

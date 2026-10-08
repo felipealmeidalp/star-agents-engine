@@ -34,6 +34,8 @@ from app.models.schemas import (
 
 logger = logging.getLogger(__name__)
 
+# the only model the Decisions API beta accepts
+DECISIONS_MODEL = "gpt-6-luna"
 
 
 def _to_responses_input(messages: list[OpenAIMessage]) -> list[dict[str, Any]]:
@@ -189,6 +191,37 @@ class OpenAIService:
         except APIError as e:
             logger.error("[OpenAI] Erro na API: %s", e)
             raise OpenAIError(f"OpenAI API error: {e}") from e
+
+    async def decide_choice(
+        self, instructions: str, choices: dict[str, str], input_text: str
+    ) -> tuple[str, float | None]:
+        """Ask the Decisions API one choice question; return the choice and its confidence."""
+        try:
+            # the SDK has no decisions resource yet: a generic POST through the same client
+            data = await self.client.post(
+                "/decisions",
+                cast_to=dict[str, Any],
+                body={
+                    "model": DECISIONS_MODEL,
+                    "input": input_text,
+                    "questions": [
+                        {
+                            "type": "choice",
+                            "name": "choice",
+                            "instructions": instructions,
+                            "choices": [
+                                {"value": value, "description": description}
+                                for value, description in choices.items()
+                            ],
+                        }
+                    ],
+                },
+            )
+        except APIError as e:
+            raise OpenAIError(f"OpenAI Decisions error: {e}") from e
+        # no answer or a refusal surfaces here as KeyError/IndexError
+        answer = data["answers"][0]
+        return answer["choice"], answer.get("confidence")
 
     def _parse_response(self, response: Any) -> OpenAIResponse:
         """

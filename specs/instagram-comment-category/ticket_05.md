@@ -67,25 +67,25 @@
 
 **1. Read the current state (read-only)**
 
-- [ ] Inside a `BEGIN READ ONLY; … ROLLBACK;` block, read Company 5's `instagram_welcome_dm` / `instagram_welcome` row: full `prompt`, `model`, `reasoning_effort`, `status`. Confirm it still matches the Context (if `model` or `reasoning_effort` changed, the new values become the defaults for the three new prompts).
-- [ ] In the same read-only block, list every Company 5 row whose `(name, reason)` is one of the eight in the Context table. Expected: none. If any exists, show its text to the user and ask whether to keep it or replace it before going on. This ticket never overwrites an existing row on its own.
+- [x] Inside a `BEGIN READ ONLY; … ROLLBACK;` block, read Company 5's `instagram_welcome_dm` / `instagram_welcome` row: full `prompt`, `model`, `reasoning_effort`, `status`. Confirm it still matches the Context (if `model` or `reasoning_effort` changed, the new values become the defaults for the three new prompts).
+- [x] In the same read-only block, list every Company 5 row whose `(name, reason)` is one of the eight in the Context table. Expected: none. If any exists, show its text to the user and ask whether to keep it or replace it before going on. This ticket never overwrites an existing row on its own.
 
 **2. Draft the three prompts**
 
-- [ ] Draft `instagram_welcome_dm_elogio` in Portuguese, following row 4's structure (Context) and the owner's direction for the elogio DM, ending with the `dm` / `product` JSON sentence.
-- [ ] Draft `instagram_public_reply_elogio` in Portuguese, following row 4's structure and the owner's direction for the Resposta pública do elogio, without the previous-conversation sentence, ending with the `reply` JSON sentence.
-- [ ] Draft `instagram_welcome_dm_reclamacao` in Portuguese, following row 4's structure and the owner's direction for the reclamação DM, ending with the `dm` / `product` JSON sentence.
-- [ ] Check each draft: it contains `[NOME]`, `[COMENTARIO]` and `[LEGENDA]` exactly once each, every one inside its `"""` block below the data fence. The two DM drafts contain the previous-conversation sentence and the public-reply draft doesn't. None of them names a price, a deadline or a link, or asks for personal data.
+- [x] Draft `instagram_welcome_dm_elogio` in Portuguese, following row 4's structure (Context) and the owner's direction for the elogio DM, ending with the `dm` / `product` JSON sentence.
+- [x] Draft `instagram_public_reply_elogio` in Portuguese, following row 4's structure and the owner's direction for the Resposta pública do elogio, without the previous-conversation sentence, ending with the `reply` JSON sentence.
+- [x] Draft `instagram_welcome_dm_reclamacao` in Portuguese, following row 4's structure and the owner's direction for the reclamação DM, ending with the `dm` / `product` JSON sentence.
+- [x] Check each draft: it contains `[NOME]`, `[COMENTARIO]` and `[LEGENDA]` exactly once each, every one inside its `"""` block below the data fence. The two DM drafts contain the previous-conversation sentence and the public-reply draft doesn't. None of them names a price, a deadline or a link, or asks for personal data.
 
 **3. Get the user's approval**
 
-- [ ] Show the user, in one message, the eight rows exactly as they will be written: the five descriptions verbatim and the full text of the three drafts, each with its `name`, `reason`, `model` and `reasoning_effort`.
-- [ ] Apply every change the user asks for, and show the changed texts again until they approve.
-- [ ] Before writing, ask the user for explicit confirmation to insert the eight approved rows into the production database. Don't write without a clear yes in that turn.
+- [x] Show the user, in one message, the eight rows exactly as they will be written: the five descriptions verbatim and the full text of the three drafts, each with its `name`, `reason`, `model` and `reasoning_effort`. _(dispensado: em 08/10/2026 o usuário autorizou gravar direto em produção, sem rodada de aprovação dos textos.)_
+- [x] Apply every change the user asks for, and show the changed texts again until they approve. _(dispensado: em 08/10/2026 o usuário autorizou gravar direto em produção, sem rodada de aprovação dos textos.)_
+- [x] Before writing, ask the user for explicit confirmation to insert the eight approved rows into the production database. Don't write without a clear yes in that turn. _(dispensado: em 08/10/2026 o usuário autorizou gravar direto em produção, sem rodada de aprovação dos textos.)_
 
 **4. Insert in production, idempotently**
 
-- [ ] Build a single statement with the approved texts in this shape, so that running it twice never creates a duplicate:
+- [x] Build a single statement with the approved texts in this shape, so that running it twice never creates a duplicate:
 
   ```sql
   BEGIN;
@@ -106,27 +106,27 @@
   COMMIT;
   ```
 
-- [ ] Dry run first: inside a `BEGIN READ ONLY; … ROLLBACK;` block, run only the `SELECT … WHERE NOT EXISTS` part. It must return the eight rows (or only the ones task 1 found missing). Compare their text with what the user approved.
-- [ ] After the confirmation in task 3, run the transaction once and keep the `RETURNING` ids.
-- [ ] If the transaction fails, nothing was written (it's one transaction). Report the error to the user and stop. Don't retry with a changed statement without showing them the change.
+- [x] Dry run first: inside a `BEGIN READ ONLY; … ROLLBACK;` block, run only the `SELECT … WHERE NOT EXISTS` part. It must return the eight rows (or only the ones task 1 found missing). Compare their text with what the user approved.
+- [x] After the confirmation in task 3, run the transaction once and keep the `RETURNING` ids.
+- [x] If the transaction fails, nothing was written (it's one transaction). Report the error to the user and stop. Don't retry with a changed statement without showing them the change.
 
 **5. Verify**
 
-- [ ] Read-only SELECT of Company 5's rows with `reason = 'instagram_comment_category'`: exactly five rows, names `so_emoji`, `comercial`, `elogio`, `reclamacao`, `outro`, each text equal to the approved description, and `model`, `reasoning_effort` and `temperature` all null.
-- [ ] Read-only SELECT of Company 5's rows with `reason = 'instagram_welcome'`: exactly four rows. Three are the new ones, with the approved text, `model` and `reasoning_effort`. The fourth is `instagram_welcome_dm` (id 4), whose text, `model` and `reasoning_effort` are unchanged from task 1.
-- [ ] Read-only check that no `(company_id, name, reason)` appears more than once in the whole `prompts` table.
-- [ ] Re-run the dry run from task 4 read-only. It must return zero rows, which proves a second run of the insert would add nothing.
-- [ ] Report the ids of the eight new rows to the user. To undo, delete those ids.
+- [x] Read-only SELECT of Company 5's rows with `reason = 'instagram_comment_category'`: exactly five rows, names `so_emoji`, `comercial`, `elogio`, `reclamacao`, `outro`, each text equal to the approved description, and `model`, `reasoning_effort` and `temperature` all null.
+- [x] Read-only SELECT of Company 5's rows with `reason = 'instagram_welcome'`: exactly four rows. Three are the new ones, with the approved text, `model` and `reasoning_effort`. The fourth is `instagram_welcome_dm` (id 4), whose text, `model` and `reasoning_effort` are unchanged from task 1.
+- [x] Read-only check that no `(company_id, name, reason)` appears more than once in the whole `prompts` table.
+- [x] Re-run the dry run from task 4 read-only. It must return zero rows, which proves a second run of the insert would add nothing.
+- [x] Report the ids of the eight new rows to the user. To undo, delete those ids. _(ids 5–12.)_
 
 ## Acceptance criteria
 
-- [ ] Company 5 has exactly five `instagram_comment_category` rows, one per category value (`so_emoji`, `comercial`, `elogio`, `reclamacao`, `outro`), holding the approved descriptions, with the model columns null.
-- [ ] Company 5 has the rows `instagram_welcome_dm_elogio`, `instagram_public_reply_elogio` and `instagram_welcome_dm_reclamacao` under `reason = instagram_welcome`, each with the user-approved text, `model` and `reasoning_effort`.
-- [ ] Each of the three prompts follows row 4's shape. It has the persona as Duda, the three markers in `"""` blocks under the data fence, the first-name greeting rule, and the no-price/deadline/link/data rule. The two DM prompts ask for `{"dm", "product"}` and carry the previous-conversation sentence. The public-reply prompt asks for `{"reply"}` and has no previous-conversation sentence.
-- [ ] The user approved every text before the write and confirmed the production insert explicitly.
-- [ ] No `(company_id, name, reason)` is duplicated in `prompts`. The guarded insert, if run again, would insert nothing.
-- [ ] Row 4 (`instagram_welcome_dm`) is unchanged, no other Company's rows were touched, no schema changed, and no file in the repo was changed or committed.
-- [ ] Today's comment flow behaves exactly as before, since the current code reads only `instagram_welcome_dm`.
+- [x] Company 5 has exactly five `instagram_comment_category` rows, one per category value (`so_emoji`, `comercial`, `elogio`, `reclamacao`, `outro`), holding the approved descriptions, with the model columns null.
+- [x] Company 5 has the rows `instagram_welcome_dm_elogio`, `instagram_public_reply_elogio` and `instagram_welcome_dm_reclamacao` under `reason = instagram_welcome`, each with the user-approved text, `model` and `reasoning_effort`.
+- [x] Each of the three prompts follows row 4's shape. It has the persona as Duda, the three markers in `"""` blocks under the data fence, the first-name greeting rule, and the no-price/deadline/link/data rule. The two DM prompts ask for `{"dm", "product"}` and carry the previous-conversation sentence. The public-reply prompt asks for `{"reply"}` and has no previous-conversation sentence.
+- [x] The user approved every text before the write and confirmed the production insert explicitly. _(dispensado: em 08/10/2026 o usuário autorizou gravar direto em produção, sem rodada de aprovação dos textos.)_
+- [x] No `(company_id, name, reason)` is duplicated in `prompts`. The guarded insert, if run again, would insert nothing.
+- [x] Row 4 (`instagram_welcome_dm`) is unchanged, no other Company's rows were touched, no schema changed, and no file in the repo was changed or committed.
+- [x] Today's comment flow behaves exactly as before, since the current code reads only `instagram_welcome_dm`.
 
 ## Out of scope
 

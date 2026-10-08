@@ -617,6 +617,8 @@ class InstagramWelcome(Base):
     product: Mapped[str | None] = mapped_column(Text, nullable=True)
     dm_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     recipient_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Categoria do comentário; nula nas linhas anteriores à migration 012
+    category: Mapped[str | None] = mapped_column(Text, nullable=True)
     # em_processamento → pendente → casada, ou falhou
     status: Mapped[str] = mapped_column(Text, nullable=False)
     session_id: Mapped[str | None] = mapped_column(Text, nullable=True)

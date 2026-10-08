@@ -1,8 +1,8 @@
 """Behavioral tests for the Instagram comments webhook: GET/POST /api/instagram.
 
-The DB cases need a reachable Postgres with migration 011 applied and the seeded
+The DB cases need a reachable Postgres with migration 012 applied and the seeded
 company_id=5 (with an OpenAI key); without it they SKIP with a clear message. Only the
-Instagram API client and the OpenAI call are mocked.
+Instagram API client, the Decisions call and the OpenAI generation are mocked.
 
     DATABASE_URL=postgresql+asyncpg://... API_KEY=x python tests/test_instagram_route.py
 """
@@ -13,6 +13,7 @@ import hmac
 import json
 import os
 import sys
+from collections.abc import Iterable
 from datetime import datetime, timedelta
 from typing import Any
 from unittest.mock import patch
@@ -34,6 +35,7 @@ from app.main import app  # noqa: E402
 from app.models.schemas import OpenAIChoice, OpenAIMessage, OpenAIResponse  # noqa: E402
 from app.models.tables import ChatHistory, Company, Customer  # noqa: E402
 from app.services.instagram_welcome import InstagramComment  # noqa: E402
+from app.services.openai import OpenAIService  # noqa: E402
 
 SEED_COMPANY_ID = 5
 
@@ -58,6 +60,7 @@ FILLED_PROMPT = (
 
 Handoffs = list[tuple[int, InstagramComment]]
 ClientCalls = list[tuple[str, ...]]
+Decisions = list[tuple[str, str, dict[str, str], str]]
 
 
 def make_event(*values: dict[str, Any], account: str = KNOWN_ACCOUNT) -> dict[str, Any]:
@@ -129,8 +132,11 @@ async def _post_welcome(
     failing: str | None = None,
     media: dict[str, Any] | None = None,
     llm_content: str | None = None,
+    category: str | None = "comercial",
+    decisions: Decisions | None = None,
 ) -> tuple[httpx.Response, ClientCalls, list[str], list[tuple[str, Any]]]:
-    """`failing` names what raises: a client method, "<method>:<comment id>" or "openai"."""
+    """`failing` names what raises: a client method, "<method>:<comment id>", "openai" or
+    "decide_choice"."""
     calls: ClientCalls = []
     alerts: list[str] = []
     llm_calls: list[tuple[str, Any]] = []
@@ -186,6 +192,16 @@ async def _post_welcome(
             ],
         )
 
+    async def _decide_choice(
+        self: Any, instructions: str, choices: dict[str, str], input_text: str
+    ) -> tuple[str | None, float]:
+        calls.append(("decide_choice",))
+        if failing == "decide_choice":
+            raise RuntimeError("decisions boom")
+        if decisions is not None:
+            decisions.append((self.client.api_key, instructions, choices, input_text))
+        return category, 0.9
+
     def _alert(error_type: str, *args: Any, **kwargs: Any) -> None:
         alerts.append(error_type)
 
@@ -201,6 +217,8 @@ async def _post_welcome(
         f"{client}.reply_to_comment", _reply_to_comment
     ), patch(
         "app.services.openai.OpenAIService.chat_completion", _chat_completion
+    ), patch(
+        "app.services.openai.OpenAIService.decide_choice", _decide_choice
     ), patch("app.services.instagram_welcome.send_critical_alert", _alert), patch(
         "app.routes.instagram.send_critical_alert", _alert
     ):
@@ -303,11 +321,75 @@ async def case_signed_unparseable_body() -> None:
     print("  signed body that is not a JSON object → 200 ignored, no hand-off: OK")
 
 
+# the Decisions API answer as tested on 08/10/2026 with the 7ball key
+DECISIONS_RESPONSE = {
+    "model": "gpt-6-luna",
+    "answers": [
+        {
+            "type": "choice",
+            "name": "choice",
+            "choice": "comercial",
+            "probabilities": [
+                {"value": "so_emoji", "probability": 0.01},
+                {"value": "comercial", "probability": 0.99},
+            ],
+            "confidence": 0.99,
+        }
+    ],
+    "usage": {},
+}
+
+
+async def case_decide_choice_request() -> None:
+    requests: list[tuple[str, Any]] = []
+
+    async def _decide(response: dict[str, Any]) -> tuple[str, float | None]:
+        service = OpenAIService("sk-test")
+
+        async def _post(path: str, *, body: Any, **kwargs: Any) -> Any:
+            requests.append((path, body))
+            return response
+
+        with patch.object(service.client, "post", _post):
+            return await service.decide_choice(
+                "Que tipo de comentário?",
+                {"comercial": "Interesse de compra.", "outro": "Qualquer outra coisa."},
+                "Comentário: quanto custa?",
+            )
+
+    assert await _decide(DECISIONS_RESPONSE) == ("comercial", 0.99)
+    assert len(requests) == 1, requests
+    path, body = requests[0]
+    assert path == "/decisions", path
+    assert body["model"] == "gpt-6-luna", body
+    assert body["input"] == "Comentário: quanto custa?", body
+    assert body["questions"] == [
+        {
+            "type": "choice",
+            "name": "choice",
+            "instructions": "Que tipo de comentário?",
+            "choices": [
+                {"value": "comercial", "description": "Interesse de compra."},
+                {"value": "outro", "description": "Qualquer outra coisa."},
+            ],
+        }
+    ], body
+
+    no_choice = {"answers": [{"type": "choice", "name": "choice", "confidence": 0.5}]}
+    for broken in ({"answers": []}, no_choice):
+        try:
+            await _decide(broken)
+        except (KeyError, IndexError):
+            continue
+        raise AssertionError(f"an answer without a choice must raise: {broken}")
+    print("  Decisions request → one choice question, answer and confidence read back: OK")
+
+
 async def db_ready() -> bool:
     try:
         async with AsyncSessionLocal() as db:
             await asyncio.wait_for(
-                db.execute(text("SELECT id FROM instagram_welcomes LIMIT 1")), timeout=5
+                db.execute(text("SELECT category FROM instagram_welcomes LIMIT 1")), timeout=5
             )
         return True
     except Exception as e:
@@ -348,7 +430,10 @@ async def take_snapshot() -> tuple[Any, list[dict[str, Any]]]:
         f"SELECT {IG_COLUMNS} FROM companies WHERE id = :cid", cid=SEED_COMPANY_ID
     )
     prompts = await _execute(f"SELECT * FROM prompts WHERE {PROMPT_WHERE}", **PROMPT_KEY)
-    return company.one(), [dict(row) for row in prompts.mappings()]
+    descriptions = await _execute(
+        f"SELECT * FROM prompts WHERE {DESCRIPTION_WHERE}", **DESCRIPTION_KEY
+    )
+    return company.one(), [dict(row) for row in [*prompts.mappings(), *descriptions.mappings()]]
 
 
 async def restore_snapshot(snapshot: tuple[Any, list[dict[str, Any]]]) -> None:
@@ -356,6 +441,7 @@ async def restore_snapshot(snapshot: tuple[Any, list[dict[str, Any]]]) -> None:
     await stamp_account(company.instagram_account_id)
     await stamp_config(company.instagram_access_token, company.instagram_public_reply)
     await set_prompt(False)
+    await set_descriptions(())
     for row in prompts:
         columns = ", ".join(row)
         values = ", ".join(f":{c}" for c in row)
@@ -385,6 +471,33 @@ async def set_prompt(present: bool) -> None:
         )
 
 
+# the five starting texts of the spec, in the code's category order
+DESCRIPTIONS = {
+    "so_emoji": "Só emojis, sem texto.",
+    "comercial": (
+        "Interesse de compra: preço, valor, tamanho, medidas, prazo, pagamento, ou cita o "
+        "nome de um produto ou modelo."
+    ),
+    "elogio": "Elogio ou reação positiva ao produto, ao post ou à marca.",
+    "reclamacao": "Reclamação, insatisfação ou crítica à marca, ao atendimento ou ao produto.",
+    "outro": "Qualquer outra coisa: marcar amigos, spam, assunto alheio.",
+}
+DESCRIPTION_KEY = {"cid": SEED_COMPANY_ID, "reason": "instagram_comment_category"}
+DESCRIPTION_WHERE = "company_id = :cid AND reason = :reason"
+
+
+async def set_descriptions(names: Iterable[str] = tuple(DESCRIPTIONS)) -> None:
+    await _execute(f"DELETE FROM prompts WHERE {DESCRIPTION_WHERE}", **DESCRIPTION_KEY)
+    for name in names:
+        await _execute(
+            "INSERT INTO prompts (company_id, name, reason, prompt, created_at) "
+            "VALUES (:cid, :name, :reason, :prompt, now())",
+            name=name,
+            prompt=DESCRIPTIONS[name],
+            **DESCRIPTION_KEY,
+        )
+
+
 async def clear_welcomes() -> None:
     await _execute(
         "DELETE FROM instagram_welcomes WHERE company_id = :cid AND media_id IN (:a, :b)",
@@ -392,6 +505,16 @@ async def clear_welcomes() -> None:
         a=POST,
         b=OTHER_POST,
     )
+
+
+async def welcome_rows() -> list[tuple[Any, ...]]:
+    result = await _execute(
+        "SELECT comment_id, category, status FROM instagram_welcomes "
+        "WHERE company_id = :cid AND media_id = :post ORDER BY id",
+        cid=SEED_COMPANY_ID,
+        post=POST,
+    )
+    return [tuple(row) for row in result]
 
 
 async def case_first_level_comment_reaches_handoff() -> None:
@@ -465,6 +588,7 @@ async def case_failing_comment_does_not_drop_the_others() -> None:
 def full_flow(comment_id: str = "17900000000000001", post: str = POST) -> ClientCalls:
     return [
         ("get_media", post),
+        ("decide_choice",),
         ("send_private_reply", comment_id, DM_TEXT),
         ("release_thread_control", "7770001"),
         ("reply_to_comment", comment_id, PUBLIC_REPLY),
@@ -491,7 +615,91 @@ async def case_eligible_comment_gets_dm_then_public_reply() -> None:
     assert llm_payload.reasoning_effort == "low", llm_payload.reasoning_effort
     assert [m.role for m in llm_payload.messages] == ["user"], llm_payload.messages
     assert not llm_payload.tools, llm_payload.tools
-    print("  Comentário elegível → caption read, one DM, then the Resposta pública: OK")
+    assert await welcome_rows() == [("17900000000000001", "comercial", "pendente")]
+    print("  comercial comment → caption, classification, DM, Resposta pública, category: OK")
+
+
+async def case_classification_request() -> None:
+    await clear_welcomes()
+    decisions: Decisions = []
+    _, calls, alerts, _ = await _post_welcome(make_event(make_comment()), decisions=decisions)
+    assert calls == FULL_FLOW, calls
+    assert alerts == [], alerts
+
+    assert len(decisions) == 1, decisions
+    api_key, _, choices, input_text = decisions[0]
+    seeded_key = await _execute(
+        'SELECT "openAi_apiKey" FROM companies WHERE id = :cid', cid=SEED_COMPANY_ID
+    )
+    assert api_key == seeded_key.scalar_one(), "the Decisions call must use the Company's key"
+    # dict equality ignores order: compare the items
+    assert list(choices.items()) == list(DESCRIPTIONS.items()), choices
+    assert "Mesa de sinuca oficial" in input_text, input_text
+    assert "quanto custa?" in input_text, input_text
+    print("  classification → Company's key, its five descriptions, comment and caption: OK")
+
+
+async def _assert_stops_after_classification(expected_alerts: list[str], **kwargs: Any) -> None:
+    await clear_welcomes()
+    _, calls, alerts, llm_calls = await _post_welcome(make_event(make_comment()), **kwargs)
+    assert calls == [("get_media", POST), ("decide_choice",)], (kwargs, calls)
+    assert llm_calls == [], (kwargs, llm_calls)
+    assert alerts == expected_alerts, (kwargs, alerts)
+    assert await welcome_rows() == [], (kwargs, await welcome_rows())
+
+
+async def _assert_turn_still_free() -> None:
+    _, calls, alerts, _ = await _post_welcome(make_event(make_comment("17900000000000002")))
+    assert calls == full_flow("17900000000000002"), calls
+    assert alerts == [], alerts
+
+
+async def case_silent_categories() -> None:
+    for category in ("so_emoji", "outro"):
+        await _assert_stops_after_classification([], category=category)
+    print("  so_emoji or outro → nothing generated, sent or recorded, no alert: OK")
+
+
+async def case_emoji_then_comercial_same_post() -> None:
+    await _assert_stops_after_classification([], category="so_emoji")
+    await _assert_turn_still_free()
+    print("  so_emoji, then a comercial comment on the same post → the second gets the DM: OK")
+
+
+async def case_classification_failure() -> None:
+    await _assert_stops_after_classification(["INSTAGRAM_WELCOME_FAILED"], failing="decide_choice")
+    await _assert_turn_still_free()
+    print("  Decisions fails → nothing sent or recorded, alert; new comment → the flow runs: OK")
+
+
+async def case_classification_outside_the_categories() -> None:
+    for category in ("desconhecida", None):
+        await _assert_stops_after_classification(["INSTAGRAM_WELCOME_FAILED"], category=category)
+    print("  Decisions answers an unknown category or none → failure, alert, nothing sent: OK")
+
+
+async def case_category_without_its_texts() -> None:
+    await _assert_stops_after_classification([], category="elogio")
+    await _assert_turn_still_free()
+    await _assert_stops_after_classification([], category="reclamacao")
+    print("  elogio or reclamacao (no texts wired yet) → nothing sent or recorded, turn kept: OK")
+
+
+async def case_missing_description() -> None:
+    await clear_welcomes()
+    decisions: Decisions = []
+    try:
+        await set_descriptions(tuple(DESCRIPTIONS)[:-1])
+        _, calls, alerts, llm_calls = await _post_welcome(
+            make_event(make_comment()), decisions=decisions
+        )
+    finally:
+        await set_descriptions()
+    assert calls == [], calls
+    assert llm_calls == [], llm_calls
+    assert decisions == [], decisions
+    assert alerts == [], alerts
+    print("  Company without one of the five descriptions → no Meta or OpenAI call, no alert: OK")
 
 
 async def case_own_account_comment() -> None:
@@ -563,6 +771,7 @@ async def case_dm_failure_then_retry_on_new_comment() -> None:
     assert resp.status_code == 200, resp.status_code
     assert calls == [
         ("get_media", POST),
+        ("decide_choice",),
         ("send_private_reply", "17900000000000001", DM_TEXT),
     ], calls
     assert alerts == ["INSTAGRAM_WELCOME_FAILED"], alerts
@@ -640,6 +849,7 @@ async def case_batch_first_fails_second_goes() -> None:
     assert resp.status_code == 200, resp.status_code
     assert calls == [
         ("get_media", POST),
+        ("decide_choice",),
         ("send_private_reply", "17900000000000001", DM_TEXT),
         *full_flow("17900000000000002"),
     ], calls
@@ -656,14 +866,18 @@ async def case_caption_fetch_failure() -> None:
     assert calls == [("get_media", POST)], calls
     assert llm_calls == [], llm_calls
     assert alerts == ["INSTAGRAM_WELCOME_FAILED"], alerts
-    print("  caption fetch fails → no DM, no Resposta pública, alert: OK")
+
+    _, calls, alerts, _ = await _post_welcome(make_event(make_comment("17900000000000002")))
+    assert calls == full_flow("17900000000000002"), calls
+    assert alerts == [], alerts
+    print("  caption fetch fails → nothing sent, alert; new comment → the flow runs: OK")
 
 
 async def case_llm_failure() -> None:
     await clear_welcomes()
     resp, calls, alerts, _ = await _post_welcome(make_event(make_comment()), failing="openai")
     assert resp.status_code == 200, resp.status_code
-    assert calls == [("get_media", POST)], calls
+    assert calls == [("get_media", POST), ("decide_choice",)], calls
     assert alerts == ["INSTAGRAM_WELCOME_FAILED"], alerts
     print("  OpenAI raises → no DM, no Resposta pública, alert: OK")
 
@@ -674,7 +888,7 @@ async def case_llm_returns_unusable_dm() -> None:
         _, calls, alerts, _ = await _post_welcome(
             make_event(make_comment()), llm_content=content
         )
-        assert calls == [("get_media", POST)], (content, calls)
+        assert calls == [("get_media", POST), ("decide_choice",)], (content, calls)
         assert alerts == ["INSTAGRAM_WELCOME_FAILED"], (content, alerts)
     print("  LLM returns empty content, invalid JSON or an empty dm → no DM, alert: OK")
 
@@ -916,23 +1130,26 @@ async def case_feature_off() -> None:
         assert llm_calls == [], (why, llm_calls)
         assert alerts == [], (why, alerts)
 
-    await clear_welcomes()
     try:
         await set_prompt(False)
-        await _assert_nothing_leaves("no prompt row")
+        await _assert_stops_after_classification([])
         await set_prompt(True)
         await stamp_config(ACCESS_TOKEN, "")
-        await _assert_nothing_leaves("empty Resposta pública")
+        await _assert_stops_after_classification([])
         await stamp_config(None, PUBLIC_REPLY)
         await _assert_nothing_leaves("no access token")
+        await stamp_config(ACCESS_TOKEN, PUBLIC_REPLY)
+        await set_descriptions(tuple(DESCRIPTIONS)[:-1])
+        await _assert_nothing_leaves("one description missing")
     finally:
         await set_prompt(True)
+        await set_descriptions()
         await stamp_config(ACCESS_TOKEN, PUBLIC_REPLY)
 
-    # no turn was taken while the feature was off
+    # no turn was taken in any of the above
     _, calls, _, _ = await _post_welcome(make_event(make_comment()))
     assert calls == FULL_FLOW, calls
-    print("  Company without prompt row, Resposta pública or token → nothing leaves, no alert: OK")
+    print("  comercial without its texts → classified only; no token → nothing; turn kept: OK")
 
 
 async def case_concurrent_deliveries() -> None:
@@ -941,8 +1158,8 @@ async def case_concurrent_deliveries() -> None:
         make_event(make_comment("17900000000000001")),
         make_event(make_comment("17900000000000002")),
     )
-    assert [c[0] for c in calls] == [
-        "get_media",
+    # both deliveries may read the caption and classify before one wins the reservation
+    assert [c[0] for c in calls if c[0] not in ("get_media", "decide_choice")] == [
         "send_private_reply",
         "release_thread_control",
         "reply_to_comment",
@@ -962,13 +1179,14 @@ async def main() -> None:
     await case_signed_unparseable_body()
     await case_non_comment_event()
     await case_reply_to_another_comment("no Company resolved")
+    await case_decide_choice_request()
 
     if not await db_ready():
         print(
-            "\nSKIPPED (DB unreachable or migration 011 not applied): the cases that resolve "
+            "\nSKIPPED (DB unreachable or migration 012 not applied): the cases that resolve "
             "the Company by instagram_account_id (first-level comment, comment_id alias, "
             "unknown account, batch) and the whole welcome flow. Point DATABASE_URL at a Postgres "
-            "with migration 011 applied and the seeded company_id=5 to run them."
+            "with migration 012 applied and the seeded company_id=5 to run them."
         )
         print("\nOK - no-DB cases passed; DB cases pending")
         return
@@ -986,7 +1204,15 @@ async def main() -> None:
 
         await stamp_config(ACCESS_TOKEN, PUBLIC_REPLY)
         await set_prompt(True)
+        await set_descriptions()
         await case_eligible_comment_gets_dm_then_public_reply()
+        await case_classification_request()
+        await case_silent_categories()
+        await case_emoji_then_comercial_same_post()
+        await case_classification_failure()
+        await case_classification_outside_the_categories()
+        await case_category_without_its_texts()
+        await case_missing_description()
         await case_own_account_comment()
         await case_reply_gets_no_welcome()
         await case_second_comment_same_post()

@@ -23,6 +23,7 @@ class InstagramWelcomeRepository:
         commenter_id: str,
         commenter_username: str | None,
         comment_text: str | None,
+        category: str,
     ) -> int | None:
         """Take the turn for (Company, post, commenter); None when it is already taken."""
         stmt = (
@@ -34,6 +35,7 @@ class InstagramWelcomeRepository:
                 commenter_id=commenter_id,
                 commenter_username=commenter_username,
                 comment_text=comment_text,
+                category=category,
                 status="em_processamento",
             )
             .on_conflict_do_nothing(
@@ -45,6 +47,20 @@ class InstagramWelcomeRepository:
         welcome_id = (await self.db.execute(stmt)).scalar_one_or_none()
         await self.db.commit()
         return welcome_id
+
+    async def has_welcome(self, company_id: int, media_id: str, commenter_id: str) -> bool:
+        """Whether the person already has a non-failed welcome on the post."""
+        stmt = (
+            select(InstagramWelcome.id)
+            .where(
+                InstagramWelcome.company_id == company_id,
+                InstagramWelcome.media_id == media_id,
+                InstagramWelcome.commenter_id == commenter_id,
+                InstagramWelcome.status != "falhou",
+            )
+            .limit(1)
+        )
+        return (await self.db.execute(stmt)).first() is not None
 
     async def mark_pending(
         self,

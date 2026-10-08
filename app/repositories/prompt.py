@@ -90,6 +90,16 @@ class PromptRepository:
             reasoning_effort=row.reasoning_effort,
         )
 
+    async def get_prompts_by_reason(self, company_id: int, reason: str) -> dict[str, str]:
+        """Every named prompt of a reason, as {name: prompt}."""
+        result = await self.db.execute(
+            select(Prompt.name, Prompt.prompt).where(
+                Prompt.company_id == company_id,
+                Prompt.reason == reason,
+            )
+        )
+        return {name: prompt or "" for name, prompt in result if name is not None}
+
     async def get_prompt_by_id(self, prompt_id: int) -> PromptWithConfig | None:
         """
         Fetch prompt by ID with model and temperature config.

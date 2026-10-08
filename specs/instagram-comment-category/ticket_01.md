@@ -83,44 +83,44 @@ The function is reached only through the tool here, so these cases are its check
 
 **1. Extract the function**
 
-- [ ] In `app.services.tools.internal.transfer`, add the module-level `escalate_helena_session(db, company_id, session_id)` with the signature above, and import `AsyncSession` from `sqlalchemy.ext.asyncio`.
-- [ ] As the function's first step, call `CustomerRepository(db).update_status(session_id, company_id, new_status=False)`, then the existing `[TransferToHuman] Customer status set to False ...` info log.
-- [ ] Load the Company with `CompanyRepository(db).get_by_id(company_id)` and read `helena_assignee_id` and `helena_apikey`, treating a missing Company as both missing. If either is missing, log the existing warning and return.
-- [ ] Call `HelenaClient().assign_session(session_id, helena_assignee_id, helena_apikey)`. On any exception, call `send_critical_alert("HELENA_ASSIGN_FAILED", "transfer.py:escalate_helena_session", e, company_id=company_id, extra=f"session={session_id}, assignee={helena_assignee_id}")` and return.
-- [ ] Keep the one-line why-comment that the status stays `False` on an assignment failure. Do not catch exceptions from `update_status` or `get_by_id`.
+- [x] In `app.services.tools.internal.transfer`, add the module-level `escalate_helena_session(db, company_id, session_id)` with the signature above, and import `AsyncSession` from `sqlalchemy.ext.asyncio`.
+- [x] As the function's first step, call `CustomerRepository(db).update_status(session_id, company_id, new_status=False)`, then the existing `[TransferToHuman] Customer status set to False ...` info log.
+- [x] Load the Company with `CompanyRepository(db).get_by_id(company_id)` and read `helena_assignee_id` and `helena_apikey`, treating a missing Company as both missing. If either is missing, log the existing warning and return.
+- [x] Call `HelenaClient().assign_session(session_id, helena_assignee_id, helena_apikey)`. On any exception, call `send_critical_alert("HELENA_ASSIGN_FAILED", "transfer.py:escalate_helena_session", e, company_id=company_id, extra=f"session={session_id}, assignee={helena_assignee_id}")` and return.
+- [x] Keep the one-line why-comment that the status stays `False` on an assignment failure. Do not catch exceptions from `update_status` or `get_by_id`.
 
 **2. The tool calls the function**
 
-- [ ] In `TransferToHumanTool.execute`, right after the `context.db` guard: when `context.channel == "helena"`, call `escalate_helena_session(context.db, context.company_id, context.session_id)` and return `_success()`.
-- [ ] Delete the old Helena block from `execute`.
-- [ ] Keep the Chatwoot path exactly as it is, starting with its `update_status` call and log, then `get_by_id`, then the rest. Do not change `_assign_and_verify` or `_pick_human_assignee`.
-- [ ] Fix the numbered step comments in `execute` that the move makes wrong (the "1. Common, always-first step" and "2. Branch by channel" comments, and the "company fetched above" remark). Follow the comment rules in Context: at most one line each, and only where they explain a why.
+- [x] In `TransferToHumanTool.execute`, right after the `context.db` guard: when `context.channel == "helena"`, call `escalate_helena_session(context.db, context.company_id, context.session_id)` and return `_success()`.
+- [x] Delete the old Helena block from `execute`.
+- [x] Keep the Chatwoot path exactly as it is, starting with its `update_status` call and log, then `get_by_id`, then the rest. Do not change `_assign_and_verify` or `_pick_human_assignee`.
+- [x] Fix the numbered step comments in `execute` that the move makes wrong (the "1. Common, always-first step" and "2. Branch by channel" comments, and the "company fetched above" remark). Follow the comment rules in Context: at most one line each, and only where they explain a why.
 
 **3. Verify**
 
-- [ ] Run `tests/test_transfer_tool.py` unchanged against a disposable Postgres with `companies(id=5)` seeded, with `DATABASE_URL=<disposable> API_KEY=x ALERT_ENABLED=false`. All four cases must print OK, not SKIPPED.
-- [ ] Run `ruff check` and `mypy` on `app/services/tools/internal/transfer.py`.
-- [ ] Check with `git diff --stat` that the code diff touches only `app/services/tools/internal/transfer.py`, and nothing under `tests/`.
+- [x] Run `tests/test_transfer_tool.py` unchanged against a disposable Postgres with `companies(id=5)` seeded, with `DATABASE_URL=<disposable> API_KEY=x ALERT_ENABLED=false`. All four cases must print OK, not SKIPPED.
+- [x] Run `ruff check` and `mypy` on `app/services/tools/internal/transfer.py`.
+- [x] Check with `git diff --stat` that the code diff touches only `app/services/tools/internal/transfer.py`, and nothing under `tests/`.
 
 **4. Documentation**
 
-- [ ] Rewrite the `transfer.py` section of `docs/file_reference/app/services/tools/internal/internal.md`. The current section is stale: it names the tool `transferir_para_humano` and calls it a placeholder. The new section covers:
+- [x] (done-by-report) Rewrite the `transfer.py` section of `docs/file_reference/app/services/tools/internal/internal.md`. The current section is stale: it names the tool `transferir_para_humano` and calls it a placeholder. The new section covers:
   - the tool name `transfer_to_human`;
   - the Gate de IA off as the first step;
   - the Helena branch delegating to `escalate_helena_session`;
   - the Chatwoot branch (labels `atendimento-ia` → `atendimento-humano`, a random human from `Agent.responsible_team`, the verified assignment);
   - the alerts `HELENA_ASSIGN_FAILED`, `TRANSFER_CHATWOOT_OPS_FAILED`, `TRANSFER_ASSIGNMENT_VERIFICATION_FAILED` and `TRANSFER_TEAM_MEMBERS_FAILED`;
   - a short entry for `escalate_helena_session`: its arguments, that it commits through `update_status`, its failure rules, and that `app.helena.service` must import it lazily.
-- [ ] If you are working in a worktree, put the full section text in your final report instead of editing `/docs`.
+- [x] If you are working in a worktree, put the full section text in your final report instead of editing `/docs`.
 
 ## Acceptance criteria
 
-- [ ] `tests/test_transfer_tool.py`, unedited, passes all four cases against a disposable database.
-- [ ] `transfer_to_human` on the Helena channel turns the Gate de IA off before any Helena call, then assigns the session once to the Company's `helena_assignee_id` with its `helena_apikey`.
-- [ ] With no `helena_assignee_id` or no `helena_apikey`, the Gate de IA is off, Helena is not called, a warning is logged, and the tool reports success.
-- [ ] When the assignment fails, `HELENA_ASSIGN_FAILED` fires, the Gate de IA stays off, and the tool reports success.
-- [ ] `transfer_to_human` on the Chatwoot channel behaves as before and never calls Helena.
-- [ ] `escalate_helena_session(db, company_id, session_id)` can be awaited with no `ToolExecutionContext`. In one call it turns the Gate de IA off and assigns the session, with the same failure rules.
+- [x] `tests/test_transfer_tool.py`, unedited, passes all four cases against a disposable database.
+- [x] `transfer_to_human` on the Helena channel turns the Gate de IA off before any Helena call, then assigns the session once to the Company's `helena_assignee_id` with its `helena_apikey`.
+- [x] With no `helena_assignee_id` or no `helena_apikey`, the Gate de IA is off, Helena is not called, a warning is logged, and the tool reports success.
+- [x] When the assignment fails, `HELENA_ASSIGN_FAILED` fires, the Gate de IA stays off, and the tool reports success.
+- [x] `transfer_to_human` on the Chatwoot channel behaves as before and never calls Helena.
+- [x] `escalate_helena_session(db, company_id, session_id)` can be awaited with no `ToolExecutionContext`. In one call it turns the Gate de IA off and assigns the session, with the same failure rules.
 - [ ] `ruff check` and `mypy` pass on the module.
 
 ## Out of scope

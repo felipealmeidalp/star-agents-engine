@@ -140,13 +140,14 @@ class InstagramWelcomeRepository:
             "origem_comentario_instagram": origem,
         }
 
-    async def write_dm_to_session(self, welcome_id: int, customer_id: int) -> None:
+    async def write_dm_to_session(self, welcome_id: int, customer_id: int) -> str:
         """Put the DM and the Origem do comentário in the Customer's session; stays pendente."""
         welcome = await self.db.get_one(InstagramWelcome, welcome_id)
         # re-read: the Customer's context may have changed while the DM was generated and sent
         customer = await self.db.get_one(Customer, customer_id, populate_existing=True)
         await self._seed_conversation(welcome, customer)
         await self.db.commit()
+        return customer.sessionId
 
     async def match(self, welcome: InstagramWelcome, customer: Customer) -> None:
         """Seed the Customer's conversation from the welcome and mark it casada, in one commit."""

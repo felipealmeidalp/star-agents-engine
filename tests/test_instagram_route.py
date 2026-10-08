@@ -46,6 +46,8 @@ KNOWN_ACCOUNT = "test-ig-account-0001"
 ACCESS_TOKEN = "test-ig-access-token"
 PUBLIC_REPLY = "Te chamei no direct!"
 DM_TEXT = "Oi @maria.sinuca, vi seu comentário no post da mesa!"
+REPLY_TEXT = "Incrível, né? Te chamei no direct!"
+ELOGIO_TEXT = "Esta mesa é simplesmente maravilhosa"
 POST = "18000000000000009"
 OTHER_POST = "18000000000000010"
 # a commenter whose id is long enough to be looked up as a Customer: "+" + its last 13 digits
@@ -56,6 +58,16 @@ FILLED_PROMPT = (
     "Escreva uma DM curta de boas-vindas.\n"
     "<dados>\nnome: Maria Sinuca\ncomentário: quanto custa?\nlegenda: Mesa de sinuca oficial\n"
     "</dados>"
+)
+FILLED_ELOGIO_DM = (
+    "Escreva uma DM leve agradecendo o elogio.\n"
+    "<dados>\nnome: Maria Sinuca\ncomentário: Esta mesa é simplesmente maravilhosa\n"
+    "legenda: Mesa de sinuca oficial\n</dados>"
+)
+FILLED_ELOGIO_REPLY = (
+    "Responda ao elogio em público, numa frase.\n"
+    "<dados>\nnome: Maria Sinuca\ncomentário: Esta mesa é simplesmente maravilhosa\n"
+    "legenda: Mesa de sinuca oficial\n</dados>"
 )
 
 Handoffs = list[tuple[int, InstagramComment]]
@@ -134,9 +146,10 @@ async def _post_welcome(
     llm_content: str | None = None,
     category: str | None = "comercial",
     decisions: Decisions | None = None,
+    reply_content: str | None = None,
 ) -> tuple[httpx.Response, ClientCalls, list[str], list[tuple[str, Any]]]:
-    """`failing` names what raises: a client method, "<method>:<comment id>", "openai" or
-    "decide_choice"."""
+    """`failing` names what raises: a client method, "<method>:<comment id>", "openai" (the DM
+    generation), "generate_public_reply" or "decide_choice"."""
     calls: ClientCalls = []
     alerts: list[str] = []
     llm_calls: list[tuple[str, Any]] = []
@@ -175,11 +188,15 @@ async def _post_welcome(
 
     async def _chat_completion(self: Any, llm_payload: Any) -> OpenAIResponse:
         llm_calls.append((self.client.api_key, llm_payload))
-        if failing == "openai":
+        if llm_payload.response_format["json_schema"]["name"] == "instagram_public_reply":
+            _record("generate_public_reply", llm_payload.model)
+            content = json.dumps({"reply": REPLY_TEXT}) if reply_content is None else reply_content
+        elif failing == "openai":
             raise RuntimeError("openai boom")
-        content = llm_content
-        if content is None:
-            content = json.dumps({"dm": DM_TEXT, "product": "Mesa de sinuca oficial"})
+        else:
+            content = llm_content
+            if content is None:
+                content = json.dumps({"dm": DM_TEXT, "product": "Mesa de sinuca oficial"})
         return OpenAIResponse(
             id="resp-test",
             model="gpt-test",
@@ -221,7 +238,7 @@ async def _post_welcome(
         "app.services.openai.OpenAIService.decide_choice", _decide_choice
     ), patch("app.services.instagram_welcome.send_critical_alert", _alert), patch(
         "app.routes.instagram.send_critical_alert", _alert
-    ):
+    ), patch("app.services.tools.internal.transfer.send_critical_alert", _alert):
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as http:
             responses = await asyncio.gather(
                 *(
@@ -410,8 +427,27 @@ WELCOME_PROMPT = (
     "Escreva uma DM curta de boas-vindas.\n"
     "<dados>\nnome: [NOME]\ncomentário: [COMENTARIO]\nlegenda: [LEGENDA]\n</dados>"
 )
-PROMPT_KEY = {"cid": SEED_COMPANY_ID, "name": "instagram_welcome_dm", "reason": "instagram_welcome"}
-PROMPT_WHERE = "company_id = :cid AND name = :name AND reason = :reason"
+ELOGIO_DM_PROMPT = (
+    "Escreva uma DM leve agradecendo o elogio.\n"
+    "<dados>\nnome: [NOME]\ncomentário: [COMENTARIO]\nlegenda: [LEGENDA]\n</dados>"
+)
+ELOGIO_REPLY_PROMPT = (
+    "Responda ao elogio em público, numa frase.\n"
+    "<dados>\nnome: [NOME]\ncomentário: [COMENTARIO]\nlegenda: [LEGENDA]\n</dados>"
+)
+RECLAMACAO_PROMPT = (
+    "Acolha a reclamação e pergunte o que aconteceu.\n"
+    "<dados>\nnome: [NOME]\ncomentário: [COMENTARIO]\nlegenda: [LEGENDA]\n</dados>"
+)
+PROMPTS = {
+    "instagram_welcome_dm": ("gpt-test-welcome", "low", WELCOME_PROMPT),
+    "instagram_welcome_dm_elogio": ("gpt-test-elogio-dm", "low", ELOGIO_DM_PROMPT),
+    "instagram_public_reply_elogio": ("gpt-test-elogio-reply", "medium", ELOGIO_REPLY_PROMPT),
+    "instagram_welcome_dm_reclamacao": ("gpt-test-reclamacao", "high", RECLAMACAO_PROMPT),
+}
+ELOGIO_PROMPTS = ("instagram_welcome_dm_elogio", "instagram_public_reply_elogio")
+PROMPT_KEY = {"cid": SEED_COMPANY_ID, "reason": "instagram_welcome"}
+PROMPT_WHERE = "company_id = :cid AND reason = :reason"
 
 
 async def _execute(sql: str, **params: Any) -> Any:
@@ -421,26 +457,36 @@ async def _execute(sql: str, **params: Any) -> Any:
         return result
 
 
+async def seeded_api_key() -> Any:
+    result = await _execute(
+        'SELECT "openAi_apiKey" FROM companies WHERE id = :cid', cid=SEED_COMPANY_ID
+    )
+    return result.scalar_one()
+
+
 IG_COLUMNS = "instagram_account_id, instagram_access_token, instagram_public_reply"
 
 
 async def take_snapshot() -> tuple[Any, list[dict[str, Any]]]:
     """What the script overwrites on the seeded Company, to put back at the end."""
     company = await _execute(
-        f"SELECT {IG_COLUMNS} FROM companies WHERE id = :cid", cid=SEED_COMPANY_ID
+        f"SELECT {IG_COLUMNS}, helena_apikey, helena_assignee_id FROM companies WHERE id = :cid",
+        cid=SEED_COMPANY_ID,
     )
     prompts = await _execute(f"SELECT * FROM prompts WHERE {PROMPT_WHERE}", **PROMPT_KEY)
     descriptions = await _execute(
         f"SELECT * FROM prompts WHERE {DESCRIPTION_WHERE}", **DESCRIPTION_KEY
     )
-    return company.one(), [dict(row) for row in [*prompts.mappings(), *descriptions.mappings()]]
+    rows = [*prompts.mappings(), *descriptions.mappings()]
+    return company.one(), [dict(row) for row in rows]
 
 
 async def restore_snapshot(snapshot: tuple[Any, list[dict[str, Any]]]) -> None:
     company, prompts = snapshot
     await stamp_account(company.instagram_account_id)
     await stamp_config(company.instagram_access_token, company.instagram_public_reply)
-    await set_prompt(False)
+    await stamp_helena(company.helena_apikey, company.helena_assignee_id)
+    await _execute(f"DELETE FROM prompts WHERE {PROMPT_WHERE}", **PROMPT_KEY)
     await set_descriptions(())
     for row in prompts:
         columns = ", ".join(row)
@@ -460,13 +506,28 @@ async def stamp_config(token: str | None, public_reply: str | None) -> None:
     )
 
 
-async def set_prompt(present: bool) -> None:
-    await _execute(f"DELETE FROM prompts WHERE {PROMPT_WHERE}", **PROMPT_KEY)
+async def stamp_helena(apikey: str | None, assignee_id: str | None) -> None:
+    await _execute(
+        "UPDATE companies SET helena_apikey = :key, helena_assignee_id = :aid WHERE id = :cid",
+        key=apikey,
+        aid=assignee_id,
+        cid=SEED_COMPANY_ID,
+    )
+
+
+async def set_prompt(present: bool, name: str = "instagram_welcome_dm") -> None:
+    await _execute(
+        f"DELETE FROM prompts WHERE {PROMPT_WHERE} AND name = :name", name=name, **PROMPT_KEY
+    )
     if present:
+        model, effort, prompt = PROMPTS[name]
         await _execute(
             "INSERT INTO prompts (company_id, name, reason, prompt, model, reasoning_effort, "
-            "created_at) VALUES (:cid, :name, :reason, :prompt, 'gpt-test-welcome', 'low', now())",
-            prompt=WELCOME_PROMPT,
+            "created_at) VALUES (:cid, :name, :reason, :prompt, :model, :effort, now())",
+            name=name,
+            prompt=prompt,
+            model=model,
+            effort=effort,
             **PROMPT_KEY,
         )
 
@@ -607,10 +668,7 @@ async def case_eligible_comment_gets_dm_then_public_reply() -> None:
 
     assert len(llm_calls) == 1, llm_calls
     api_key, llm_payload = llm_calls[0]
-    seeded_key = await _execute(
-        'SELECT "openAi_apiKey" FROM companies WHERE id = :cid', cid=SEED_COMPANY_ID
-    )
-    assert api_key == seeded_key.scalar_one(), "the LLM call must use the Company's key"
+    assert api_key == await seeded_api_key(), "the LLM call must use the Company's key"
     assert llm_payload.model == "gpt-test-welcome", llm_payload.model
     assert llm_payload.reasoning_effort == "low", llm_payload.reasoning_effort
     assert [m.role for m in llm_payload.messages] == ["user"], llm_payload.messages
@@ -628,10 +686,7 @@ async def case_classification_request() -> None:
 
     assert len(decisions) == 1, decisions
     api_key, _, choices, input_text = decisions[0]
-    seeded_key = await _execute(
-        'SELECT "openAi_apiKey" FROM companies WHERE id = :cid', cid=SEED_COMPANY_ID
-    )
-    assert api_key == seeded_key.scalar_one(), "the Decisions call must use the Company's key"
+    assert api_key == await seeded_api_key(), "the Decisions call must use the Company's key"
     # dict equality ignores order: compare the items
     assert list(choices.items()) == list(DESCRIPTIONS.items()), choices
     assert "Mesa de sinuca oficial" in input_text, input_text
@@ -679,10 +734,9 @@ async def case_classification_outside_the_categories() -> None:
 
 
 async def case_category_without_its_texts() -> None:
-    await _assert_stops_after_classification([], category="elogio")
-    await _assert_turn_still_free()
     await _assert_stops_after_classification([], category="reclamacao")
-    print("  elogio or reclamacao (no texts wired yet) → nothing sent or recorded, turn kept: OK")
+    await _assert_turn_still_free()
+    print("  reclamacao without its DM prompt → nothing sent or recorded, turn kept: OK")
 
 
 async def case_missing_description() -> None:
@@ -972,9 +1026,13 @@ async def welcome_states() -> list[tuple[Any, ...]]:
     return [tuple(row) for row in result]
 
 
+def _messages(llm_payload: Any) -> list[tuple[str, str | None]]:
+    return [(m.role, m.content) for m in llm_payload.messages]
+
+
 def _sent_messages(llm_calls: list[tuple[str, Any]]) -> list[tuple[str, str | None]]:
     assert len(llm_calls) == 1, llm_calls
-    return [(m.role, m.content) for m in llm_calls[0][1].messages]
+    return _messages(llm_calls[0][1])
 
 
 async def case_commenter_with_customer() -> None:
@@ -1168,6 +1226,246 @@ async def case_concurrent_deliveries() -> None:
     print("  two concurrent deliveries for the same person and post → one DM: OK")
 
 
+def elogio_event(comment_id: str = "17900000000000001", **overrides: Any) -> dict[str, Any]:
+    return make_event(make_comment(comment_id, text=ELOGIO_TEXT, **overrides))
+
+
+def elogio_flow(comment_id: str = "17900000000000001") -> ClientCalls:
+    return [
+        ("get_media", POST),
+        ("decide_choice",),
+        ("send_private_reply", comment_id, DM_TEXT),
+        ("release_thread_control", "7770001"),
+        ("generate_public_reply", "gpt-test-elogio-reply"),
+        ("reply_to_comment", comment_id, REPLY_TEXT),
+    ]
+
+
+async def case_elogio() -> None:
+    await clear_welcomes()
+    resp, calls, alerts, llm_calls = await _post_welcome(elogio_event(), category="elogio")
+    assert resp.status_code == 200, resp.status_code
+    assert calls == elogio_flow(), calls
+    assert alerts == [], alerts
+
+    assert [api_key for api_key, _ in llm_calls] == [await seeded_api_key()] * 2, llm_calls
+    (_, dm_call), (_, reply_call) = llm_calls
+    assert dm_call.model == "gpt-test-elogio-dm", dm_call.model
+    assert dm_call.reasoning_effort == "low", dm_call.reasoning_effort
+    assert dm_call.response_format["json_schema"]["name"] == "instagram_welcome_dm"
+    assert _messages(dm_call) == [("user", FILLED_ELOGIO_DM)], dm_call.messages
+    assert reply_call.model == "gpt-test-elogio-reply", reply_call.model
+    assert reply_call.reasoning_effort == "medium", reply_call.reasoning_effort
+    assert reply_call.response_format["json_schema"]["name"] == "instagram_public_reply"
+    assert _messages(reply_call) == [("user", FILLED_ELOGIO_REPLY)], reply_call.messages
+    assert not dm_call.tools and not reply_call.tools
+    assert await welcome_states() == [("pendente", None, None)], await welcome_states()
+    assert await welcome_rows() == [("17900000000000001", "elogio", "pendente")]
+    print("  elogio → elogio DM, then a Resposta pública generated by its prompt and published: OK")
+
+
+async def case_elogio_from_a_customer() -> None:
+    await clear_welcomes()
+    await clear_customers()
+    session_id = TEST_SESSION + "open"
+    conversation = [("user", "oi, tem mesa de sinuca?"), ("assistant", "Temos sim! Qual tamanho?")]
+    await seed_customer(session_id, [{"role": r, "content": c} for r, c in conversation])
+    _, calls, alerts, llm_calls = await _post_welcome(
+        elogio_event(**{"from": KNOWN_AUTHOR}), category="elogio"
+    )
+    assert calls == elogio_flow(), calls
+    assert alerts == [], alerts
+    (_, dm_call), (_, reply_call) = llm_calls
+    assert _messages(dm_call) == [*conversation, ("user", FILLED_ELOGIO_DM)], dm_call.messages
+    assert _messages(reply_call) == [("user", FILLED_ELOGIO_REPLY)], reply_call.messages
+
+    rows = await session_rows(session_id)
+    assert rows[-1] == ("assistant", DM_TEXT), rows
+    assert (await customer_context(session_id))["origem_comentario_instagram"] == {
+        "legenda_do_post": "Mesa de sinuca oficial",
+        "comentario": ELOGIO_TEXT,
+        "produto": "Mesa de sinuca oficial",
+    }
+    print("  elogio from a Customer → conversation in the DM only, DM and Origem in session: OK")
+
+
+async def case_elogio_dm_failure() -> None:
+    await clear_welcomes()
+    _, calls, alerts, llm_calls = await _post_welcome(
+        elogio_event(), category="elogio", failing="send_private_reply"
+    )
+    assert calls == [
+        ("get_media", POST),
+        ("decide_choice",),
+        ("send_private_reply", "17900000000000001", DM_TEXT),
+    ], calls
+    assert [p.model for _, p in llm_calls] == ["gpt-test-elogio-dm"], llm_calls
+    assert alerts == ["INSTAGRAM_WELCOME_FAILED"], alerts
+    print("  elogio whose DM fails → Resposta pública neither generated nor published, alert: OK")
+
+
+async def case_elogio_public_reply_failure() -> None:
+    runs: list[dict[str, Any]] = [
+        {"failing": "generate_public_reply"},
+        {"failing": "reply_to_comment"},
+        *({"reply_content": content} for content in ("", "not json", '{"reply": "  "}')),
+    ]
+    for run in runs:
+        await clear_welcomes()
+        _, calls, alerts, _ = await _post_welcome(elogio_event(), category="elogio", **run)
+        published = run.get("failing") == "reply_to_comment"
+        assert calls == (elogio_flow() if published else elogio_flow()[:-1]), (run, calls)
+        assert alerts == ["INSTAGRAM_PUBLIC_REPLY_FAILED"], (run, alerts)
+        assert await welcome_states() == [("pendente", None, None)], run
+
+        _, calls, alerts, llm_calls = await _post_welcome(
+            elogio_event("17900000000000002"), category="elogio"
+        )
+        assert (calls, alerts, llm_calls) == ([], [], []), (run, calls, alerts, llm_calls)
+    print("  elogio Resposta pública not generated, unusable or not published → alert only: OK")
+
+
+async def case_elogio_without_its_texts() -> None:
+    try:
+        for name in ELOGIO_PROMPTS:
+            await set_prompt(False, name)
+            await _assert_stops_after_classification([], category="elogio")
+            await set_prompt(True, name)
+            _, calls, alerts, _ = await _post_welcome(
+                elogio_event("17900000000000002"), category="elogio"
+            )
+            assert calls == elogio_flow("17900000000000002"), (name, calls)
+            assert alerts == [], (name, alerts)
+
+        await clear_welcomes()
+        await stamp_config(ACCESS_TOKEN, "")
+        _, calls, alerts, _ = await _post_welcome(elogio_event(), category="elogio")
+        assert calls == elogio_flow(), calls
+        assert alerts == [], alerts
+    finally:
+        for name in ELOGIO_PROMPTS:
+            await set_prompt(True, name)
+        await stamp_config(ACCESS_TOKEN, PUBLIC_REPLY)
+    print("  elogio missing either prompt → nothing sent or recorded, turn kept: OK")
+
+
+HELENA_APIKEY = "test-helena-apikey"
+ASSIGNEE_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+COMPLAINT = "14 dias para obter uma resposta!! Um absurdo!"
+FILLED_RECLAMACAO_PROMPT = (
+    "Acolha a reclamação e pergunte o que aconteceu.\n"
+    f"<dados>\nnome: Maria Sinuca\ncomentário: {COMPLAINT}\nlegenda: Mesa de sinuca oficial\n"
+    "</dados>"
+)
+DM_ONLY_FLOW = [
+    ("get_media", POST),
+    ("decide_choice",),
+    ("send_private_reply", "17900000000000001", DM_TEXT),
+    ("release_thread_control", "7770001"),
+]
+
+
+def patch_assign(failing: bool = False) -> tuple[list[tuple[str, str, str]], Any]:
+    """Each call is recorded as (session, user, apikey)."""
+    assigned: list[tuple[str, str, str]] = []
+
+    async def _stub(self: Any, session_id: str, user_id: str, apikey: str) -> dict[str, Any]:
+        assigned.append((session_id, user_id, apikey))
+        if failing:
+            raise httpx.ConnectError("assign_session boom")
+        return {"ok": True}
+
+    return assigned, patch("app.helena.client.HelenaClient.assign_session", _stub)
+
+
+async def customer_status(session_id: str) -> Any:
+    result = await _execute('SELECT status FROM customers WHERE "sessionId" = :sid', sid=session_id)
+    return result.scalar_one()
+
+
+async def case_reclamacao_gets_dm_only() -> None:
+    await clear_welcomes()
+    await clear_customers()
+    assigned, assign_patch = patch_assign()
+    try:
+        await stamp_config(ACCESS_TOKEN, "")
+        with assign_patch:
+            resp, calls, alerts, llm_calls = await _post_welcome(
+                make_event(make_comment(text=COMPLAINT, **{"from": KNOWN_AUTHOR})),
+                category="reclamacao",
+            )
+    finally:
+        await stamp_config(ACCESS_TOKEN, PUBLIC_REPLY)
+    assert resp.status_code == 200, resp.status_code
+    assert calls == DM_ONLY_FLOW, calls
+    assert alerts == [], alerts
+    assert _sent_messages(llm_calls) == [("user", FILLED_RECLAMACAO_PROMPT)], llm_calls
+    assert llm_calls[0][1].model == "gpt-test-reclamacao", llm_calls[0][1].model
+    assert await welcome_rows() == [("17900000000000001", "reclamacao", "pendente")]
+    assert assigned == [], assigned
+    print("  reclamacao, no Resposta pública configured → DM from its own prompt only: OK")
+
+
+async def _complaint_of_a_customer(
+    failing_assign: bool = False,
+) -> tuple[ClientCalls, list[str], list[tuple[str, Any]], list[tuple[str, str, str]]]:
+    await clear_welcomes()
+    await clear_customers()
+    await seed_customer(TEST_SESSION + "open", [{"role": "user", "content": "oi, tem mesa?"}])
+    assigned, assign_patch = patch_assign(failing_assign)
+    with assign_patch:
+        _, calls, alerts, llm_calls = await _post_welcome(
+            make_event(make_comment(text=COMPLAINT, **{"from": KNOWN_AUTHOR})),
+            category="reclamacao",
+        )
+    return calls, alerts, llm_calls, assigned
+
+
+async def case_reclamacao_of_a_customer_escalates_at_send() -> None:
+    session_id = TEST_SESSION + "open"
+    calls, alerts, llm_calls, assigned = await _complaint_of_a_customer()
+    assert calls == DM_ONLY_FLOW, calls
+    assert alerts == [], alerts
+    assert _sent_messages(llm_calls) == [
+        ("user", "oi, tem mesa?"),
+        ("user", FILLED_RECLAMACAO_PROMPT),
+    ], llm_calls
+    assert (await session_rows(session_id))[-1] == ("assistant", DM_TEXT)
+    origem = (await customer_context(session_id))["origem_comentario_instagram"]
+    assert origem["produto"] == "Mesa de sinuca oficial", origem
+    assert await customer_status(session_id) is False
+    assert assigned == [(session_id, ASSIGNEE_ID, HELENA_APIKEY)], assigned
+    print("  reclamacao of a Customer → DM in the session, AI off, session assigned: OK")
+
+
+async def case_reclamacao_assign_failure_keeps_the_ai_off() -> None:
+    session_id = TEST_SESSION + "open"
+    calls, alerts, _, assigned = await _complaint_of_a_customer(failing_assign=True)
+    assert calls == DM_ONLY_FLOW, calls
+    assert "HELENA_ASSIGN_FAILED" in alerts, alerts
+    assert len(assigned) == 1, assigned
+    assert await customer_status(session_id) is False
+    assert (await session_rows(session_id))[-1] == ("assistant", DM_TEXT)
+    assert await welcome_states() == [("pendente", None, None)], await welcome_states()
+    print("  reclamacao of a Customer, Helena assignment fails → alert, AI stays off: OK")
+
+
+async def case_reclamacao_escalation_failure_keeps_the_dm() -> None:
+    session_id = TEST_SESSION + "open"
+
+    async def _boom(self: Any, *args: Any, **kwargs: Any) -> None:
+        raise RuntimeError("update_status boom")
+
+    with patch("app.repositories.customer.CustomerRepository.update_status", _boom):
+        calls, alerts, _, assigned = await _complaint_of_a_customer()
+    assert calls == DM_ONLY_FLOW, calls
+    assert alerts == ["INSTAGRAM_ESCALATION_FAILED"], alerts
+    assert assigned == [], assigned
+    assert (await session_rows(session_id))[-1] == ("assistant", DM_TEXT)
+    assert await welcome_states() == [("pendente", None, None)], await welcome_states()
+    print("  reclamacao of a Customer, escalation raises → alert, DM kept, still pendente: OK")
+
+
 async def main() -> None:
     print("Instagram route behavioral tests (seam: GET/POST /api/instagram)")
     await case_handshake_right_token()
@@ -1204,6 +1502,7 @@ async def main() -> None:
 
         await stamp_config(ACCESS_TOKEN, PUBLIC_REPLY)
         await set_prompt(True)
+        await set_prompt(False, "instagram_welcome_dm_reclamacao")
         await set_descriptions()
         await case_eligible_comment_gets_dm_then_public_reply()
         await case_classification_request()
@@ -1236,6 +1535,20 @@ async def main() -> None:
         await case_session_write_failure_keeps_the_welcome()
         await case_feature_off()
         await case_concurrent_deliveries()
+
+        for name in ELOGIO_PROMPTS:
+            await set_prompt(True, name)
+        await case_elogio()
+        await case_elogio_from_a_customer()
+        await case_elogio_dm_failure()
+        await case_elogio_public_reply_failure()
+        await case_elogio_without_its_texts()
+        await set_prompt(True, "instagram_welcome_dm_reclamacao")
+        await stamp_helena(HELENA_APIKEY, ASSIGNEE_ID)
+        await case_reclamacao_gets_dm_only()
+        await case_reclamacao_of_a_customer_escalates_at_send()
+        await case_reclamacao_assign_failure_keeps_the_ai_off()
+        await case_reclamacao_escalation_failure_keeps_the_dm()
     finally:
         # the seeded Company may be a real one: leave its Instagram config as it was
         await restore_snapshot(snapshot)

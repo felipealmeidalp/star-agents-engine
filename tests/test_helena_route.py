@@ -67,6 +67,7 @@ UNKNOWN_TOKEN = "22222222-2222-2222-2222-222222222222"
 SESSION_ID = "33333333-3333-3333-3333-333333333333"
 LEAD_PHONE = "+5511999998888"  # details.from — kept only in the customer record
 HELENA_APIKEY = "test-helena-apikey"
+ASSIGNEE_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"  # helena_assignee_id (userId)
 ALLOWED_CHANNEL = 7  # content.channel (injected by n8n) that the allowlist permits
 BLOCKED_CHANNEL = 9  # a channel NOT in the allowlist → gated out
 
@@ -294,6 +295,15 @@ async def seed_company_instagram() -> None:
         await db.commit()
 
 
+async def stamp_assignee(assignee_id: str | None) -> None:
+    async with AsyncSessionLocal() as db:
+        await db.execute(
+            text("UPDATE companies SET helena_assignee_id = :aid WHERE id = :cid"),
+            {"aid": assignee_id, "cid": SEED_COMPANY_ID},
+        )
+        await db.commit()
+
+
 async def seed_pending_welcome(
     dm_text: str = WELCOME_DM,
     caption: str = WELCOME_CAPTION,
@@ -305,6 +315,7 @@ async def seed_pending_welcome(
     media_id: str = "18000000000000404",
     keep_existing: bool = False,
     created_at: datetime | None = None,
+    category: str | None = None,
 ) -> None:
     """Add a Boas-vindas pendente for the test author, dropping this test's earlier ones."""
     async with AsyncSessionLocal() as db:
@@ -327,6 +338,7 @@ async def seed_pending_welcome(
                 product=product,
                 dm_text=dm_text,
                 recipient_id=recipient_id,
+                category=category,
                 status="pendente",
                 # None leaves the column to the server default, now()
                 created_at=created_at,
@@ -362,6 +374,34 @@ async def _run_recording(
 
 def _turns(messages: list[OpenAIMessage]) -> list[tuple[str, str | None]]:
     return [(m.role, m.content) for m in messages[1:]]
+
+
+def patch_assign() -> tuple[list[tuple[str, str, str]], Any]:
+    """Each call is recorded as (session, user, apikey)."""
+    assigned: list[tuple[str, str, str]] = []
+
+    async def _stub(self: Any, session_id: str, user_id: str, apikey: str) -> dict[str, Any]:
+        assigned.append((session_id, user_id, apikey))
+        return {"ok": True}
+
+    return assigned, patch("app.helena.client.HelenaClient.assign_session", _stub)
+
+
+async def session_rows(session_id: str) -> list[tuple[Any, ...]]:
+    async with AsyncSessionLocal() as db:
+        rows = await db.execute(
+            text('SELECT role, content FROM chat_history WHERE "sessionId" = :sid ORDER BY id'),
+            {"sid": session_id},
+        )
+        return [tuple(r) for r in rows]
+
+
+async def customer_status(session_id: str) -> Any:
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            text('SELECT status FROM customers WHERE "sessionId" = :sid'), {"sid": session_id}
+        )
+        return result.scalar_one()
 
 
 # --------------------------------------------------------------------------- #
@@ -674,14 +714,8 @@ async def case_r_own_dm_echo_is_not_answered() -> None:
     assert resp.status_code == 200, resp.status_code
     assert requests == [], f"expected zero OpenAI calls, got {len(requests)}"
     assert sends == [], f"expected zero sends, got {sends}"
-    async with AsyncSessionLocal() as db:
-        rows = (
-            await db.execute(
-                text('SELECT role, content FROM chat_history WHERE "sessionId" = :sid'),
-                {"sid": session_id},
-            )
-        ).all()
-    assert [tuple(r) for r in rows] == [("assistant", WELCOME_DM)], rows
+    rows = await session_rows(session_id)
+    assert rows == [("assistant", WELCOME_DM)], rows
     print("  (r) incoming text equals the pending DM → matched, AI not called: OK")
 
 
@@ -739,6 +773,62 @@ async def case_u_welcome_older_than_7_days_is_not_matched() -> None:
     print("  (u) Boas-vindas pendente matches a new session for 7 days, not after: OK")
 
 
+async def case_v_reclamacao_goes_to_the_attendant() -> None:
+    await seed_pending_welcome(category="reclamacao")
+    session_id = str(uuid.uuid4())
+    lead_text = "a mesa chegou com o pé quebrado"
+    assigned, assign_patch = patch_assign()
+    with assign_patch:
+        resp, sends, requests = await _run_recording(
+            new_session_payload(session_id, text=lead_text), ["should not be sent"]
+        )
+    assert resp.status_code == 200, resp.status_code
+    assert requests == [], f"expected zero OpenAI calls, got {len(requests)}"
+    assert sends == [], f"expected zero sends, got {sends}"
+    rows = await session_rows(session_id)
+    assert rows == [("assistant", WELCOME_DM), ("user", lead_text)], rows
+    assert await customer_status(session_id) is False
+    assert assigned == [(session_id, ASSIGNEE_ID, HELENA_APIKEY)], assigned
+    print("  (v) reclamacao, first message of a new session → attendant, AI not called: OK")
+
+
+async def case_w_reclamacao_echo_still_escalates() -> None:
+    await seed_pending_welcome(category="reclamacao")
+    session_id = str(uuid.uuid4())
+    assigned, assign_patch = patch_assign()
+    with assign_patch:
+        resp, sends, requests = await _run_recording(
+            new_session_payload(session_id, text=f" {WELCOME_DM}\n"), ["should not be sent"]
+        )
+    assert resp.status_code == 200, resp.status_code
+    assert requests == [], f"expected zero OpenAI calls, got {len(requests)}"
+    assert sends == [], f"expected zero sends, got {sends}"
+    rows = await session_rows(session_id)
+    assert rows == [("assistant", WELCOME_DM)], rows
+    assert await customer_status(session_id) is False
+    assert assigned == [(session_id, ASSIGNEE_ID, HELENA_APIKEY)], assigned
+    print("  (w) reclamacao, echo of our own DM → session escalated, AI not called: OK")
+
+
+async def case_x_other_categories_match_as_today() -> None:
+    lead_text = "oi, quero saber o preço"
+    for category in ("comercial", "elogio", None):
+        await seed_pending_welcome(category=category)
+        session_id = str(uuid.uuid4())
+        assigned, assign_patch = patch_assign()
+        with assign_patch:
+            _resp, sends, requests = await _run_recording(
+                new_session_payload(session_id, text=lead_text), ["a mesa sai por 5 mil"]
+            )
+        assert len(requests) == 1, (category, len(requests))
+        turns = _turns(requests[0])
+        assert turns == [("assistant", WELCOME_DM), ("user", lead_text)], (category, turns)
+        assert [sent for _sid, sent in sends] == ["a mesa sai por 5 mil"], (category, sends)
+        assert assigned == [], (category, assigned)
+        assert await customer_status(session_id) is True, category
+    print("  (x) comercial, elogio or no category → matched as today, AI answers: OK")
+
+
 async def main() -> None:
     print("Helena route behavioral tests (seam: POST /api/helena/{token})")
     assert settings.helena_base_url  # sanity: settings imported
@@ -785,6 +875,21 @@ async def main() -> None:
     await case_s_matching_error_keeps_the_reply()
     await case_t_most_recent_welcome_wins_each_consumed_once()
     await case_u_welcome_older_than_7_days_is_not_matched()
+
+    async with AsyncSessionLocal() as db:
+        previous_assignee = (
+            await db.execute(
+                text("SELECT helena_assignee_id FROM companies WHERE id = :cid"),
+                {"cid": SEED_COMPANY_ID},
+            )
+        ).scalar_one()
+    await stamp_assignee(ASSIGNEE_ID)
+    try:
+        await case_v_reclamacao_goes_to_the_attendant()
+        await case_w_reclamacao_echo_still_escalates()
+        await case_x_other_categories_match_as_today()
+    finally:
+        await stamp_assignee(previous_assignee)
     print("\nOK - all Helena route cases passed")
 
 

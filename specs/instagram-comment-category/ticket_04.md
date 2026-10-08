@@ -135,7 +135,7 @@ After that, the Gate de IA runs unchanged. `get_status` reads the column with a 
 
 **1. Before writing code**
 
-- [ ] Read the merged code of 01 and 02. Note the real names of:
+- [x] Read the merged code of 01 and 02. Note the real names of:
   - the reusable escalation;
   - the per-category action table and how `comercial` is wired in it;
   - the point before the reservation where the category's DM prompt is read;
@@ -145,21 +145,21 @@ After that, the Gate de IA runs unchanged. `get_status` reads the column with a 
   - any helper 02 added to seed or restore prompt rows.
   
   Use those names everywhere below.
-- [ ] Follow the code comment rules in Context in everything this ticket writes.
+- [x] Follow the code comment rules in Context in everything this ticket writes.
 
 **2. The `reclamacao` entry**
 
-- [ ] In the action table in `app.services.instagram_welcome`, wire `reclamacao` the way 02 wired `comercial`, with DM prompt `instagram_welcome_dm_reclamacao` and no Resposta pública.
-- [ ] Reuse the comercial DM path as it is: placeholders, `_previous_conversation` turns, `DM_RESPONSE_FORMAT`, and `product` passed to `mark_pending`. Write no generation code for reclamação.
-- [ ] Make sure a reclamação never reaches `InstagramClient.reply_to_comment`.
-- [ ] Make sure a reclamação never requires `companies.instagram_public_reply` to be filled.
+- [x] In the action table in `app.services.instagram_welcome`, wire `reclamacao` the way 02 wired `comercial`, with DM prompt `instagram_welcome_dm_reclamacao` and no Resposta pública.
+- [x] Reuse the comercial DM path as it is: placeholders, `_previous_conversation` turns, `DM_RESPONSE_FORMAT`, and `product` passed to `mark_pending`. Write no generation code for reclamação.
+- [x] Make sure a reclamação never reaches `InstagramClient.reply_to_comment`.
+- [x] Make sure a reclamação never requires `companies.instagram_public_reply` to be filled.
 
 **3. Escalonamento no envio**
 
-- [ ] Make `InstagramWelcomeRepository.write_dm_to_session` return the `sessionId` of the Customer it already loads (`-> str`). Nothing else in the method changes.
-- [ ] In `handle_comment`, keep the existing write block and its `except` as they are.
-- [ ] Only when `write_dm_to_session` returned without raising and the category is `reclamacao`, await `escalate_helena_session(db, company_id, <the returned sessionId>)`. Import it at module top from `app.services.tools.internal.transfer`.
-- [ ] Wrap that call in its own `try/except Exception` with:
+- [x] Make `InstagramWelcomeRepository.write_dm_to_session` return the `sessionId` of the Customer it already loads (`-> str`). Nothing else in the method changes.
+- [x] In `handle_comment`, keep the existing write block and its `except` as they are.
+- [x] Only when `write_dm_to_session` returned without raising and the category is `reclamacao`, await `escalate_helena_session(db, company_id, <the returned sessionId>)`. Import it at module top from `app.services.tools.internal.transfer`.
+- [x] Wrap that call in its own `try/except Exception` with:
   - `logger.exception` naming the comment;
   - `db.rollback()` under `suppress(Exception)`;
   - `send_critical_alert("INSTAGRAM_ESCALATION_FAILED", "instagram_welcome.py:handle_comment", e, company_id=company_id, extra=f"comment={comment_id} media={media_id}")`.
@@ -168,97 +168,97 @@ After that, the Gate de IA runs unchanged. `get_status` reads the column with a 
 
 **4. Escalation at the matching**
 
-- [ ] In `HelenaService.process_webhook`, inside the matching `try`, add `if welcome.category == "reclamacao":` right after `self.welcome_repo.match(welcome, customer)` and its log line, before the `if is_own_dm:` return. Inside it:
+- [x] In `HelenaService.process_webhook`, inside the matching `try`, add `if welcome.category == "reclamacao":` right after `self.welcome_repo.match(welcome, customer)` and its log line, before the `if is_own_dm:` return. Inside it:
   - import `escalate_helena_session` from `app.services.tools.internal.transfer` (one-line comment: import cycle through the Helena package);
   - await `escalate_helena_session(self.db, company_id, session_id)`.
   
   Add one comment line for why it sits before the echo return.
-- [ ] Leave the rest of the matching block, its `except` and the Gate de IA block untouched.
+- [x] Leave the rest of the matching block, its `except` and the Gate de IA block untouched.
 
 **5. Seam 1 tests (`tests/test_instagram_route.py`)**
 
-- [ ] Add `helena_apikey` and `helena_assignee_id` of Company 5 to what `take_snapshot` reads and `restore_snapshot` writes back.
-- [ ] Add a helper that stamps both columns with test constants (`HELENA_APIKEY`, `ASSIGNEE_ID`).
-- [ ] Add a way to seed and remove the `instagram_welcome_dm_reclamacao` row for Company 5. Give it a distinct prompt text with the three placeholders and a distinct model (e.g. `gpt-test-reclamacao`). Include it in the snapshot and restore, like the other prompt rows.
-- [ ] In `_post_welcome`, also patch `app.services.tools.internal.transfer.send_critical_alert`, recording into the same `alerts` list.
-- [ ] Add an `assign_session` recorder in the mould of `patch_assign` from `tests/test_transfer_tool.py`, plus a raising variant.
-- [ ] Add a reader for `customers.status` of a session.
-- [ ] **Case reclamação.** Commenter without a Customer, category `reclamacao`, `assign_session` stubbed. Assert:
+- [x] Add `helena_apikey` and `helena_assignee_id` of Company 5 to what `take_snapshot` reads and `restore_snapshot` writes back.
+- [x] Add a helper that stamps both columns with test constants (`HELENA_APIKEY`, `ASSIGNEE_ID`).
+- [x] Add a way to seed and remove the `instagram_welcome_dm_reclamacao` row for Company 5. Give it a distinct prompt text with the three placeholders and a distinct model (e.g. `gpt-test-reclamacao`). Include it in the snapshot and restore, like the other prompt rows.
+- [x] In `_post_welcome`, also patch `app.services.tools.internal.transfer.send_critical_alert`, recording into the same `alerts` list.
+- [x] Add an `assign_session` recorder in the mould of `patch_assign` from `tests/test_transfer_tool.py`, plus a raising variant.
+- [x] Add a reader for `customers.status` of a session.
+- [x] **Case reclamação.** Commenter without a Customer, category `reclamacao`, `assign_session` stubbed. Assert:
   - `calls` are `get_media`, `send_private_reply` (with `DM_TEXT`) and `release_thread_control`, and there is no `reply_to_comment`;
   - there is exactly one generation call, with the complaint row's model, and the complaint prompt's fixed text is in its last `user` message;
   - the welcome is `pendente`;
   - `alerts == []`;
   - `assign_session` was not called.
-- [ ] **Case reclamação of an existing Customer.** Run `seed_customer(TEST_SESSION + "open", ...)`, stamp the Helena columns, category `reclamacao`. Assert:
+- [x] **Case reclamação of an existing Customer.** Run `seed_customer(TEST_SESSION + "open", ...)`, stamp the Helena columns, category `reclamacao`. Assert:
   - the session's last row is `("assistant", DM_TEXT)`;
   - that session's `status` is `False`;
   - there is exactly one `assign_session` call, `(TEST_SESSION + "open", ASSIGNEE_ID, HELENA_APIKEY)`;
   - there is no `reply_to_comment`;
   - `alerts == []`.
-- [ ] **Same case with `assign_session` raising.** Assert:
+- [x] **Same case with `assign_session` raising.** Assert:
   - `"HELENA_ASSIGN_FAILED"` is in `alerts`;
   - `status` is `False`;
   - the DM is still the last row of the session;
   - the welcome is `pendente`;
   - there is no `reply_to_comment`.
-- [ ] Register the three cases in `main()` inside the block where the Company is configured, which is covered by the `finally: restore_snapshot`.
+- [x] Register the three cases in `main()` inside the block where the Company is configured, which is covered by the `finally: restore_snapshot`.
 
 **6. Seam 2 tests (`tests/test_helena_route.py`)**
 
-- [ ] Add a keyword `category: str | None = None` to `seed_pending_welcome` and write it into the row. The default `None` keeps cases (m)–(u) as the old-row coverage.
-- [ ] Add an `ASSIGNEE_ID` constant, an `assign_session` recorder (the mould is `patch_assign` in `tests/test_transfer_tool.py`), a reader for `customers.status` of a session, and a helper that returns the `(role, content)` rows of a session (lift the query from case (r)).
-- [ ] **Case reclamação, first message of a new session.** Seed a welcome with `category="reclamacao"` and run `_run_recording(new_session_payload(sid, text=lead_text), [...])` with the recorder. Assert:
+- [x] Add a keyword `category: str | None = None` to `seed_pending_welcome` and write it into the row. The default `None` keeps cases (m)–(u) as the old-row coverage.
+- [x] Add an `ASSIGNEE_ID` constant, an `assign_session` recorder (the mould is `patch_assign` in `tests/test_transfer_tool.py`), a reader for `customers.status` of a session, and a helper that returns the `(role, content)` rows of a session (lift the query from case (r)).
+- [x] **Case reclamação, first message of a new session.** Seed a welcome with `category="reclamacao"` and run `_run_recording(new_session_payload(sid, text=lead_text), [...])` with the recorder. Assert:
   - `requests == []` and `sends == []`;
   - the session rows are `[("assistant", WELCOME_DM), ("user", lead_text)]`;
   - `status` is `False`;
   - the recorder holds exactly `[(sid, ASSIGNEE_ID, HELENA_APIKEY)]`.
-- [ ] **Case reclamação with the echo of our own DM** (`text=f" {WELCOME_DM}\n"`). Assert:
+- [x] **Case reclamação with the echo of our own DM** (`text=f" {WELCOME_DM}\n"`). Assert:
   - `requests == []` and `sends == []`;
   - the session rows are `[("assistant", WELCOME_DM)]`;
   - `status` is `False`;
   - there is one `assign_session` call for that session.
-- [ ] **Case today's behaviour.** For each of `"comercial"`, `"elogio"` and `None`, seed the welcome, send a lead message on a new session, and assert:
+- [x] **Case today's behaviour.** For each of `"comercial"`, `"elogio"` and `None`, seed the welcome, send a lead message on a new session, and assert:
   - one OpenAI request whose turns are `[("assistant", WELCOME_DM), ("user", lead_text)]`;
   - the stubbed reply was sent;
   - `assign_session` was not called;
   - `status` is `True`.
-- [ ] In `main()`, read Company 5's `helena_assignee_id` before stamping `ASSIGNEE_ID`. Run the three new cases after case (u) and restore the old value in a `finally`.
+- [x] In `main()`, read Company 5's `helena_assignee_id` before stamping `ASSIGNEE_ID`. Run the three new cases after case (u) and restore the old value in a `finally`.
 
 **7. Run**
 
-- [ ] Run `tests/test_instagram_route.py`, `tests/test_helena_route.py` and `tests/test_transfer_tool.py` against the disposable Postgres with `DATABASE_URL=<disposable> API_KEY=x ALERT_ENABLED=false`. Each must print its final OK line, not SKIPPED.
-- [ ] Confirm that `tests/test_transfer_tool.py` has no edits.
-- [ ] Run `ruff check` and `mypy` on the three changed app modules.
+- [x] Run `tests/test_instagram_route.py`, `tests/test_helena_route.py` and `tests/test_transfer_tool.py` against the disposable Postgres with `DATABASE_URL=<disposable> API_KEY=x ALERT_ENABLED=false`. Each must print its final OK line, not SKIPPED.
+- [x] Confirm that `tests/test_transfer_tool.py` has no edits.
+- [x] Run `ruff check` and `mypy` on the three changed app modules.
 
 **8. Docs (`docs/file_reference/`)**
 
-- [ ] In `app/services/services.md`, section `instagram_welcome.py`:
+- [x] In `app/services/services.md`, section `instagram_welcome.py`:
   - in the flow, the `reclamacao` entry (prompt `instagram_welcome_dm_reclamacao`, no Resposta pública);
   - after the session write step, the Escalonamento no envio: only for reclamação, only after a successful write, `escalate_helena_session` with the returned sessionId;
   - in "Falhas", `INSTAGRAM_ESCALATION_FAILED` (other failures, no undo) and `HELENA_ASSIGN_FAILED` (from the transfer module, AI off);
   - `escalate_helena_session` added to the dependencies.
-- [ ] In `app/helena/helena.md`:
+- [x] In `app/helena/helena.md`:
   - in step 6 of the `process_webhook` order and in "Casamento da Boas-vindas pendente", the escalation of a reclamação between `match` and the echo return, and its lazy import;
   - in the "Eco" paragraph, that the echo of a complaint DM still leaves the session escalated;
   - in "Falha", that an assignment failure only alerts while any other escalation failure falls into the existing `except`;
   - `escalate_helena_session` added to the dependencies.
-- [ ] In `app/repositories/repositories.md`: `write_dm_to_session` now returns the Customer's `sessionId`, in both the method table and its section. Add the escalation to "Usado por".
-- [ ] If `docs/` does not exist in your checkout (worktree), put the exact text of each edit in your final report instead.
+- [x] In `app/repositories/repositories.md`: `write_dm_to_session` now returns the Customer's `sessionId`, in both the method table and its section. Add the escalation to "Usado por".
+- [x] If `docs/` does not exist in your checkout (worktree), put the exact text of each edit in your final report instead.
 
 ## Acceptance criteria
 
-- [ ] A comment classified as `reclamacao` gets one DM generated from `instagram_welcome_dm_reclamacao`, and no Resposta pública is published.
-- [ ] The complaint DM gets the previous conversation of an existing Customer and the same placeholders as comercial, and returns `dm` + `product`. The product reaches the Boas-vindas pendente like comercial.
-- [ ] For a complainer who is already a Customer: right after the DM is written to their session, that session has `status=False` and is assigned in Helena to the Company's `helena_assignee_id`.
-- [ ] Same with the assignment failing: `HELENA_ASSIGN_FAILED` fires, `status` is `False`, and the DM is still in the session.
-- [ ] A complainer who is not a Customer causes no Helena call at send time.
-- [ ] The first Helena message of a new session that matches a reclamação Boas-vindas pendente: OpenAI is not called and nothing is sent. The ChatHistory holds the DM and then the lead's message. `status` is `False` and the session is assigned to the attendant.
-- [ ] A complaint's echo of our own DM: the session is escalated, the AI is not called, and the ChatHistory holds only the DM.
-- [ ] Welcomes with category `comercial`, `elogio` or null match as today: DM in the history, the AI answers, no assignment, `status` stays `True`.
-- [ ] A Company without attendant or Helena apikey still gets the AI turned off for the complainer, without an assignment. This comes from 01's function; no code here.
-- [ ] A Company without the `instagram_welcome_dm_reclamacao` row: a complaint sends nothing and writes nothing, and a later comment by the person on that post is still handled. This is 02's rule.
-- [ ] `tests/test_instagram_route.py` and `tests/test_helena_route.py` pass in full against a disposable database. `tests/test_transfer_tool.py` passes unchanged.
-- [ ] `docs/file_reference/` describes the reclamação entry, both escalation points and the new return of `write_dm_to_session`, or the final report carries that text.
+- [x] A comment classified as `reclamacao` gets one DM generated from `instagram_welcome_dm_reclamacao`, and no Resposta pública is published.
+- [x] The complaint DM gets the previous conversation of an existing Customer and the same placeholders as comercial, and returns `dm` + `product`. The product reaches the Boas-vindas pendente like comercial.
+- [x] For a complainer who is already a Customer: right after the DM is written to their session, that session has `status=False` and is assigned in Helena to the Company's `helena_assignee_id`.
+- [x] Same with the assignment failing: `HELENA_ASSIGN_FAILED` fires, `status` is `False`, and the DM is still in the session.
+- [x] A complainer who is not a Customer causes no Helena call at send time.
+- [x] The first Helena message of a new session that matches a reclamação Boas-vindas pendente: OpenAI is not called and nothing is sent. The ChatHistory holds the DM and then the lead's message. `status` is `False` and the session is assigned to the attendant.
+- [x] A complaint's echo of our own DM: the session is escalated, the AI is not called, and the ChatHistory holds only the DM.
+- [x] Welcomes with category `comercial`, `elogio` or null match as today: DM in the history, the AI answers, no assignment, `status` stays `True`.
+- [x] A Company without attendant or Helena apikey still gets the AI turned off for the complainer, without an assignment. This comes from 01's function; no code here.
+- [x] A Company without the `instagram_welcome_dm_reclamacao` row: a complaint sends nothing and writes nothing, and a later comment by the person on that post is still handled. This is 02's rule.
+- [x] `tests/test_instagram_route.py` and `tests/test_helena_route.py` pass in full against a disposable database. `tests/test_transfer_tool.py` passes unchanged.
+- [x] `docs/file_reference/` describes the reclamação entry, both escalation points and the new return of `write_dm_to_session`, or the final report carries that text.
 
 ## Out of scope
 

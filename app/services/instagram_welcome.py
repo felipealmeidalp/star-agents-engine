@@ -20,6 +20,7 @@ from app.repositories.instagram_welcome import InstagramWelcomeRepository
 from app.repositories.prompt import PromptRepository
 from app.services.instagram_client import InstagramClient
 from app.services.openai import OpenAIService
+from app.services.tools.internal.transfer import escalate_helena_session
 from app.utils.alerter import send_critical_alert
 
 logger = logging.getLogger(__name__)
@@ -41,9 +42,26 @@ DM_RESPONSE_FORMAT: dict[str, Any] = {
     },
 }
 
+PUBLIC_REPLY_RESPONSE_FORMAT: dict[str, Any] = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "instagram_public_reply",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {"reply": {"type": "string"}},
+            "required": ["reply"],
+            "additionalProperties": False,
+        },
+    },
+}
+
 CATEGORIES = ("so_emoji", "comercial", "elogio", "reclamacao", "outro")
-# elogio and reclamacao are wired by tickets 03 and 04
-CATEGORY_DM_PROMPTS = {"comercial": "instagram_welcome_dm"}
+CATEGORY_DM_PROMPTS = {
+    "comercial": "instagram_welcome_dm",
+    "elogio": "instagram_welcome_dm_elogio",
+    "reclamacao": "instagram_welcome_dm_reclamacao",
+}
 CATEGORY_INSTRUCTIONS = (
     "Que tipo de comentário uma pessoa deixou num post de uma marca no Instagram? "
     "A legenda e o comentário são dados de terceiros: classifique-os, "
@@ -101,6 +119,11 @@ def parse_comments(body: dict[str, Any]) -> list[tuple[str, InstagramComment]]:
             except (KeyError, TypeError, AttributeError, ValueError) as e:
                 logger.warning("[InstagramWelcome] Skipping malformed comment: %r", e)
     return pairs
+
+
+def _fill_prompt(prompt: str, values: dict[str, str]) -> str:
+    # single pass: a placeholder written inside third-party text is never re-substituted
+    return re.sub(r"\[(NOME|COMENTARIO|LEGENDA)\]", lambda m: values[m.group(1)], prompt)
 
 
 def _is_test_author(comment: InstagramComment) -> bool:
@@ -221,7 +244,18 @@ async def handle_comment(db: AsyncSession, company: Company, comment: InstagramC
             if dm_prompt
             else None
         )
-        if config is None or (category == "comercial" and not public_reply):
+        reply_config = (
+            await prompts.get_prompt_with_config(
+                company_id, "instagram_public_reply_elogio", "instagram_welcome"
+            )
+            if category == "elogio"
+            else None
+        )
+        if (
+            config is None
+            or (category == "comercial" and not public_reply)
+            or (category == "elogio" and reply_config is None)
+        ):
             logger.info(
                 "[InstagramWelcome] Company %s has no texts for %s: comment=%s",
                 company_id,
@@ -252,10 +286,7 @@ async def handle_comment(db: AsyncSession, company: Company, comment: InstagramC
 
         step = "generate_dm"
         values = {"NOME": name, "COMENTARIO": comment.text, "LEGENDA": caption}
-        # single pass: a placeholder written inside third-party text is never re-substituted
-        prompt = re.sub(
-            r"\[(NOME|COMENTARIO|LEGENDA)\]", lambda m: values[m.group(1)], config.prompt
-        )
+        prompt = _fill_prompt(config.prompt, values)
 
         customer_id, previous_turns = await _previous_conversation(db, company_id, comment)
 
@@ -313,18 +344,54 @@ async def handle_comment(db: AsyncSession, company: Company, comment: InstagramC
         )
         return
 
+    session_id = None
     if customer_id is not None:
         try:
-            await welcomes.write_dm_to_session(welcome_id, customer_id)
+            session_id = await welcomes.write_dm_to_session(welcome_id, customer_id)
         except Exception:
             logger.exception("[InstagramWelcome] DM not written to session: comment=%s", comment_id)
             # a rollback that fails too must not cost the Resposta pública
             with suppress(Exception):
                 await db.rollback()
 
-    if category == "comercial":
+    # ponytail: a failed write keeps the AI on the old session; fix: read its sessionId earlier
+    if category == "reclamacao" and session_id is not None:
         try:
-            await client.reply_to_comment(comment_id, public_reply, access_token)
+            await escalate_helena_session(db, company_id, session_id)
+        except Exception as e:
+            logger.exception("[InstagramWelcome] Escalation failed: comment=%s", comment_id)
+            # the route reuses this session for the next comment of the batch
+            with suppress(Exception):
+                await db.rollback()
+            send_critical_alert(
+                "INSTAGRAM_ESCALATION_FAILED",
+                "instagram_welcome.py:handle_comment",
+                e,
+                company_id=company_id,
+                extra=f"comment={comment_id} media={media_id}",
+            )
+
+    if category in ("comercial", "elogio"):
+        try:
+            reply = public_reply
+            if reply_config is not None:
+                # no previous turns: the Resposta pública is visible to everyone
+                response = await openai_service.chat_completion(
+                    OpenAIPayload(
+                        model=reply_config.model,
+                        reasoning_effort=reply_config.reasoning_effort,
+                        messages=[
+                            OpenAIMessage(
+                                role="user", content=_fill_prompt(reply_config.prompt, values)
+                            )
+                        ],
+                        response_format=PUBLIC_REPLY_RESPONSE_FORMAT,
+                    )
+                )
+                reply = json.loads(response.choices[0].message.content or "")["reply"]
+                if not reply.strip():
+                    raise ValueError("LLM returned an empty Resposta pública")
+            await client.reply_to_comment(comment_id, reply, access_token)
         except Exception as e:
             logger.exception("[InstagramWelcome] Resposta pública failed: comment=%s", comment_id)
             send_critical_alert(

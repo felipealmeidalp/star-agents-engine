@@ -190,6 +190,12 @@ class HelenaService:
                         session_id,
                         company_id,
                     )
+                    # before the echo return: our own DM must leave the session escalated too
+                    if welcome.category == "reclamacao":
+                        # import cycle: the transfer module loads the Helena package
+                        from app.services.tools.internal.transfer import escalate_helena_session
+
+                        await escalate_helena_session(self.db, company_id, session_id)
                     if is_own_dm:
                         logger.info(
                             "[HelenaService] Incoming message of session %s is our own "

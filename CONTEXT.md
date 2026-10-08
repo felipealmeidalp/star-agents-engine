@@ -37,11 +37,11 @@ Regra que espaça as várias mensagens de uma resposta da IA para simular digita
 Registro das mensagens da conversa (`chat_history`), chaveado por `sessionId`. Guarda role, content, tool_calls e métricas de token.
 
 **Gate de IA**:
-O booleano `customers.status` (default `True`) que decide se a IA responde aquele Customer. `True` = IA ativa; `False` = transferido para humano, IA silenciada. O serviço de cada canal checa esse campo antes de chamar a IA e, se `False`, salva a mensagem do lead, atualiza follow-up e retorna sem responder. Quem desliga (`status=False`) é a tool [[Escalonamento humano]]; religar (`status=True`) hoje é manual, direto no banco.
+O booleano `customers.status` (default `True`) que decide se a IA responde aquele Customer. `True` = IA ativa; `False` = transferido para humano, IA silenciada. O serviço de cada canal checa esse campo antes de chamar a IA e, se `False`, salva a mensagem do lead, atualiza follow-up e retorna sem responder. Quem desliga (`status=False`) é o [[Escalonamento humano]]; religar (`status=True`) hoje é manual, direto no banco.
 _Avoid_: ai_enabled, flag de IA, on/off (o campo é `status`, um booleano por Customer — não confundir com `Agent.status`, que é a string `"dev"`/`"demo"` dos dev commands)
 
 **Escalonamento humano**:
-A tool interna `transfer_to_human`, que tira a conversa da IA e passa para um atendente. Sempre liga o [[Gate de IA]] (`status=False`); além disso, por canal, sinaliza ao CRM que um humano deve assumir. No Chatwoot: troca labels (`atendimento-ia` → `atendimento-humano`) e atribui a um humano aleatório do time (`Agent.responsible_team`). No Helena: atribui a sessão a um atendente fixo por empresa (`companies.helena_assignee_id`) via `PUT /chat/v1/session/{sessionId}/assignee` com `stopBotInExecution:true`.
+Tirar a conversa da IA e passar para um atendente. Acontece pela tool interna `transfer_to_human`, quando a IA decide, ou automaticamente no casamento de uma [[Boas-vindas pendente]] de categoria reclamação, sem a IA participar. Sempre liga o [[Gate de IA]] (`status=False`); além disso, por canal, sinaliza ao CRM que um humano deve assumir. No Chatwoot: troca labels (`atendimento-ia` → `atendimento-humano`) e atribui a um humano aleatório do time (`Agent.responsible_team`). No Helena: atribui a sessão a um atendente fixo por empresa (`companies.helena_assignee_id`) via `PUT /chat/v1/session/{sessionId}/assignee` com `stopBotInExecution:true`.
 _Avoid_: transferência, handoff, transbordo
 
 **Canal (no contexto da tool)**:
@@ -52,11 +52,15 @@ Mídia que o lead envia junto ou no lugar do texto (áudio, imagem, vídeo, arqu
 _Avoid_: mídia, attachment (no código a lista é `attachments`), arquivo (que aqui é um subtipo de anexo)
 
 **Comentário elegível**:
-Comentário de primeiro nível feito por outra pessoa num post do Instagram da Company, o primeiro daquela pessoa naquele post. É o único que dispara [[Resposta pública]] e [[DM de boas-vindas]]. Comentários da própria conta, respostas a outros comentários e repetições da mesma pessoa no mesmo post não são elegíveis.
+Comentário de primeiro nível feito por outra pessoa num post do Instagram da Company, por alguém que ainda não recebeu [[DM de boas-vindas]] naquele post. É o único que passa pela [[Categoria do comentário]]. Comentários da própria conta, respostas a outros comentários e comentários de quem já recebeu a DM naquele post não são elegíveis.
 _Avoid_: menção, interação, engajamento
 
+**Categoria do comentário**:
+A classe que a Decisions API da OpenAI escolhe para um [[Comentário elegível]], de uma lista fixa no código, e que decide o que o engine faz: **só emoji** e **outro** não recebem nada; **comercial** e **elogio** recebem [[DM de boas-vindas]] e [[Resposta pública]]; **reclamação** recebe só a DM e vai para [[Escalonamento humano]] quando a pessoa responde. Só a lista de categorias vive no código: categoria nova exige código. Os textos que a Decisions usa para escolher e os prompts que escrevem para cada categoria vivem no banco, por Company.
+_Avoid_: intenção, sentimento, tipo de comentário
+
 **DM de boas-vindas**:
-A mensagem direta única que o engine envia pela API da Meta a quem fez um [[Comentário elegível]], gerada por LLM a partir de um prompt da Company que recebe o @username e a legenda do post. Sai por fora do [[Helena]]; a conversa que nasce quando a pessoa responde segue pelo canal Helena.
+A mensagem direta única que o engine envia pela API da Meta a quem fez um [[Comentário elegível]] de categoria comercial, elogio ou reclamação, gerada por LLM a partir do prompt da Company para aquela [[Categoria do comentário]]. Sai por fora do [[Helena]]; a conversa que nasce quando a pessoa responde segue pelo canal Helena.
 _Avoid_: private reply (termo da Meta, só na fronteira com a API), mensagem ativa, primeira mensagem
 
 **Boas-vindas pendente**:
@@ -68,7 +72,7 @@ O que o engine sabe sobre de onde o Customer veio quando a conversa nasce de um 
 _Avoid_: UTM, fonte, campanha
 
 **Resposta pública**:
-O texto fixo, um por Company, que o engine publica como resposta ao [[Comentário elegível]]. Só é publicada depois que a [[DM de boas-vindas]] saiu com sucesso.
+O texto que o engine publica embaixo de um [[Comentário elegível]] de categoria comercial ou elogio. No comercial é o texto fixo da Company ("te enviei direct"); no elogio é gerado pelo LLM a partir de um prompt próprio. Só é publicada depois que a [[DM de boas-vindas]] saiu com sucesso.
 _Avoid_: reply, comentário automático
 
 **Produto**:

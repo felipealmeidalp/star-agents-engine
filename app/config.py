@@ -49,6 +49,13 @@ class Settings(BaseSettings):
     meta_forward_timeout: int = 10     # Timeout forward pro Chatwoot (s)
     meta_cache_ttl: int = 300          # TTL cache imbox/company no Redis (5min)
 
+    # Instagram comments webhook (app próprio da Meta, não o do proxy de WhatsApp)
+    instagram_app_secret: str = ""     # Segredo que assina X-Hub-Signature-256
+    instagram_verify_token: str = ""   # hub.verify_token para verificação GET
+    instagram_dm_dev_mode: bool = False  # True = só o autor de teste recebe boas-vindas
+    ig_test_account_id: str = ""       # id do autor (from.id do evento) liberado no dev mode
+    ig_test_username: str = ""         # ou o username dele, para perfil que nunca interagiu
+
     # Helena channel (base URL fixa; token/apikey são per-tenant em companies).
     # Envio é por sessão: POST {helena_base_url}/v1/session/{id}/message.
     helena_base_url: str = "https://api.chat.fabriks.com.br/chat"
@@ -60,6 +67,12 @@ class Settings(BaseSettings):
     alert_evo_instance: str = "report"
     alert_phone_number: str = "5551995567237"
     alert_rate_limit_seconds: int = 300  # 5 minutos
+
+    # Product sync (loop semanal)
+    # desligado até o sync entrar em uso: nem loop de sábado nem endpoint manual rodam
+    product_sync_enabled: bool = False
+    # sábado 00:00 no fuso do dono; container é UTC, daí o tz explícito
+    product_sync_timezone: str = "America/Sao_Paulo"
 
     # Internal (não exposto no .env)
     tool_execution_timeout: int = 300  # 5 minutos

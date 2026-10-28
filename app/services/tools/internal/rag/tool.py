@@ -10,7 +10,7 @@ from app.models.schemas import ToolExecutionContext, ToolResult
 from app.repositories.agent import AgentRepository
 from app.repositories.customer import CustomerRepository
 from app.repositories.objection import ObjectionRepository
-from app.repositories.prompt import PromptRepository
+from app.repositories.prompt import PromptRepository, PromptWithConfig
 from app.services.tool_handler import BaseTool
 from app.utils.alerter import send_critical_alert
 
@@ -18,6 +18,13 @@ from .embedding import EmbeddingService
 from .vector_search import VectorSearchService
 
 logger = logging.getLogger(__name__)
+
+
+def _sampling(config: PromptWithConfig) -> dict[str, Any]:
+    # Reasoning models reject temperature, gpt-4.x rejects reasoning_effort: send only one
+    if config.reasoning_effort:
+        return {"reasoning_effort": config.reasoning_effort}
+    return {"temperature": config.temperature}
 
 
 class ClassificationResult(TypedDict):
@@ -135,8 +142,7 @@ class RagTool(BaseTool):
                     classification = await self._classify_question(
                         client=openai_client,
                         prompt=filled_prompt,
-                        model=classification_config.model,
-                        temperature=classification_config.temperature,
+                        config=classification_config,
                     )
 
                     logger.info(
@@ -283,8 +289,7 @@ class RagTool(BaseTool):
             summary_result = await self._summarize_with_decision(
                 client=openai_client,
                 prompt=filled_summary_prompt,
-                model=summary_config.model,
-                temperature=summary_config.temperature,
+                config=summary_config,
             )
 
             # 14. Se o agente decidiu que o RAG não responde → tentar roteamento
@@ -406,7 +411,7 @@ class RagTool(BaseTool):
             # 6. Chamar OpenAI com JSON Schema
             response = await openai_client.chat.completions.create(
                 model=routing_config.model,
-                temperature=routing_config.temperature,
+                **_sampling(routing_config),
                 messages=[{"role": "user", "content": filled_prompt}],
                 response_format={
                     "type": "json_schema",
@@ -584,7 +589,7 @@ class RagTool(BaseTool):
             # 6. Call OpenAI with JSON Schema response
             response = await openai_client.chat.completions.create(
                 model=objection_prompt_config.model,
-                temperature=objection_prompt_config.temperature,
+                **_sampling(objection_prompt_config),
                 messages=[
                     {"role": "user", "content": filled_prompt},
                 ],
@@ -655,6 +660,7 @@ class RagTool(BaseTool):
                 reason=generated["reason"],
                 model=objection_prompt_config.model,
                 temperature=objection_prompt_config.temperature,
+                reasoning_effort=objection_prompt_config.reasoning_effort,
             )
 
             # 8. Update customer with variable_prompt_id
@@ -783,8 +789,7 @@ class RagTool(BaseTool):
         self,
         client: AsyncOpenAI,
         prompt: str,
-        model: str,
-        temperature: float,
+        config: PromptWithConfig,
     ) -> ClassificationResult:
         """
         Classify question as 'obj' or 'faq' using structured output with chain-of-thought.
@@ -795,15 +800,14 @@ class RagTool(BaseTool):
         Args:
             client: OpenAI async client
             prompt: Formatted classification prompt with objection titles
-            model: Model name from config
-            temperature: Temperature from config
+            config: Prompt config (model, temperature, reasoning_effort)
 
         Returns:
             ClassificationResult with result, objection_ids, and reasoning
         """
         response = await client.chat.completions.create(
-            model=model,
-            temperature=temperature,
+            model=config.model,
+            **_sampling(config),
             messages=[
                 {"role": "user", "content": prompt},
             ],
@@ -851,8 +855,7 @@ class RagTool(BaseTool):
         self,
         client: AsyncOpenAI,
         prompt: str,
-        model: str,
-        temperature: float,
+        config: PromptWithConfig,
     ) -> dict[str, Any]:
         """
         Summarize FAQ content and decide if the RAG results answer the question.
@@ -863,18 +866,17 @@ class RagTool(BaseTool):
         Args:
             client: OpenAI async client
             prompt: Formatted summary prompt with RAG results
-            model: Model name from config
-            temperature: Temperature from config
+            config: Prompt config (model, temperature, reasoning_effort)
 
         Returns:
             Dict with 'has_answer' (bool) and 'response' (str)
         """
         response = await client.chat.completions.create(
-            model=model,
+            model=config.model,
             messages=[
                 {"role": "user", "content": prompt},
             ],
-            temperature=temperature,
+            **_sampling(config),
             response_format={
                 "type": "json_schema",
                 "json_schema": {

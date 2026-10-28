@@ -108,6 +108,41 @@ class CompanyRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_by_instagram_account_id(self, instagram_account_id: str) -> Company | None:
+        """Find company by the Instagram account id that comes in comment events."""
+        result = await self.db.execute(
+            select(Company).where(Company.instagram_account_id == instagram_account_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def list_with_instagram(self) -> list[Company]:
+        """Companies whose Instagram account id and access token are both filled."""
+        result = await self.db.execute(
+            # != "" also drops NULL: in SQL, NULL != '' is not true
+            select(Company).where(
+                Company.instagram_account_id != "",
+                Company.instagram_access_token != "",
+            )
+        )
+        return list(result.scalars())
+
+    async def update_instagram_access_token(self, company_id: int, access_token: str) -> None:
+        """Overwrite the Instagram access token of one Company."""
+        try:
+            await self.db.execute(
+                update(Company)
+                .where(Company.id == company_id)
+                .values(instagram_access_token=access_token)
+            )
+            await self.db.commit()
+        except Exception as err:
+            await self.db.rollback()
+            # not a bare raise: SQLAlchemy's message quotes the statement parameters, the token
+            raise RuntimeError(
+                f"Company {company_id}: saving the Instagram access token failed "
+                f"({type(err).__name__})"
+            ) from None
+
     async def get_by_id(self, company_id: int) -> Company | None:
         """
         Buscar company por ID.

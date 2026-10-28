@@ -1,0 +1,519 @@
+# Catálogo de Produtos 7Ball
+
+> Base de conhecimento para qualificação de leads.
+> Marca única: **7Ball** — jogos, lazer e mobiliário de alto padrão.
+> 55 produtos. Fonte: 7ball.com.br · Extraído em 21/07/2026.
+
+## 1. Sobre a marca
+
+**7Ball** — mesas de jogos e mobiliário de lazer de alto padrão. Público: residências de alto padrão, apartamentos, áreas de lazer, salas de jogos, coberturas, clubes e condomínios. Produtos são peças de design que combinam entretenimento e decoração.
+
+**Palavras-chave de intenção:** sinuca, bilhar, mesa de sinuca, jantar e sinuca, pebolim, totó, tênis de mesa, ping pong, air hockey, futmesa, carteado, pôquer, sala de jogos, área de lazer, mesa de jantar, cadeira, banco, decoração, mobiliário.
+
+---
+
+## 2. Taxonomia 7Ball
+
+Produtos 7Ball são classificados por **TIPO** (o que é) e por **LINHA** (coleção de design). Um produto pode pertencer a mais de um tipo (ex: uma mesa que é 'Jantar & Sinuca' também aparece em 'Mesa de Sinuca').
+
+### 2.1 Tipos (segmentos) 7Ball
+
+> Cada tipo tem um **slug de categoria** proprio, usado quando o cliente
+> confirma o interesse na categoria mas nao escolhe um modelo especifico.
+
+- **Mesa de Sinuca** (55 produtos) — Mesas de sinuca/bilhar tradicionais. Núcleo da marca.
+  - Produtos: CAPRI, DOHA, ELEGANCE, IRON, LIVERPOOL, NEW MILÃO, PARIS, ROMA, SANTORINI, VERONA, XTREME EDGE, ZURICH
+  - *Slug de categoria:* `mesa-sinuca`
+- **Jantar & Sinuca** (8 produtos) — Mesas 2-em-1: viram mesa de jantar com tampo removível sobre a mesa de sinuca. Ideal para apartamentos e espaços compactos.
+  - Produtos: CAPRI, DOHA, ELEGANCE, IRON, PARIS, SANTORINI, VERONA, XTREME EDGE
+  - *Slug de categoria:* `jantar-e-sinuca`
+- **Essentials** (6 produtos) — Acessórios e complementos: tacos, bolas, raquetes, capas, taqueiras, alvos.
+  - Produtos: ACESSÓRIOS, ALVO SISAL, CAPAS, P. TAMPO LÍNEA, TAQUEIRA CHÃO LÍNEA, TAQUEIRA LÍNEA
+  - *Slug de categoria:* `complementos`
+- **Cadeiras** (6 produtos) — Cadeiras de design (mobiliário, linha Decor).
+  - Produtos: AGATA, AIDA, LAURA, MUSA, NEW PURE, SARDENHA
+  - *Slug de categoria:* `cadeiras`
+- **Tênis de Mesa** (5 produtos) — Mesas de ping pong / tênis de mesa.
+  - Produtos: DOBRÁVEL TINGIDO, ELEGANCE GOURMET, FIXO, OUTSIDE, TAMPO TINGIDO
+  - *Slug de categoria:* `tenis-de-mesa`
+- **Carteado** (5 produtos) — Mesas para jogos de carta / pôquer.
+  - Produtos: IRON, MONACO OVAL, MONACO REDONDA, SINGAPURA OVAL, SINGAPURA REDONDA
+  - *Slug de categoria:* `carteado`
+- **Pebolim** (4 produtos) — Mesas de pebolim (totó / futebol de mesa).
+  - Produtos: CALIFÓRNIA, ELEGANCE, IRON, MILÃO
+  - *Slug de categoria:* `pebolim`
+- **Futmesa** (2 produtos) — Mesas de futmesa (futevôlei de mesa).
+  - Produtos: DOBRÁVEL, FIXO
+  - *Slug de categoria:* `futmesa`
+- **Air Hockey** (2 produtos) — Mesas de air hockey (hóquei de mesa).
+  - Produtos: ELEGANCE, IRON
+  - *Slug de categoria:* `air-hockey`
+- **Bancos** (1 produtos) — Bancos de design (mobiliário).
+  - Produtos: BANCOS QUAD
+  - *Slug de categoria:* `bancos`
+
+### 2.2 Linhas (coleções de design) 7Ball
+
+- **Icon** (12) — Linha icônica — modelos clássicos e mais reconhecidos.: CALIFÓRNIA, DOHA, LIVERPOOL, MILÃO, MONACO OVAL, MONACO REDONDA, NEW MILÃO, SANTORINI, SINGAPURA OVAL, SINGAPURA REDONDA, VERONA, ZURICH
+- **Decor** (7) — Linha Decor — mobiliário (cadeiras e bancos).: AGATA, AIDA, BANCOS QUAD, LAURA, MUSA, NEW PURE, SARDENHA
+- **Arena** (6) — Linha Arena — tênis de mesa e futmesa (dobrável, fixo, outside).: DOBRÁVEL, DOBRÁVEL TINGIDO, ELEGANCE GOURMET, FIXO, OUTSIDE, TAMPO TINGIDO
+- **Form** (3) — Linha Form — design.: CAPRI, IRON, ROMA
+- **Aura** (3) — Linha Aura — sofisticação.: ELEGANCE, PARIS, XTREME EDGE
+
+---
+
+---
+
+## 3. Catálogo 7Ball — fichas de produto
+
+#### ACESSÓRIOS
+**Tipo:** Essentials · **Categoria:** Acessórios
+Complemente sua experiência de jogo com os acessórios 7ball! Aqui você encontra uma seleção de alto padrão de produtos que elevam sua performance e garantem partidas ainda mais emocionantes. Seja para aprimorar seu jogo ou para ter sempre o melhor equipamento à disposição, aqui você encontra tudo o que precisa. Entre em contato com nossos especialistas e conheça todas as opções.
+*Destaques:* Tacos, Bolas, Raquetes
+*Slug:* `acessorios`
+*Link:* https://7ball.com.br/produtos/acessorios/
+
+#### AGATA
+**Tipo:** Cadeiras · **Linha:** Decor · **Categoria:** Cadeira
+A cadeira ÁGATA é a união ideal entre forma, funcionalidade e estilo. Seu encosto curvo estofado abraça delicadamente as costas, proporcionando conforto e um visual acolhedor. Com estrutura em madeira maciça e acabamento refinado, a ÁGATA é perfeita para quem deseja compor ambientes com leveza visual e sofisticação. Seu design compacto e ergonômico permite a utilização em salas de jantar, cafeterias, escritórios, áreas gourmet ou ambientes comerciais, ocupando pouco espaço e entregando grande impacto estético.
+*Destaques:* Elegante, Design Versátil, Acabamento feito a mão
+*Slug:* `agata`
+*Link:* https://7ball.com.br/produtos/agata/
+
+#### AIDA
+**Tipo:** Cadeiras · **Linha:** Decor · **Categoria:** Cadeira
+As cadeiras AIDA são o equilíbrio ideal entre conforto, estilo e funcionalidade. Com linhas suaves, encosto envolvente e acabamento de alto padrão, elas traduzem o design contemporâneo com um toque de sofisticação atemporal. Seja com ou sem braços, cada modelo oferece uma experiência única de ergonomia e elegância. Disponíveis nas versões giratória ou fixa, as cadeiras AIDA se adaptam perfeitamente a diferentes propostas de uso – da sala de jantar à mesa de reunião, do espaço gourmet ao escritório executivo. A base em madeira com pés angulados traz originalidade ao visual e firmeza na estrutur
+*Slug:* `aida`
+*Link:* https://7ball.com.br/produtos/aida/
+
+#### ALVO SISAL
+**Tipo:** Essentials · **Categoria:** Acessórios
+Eleve sua experiência no jogo de dardos com o Alvo de Sisal 7ball. Produzido com fibras de sisal de alta densidade, ele garante maior durabilidade e um fechamento rápido dos furos, proporcionando partidas mais precisas e justas. Seu acabamento de alto padrão e design profissional fazem dele a escolha ideal tanto para jogadores casuais quanto para competidores exigentes.
+*Destaques:* Lançamento 2024, Sisal autovedante, Acabamento feito a mão
+*Slug:* `alvo-sisal`
+*Link:* https://7ball.com.br/produtos/alvo-sisal/
+
+#### BANCOS QUAD
+**Tipo:** Bancos · **Linha:** Decor · **Categoria:** Bancos
+Os bancos Quad Prancha e Quad Ripado foram criados para oferecer funcionalidade, durabilidade e muito estilo em qualquer ambiente. Com estrutura robusta em aço e assentos em madeira de acabamento natural, essas peças unem o rústico e o industrial com maestria. O Banco Quad Prancha apresenta tampo liso em madeira maciça, ideal para quem busca uma estética limpa, contínua e sofisticada. Já o Banco Quad Ripado traz um visual mais descontraído e artesanal, com réguas de madeira que adicionam textura e dinamismo ao design. Versáteis, ambos os modelos são perfeitos para áreas externas cobertas, vara
+*Destaques:* Elegante, Minimalista, Acabamento feito a mão
+*Slug:* `bancos-quad`
+*Link:* https://7ball.com.br/produtos/bancos-quad/
+
+#### CALIFÓRNIA
+**Tipo:** Pebolim · **Linha:** Icon · **Categoria:** Pebolim
+O Pebolim Califórnia surpreende pela presença marcante, redefinindo a percepção sobre mesas de entretenimento e elevando seu potencial decorativo. Seu design escultural e futurista rompe com os padrões tradicionais, transformando-se em uma peça de destaque que personaliza e valoriza o ambiente. Sua estrutura curva e imponente cria um efeito dinâmico e fluído, garantindo leveza visual sem perder a imponência. Esse equilíbrio permite que o Pebolim Califórnia se integre perfeitamente a espaços contemporâneos com exclusividade e sofisticação. Mais do que um jogo, esta peça se torna
+*Destaques:* Impacto Visual, Design Escultural, Acabamento feito a mão
+*Slug:* `pebolim-california`
+*Link:* https://7ball.com.br/produtos/pebolim-california/
+
+#### CAPAS
+**Tipo:** Essentials · **Categoria:** Acessórios
+Proteja sua mesa com estilo e durabilidade com as capas de proteção 7ball! Desenvolvidas para preservar a beleza e a integridade da sua mesa de sinuca, tênis de mesa ou futmesa, nossas capas são confeccionadas com materiais de alta qualidade, garantindo resistência contra poeira, umidade e impactos leves. Além de proteger, elas agregam sofisticação ao seu ambiente, mantendo sua mesa sempre impecável para os momentos de lazer. Escolha a capa ideal para o seu modelo e tenha mais segurança e conservação para o seu investimento. Fale com nossos especialistas e conheça todas as opções!
+*Destaques:* Costura automotiva, Alta durabilidade, Acabamento feito a mão
+*Slug:* `capas`
+*Link:* https://7ball.com.br/produtos/capas/
+
+#### CAPRI
+**Tipo:** Jantar & Sinuca, Mesa de Sinuca · **Linha:** Form · **Categoria:** Mesa de Sinuca e Jantar
+Inspirada na beleza e fluidez da ilha de Capri, esta mesa combina design minimalista com elegância discreta. Suas linhas delicadas e proporções equilibradas criam uma peça leve, perfeita para compor ambientes sem sobrecarregar visualmente o espaço. A Mesa Capri se destaca pela versatilidade, adaptando-se a diversos estilos de decoração. Com um design que convida a ficar e compartilhar bons momentos, é a escolha ideal para quem busca beleza, praticidade e sofisticação atemporal no dia a dia
+*Destaques:* Lançamento 2025, Sofisticação Leve e Atemporal, Acabamento feito a mão
+*Slug:* `jantar-e-sinuca-capri`
+*Link:* https://7ball.com.br/produtos/jantar-e-sinuca-capri/
+
+#### CAPRI (Mesa de Sinuca)
+**Tipo:** Mesa de Sinuca · **Linha:** Form · **Categoria:** Mesa de Sinuca
+Inspirada na beleza e fluidez da ilha de Capri, esta mesa combina design minimalista com elegância discreta. Suas linhas delicadas e proporções equilibradas criam uma peça leve, perfeita para compor ambientes sem sobrecarregar visualmente o espaço.
+A Mesa Capri se destaca pela versatilidade, adaptando-se a diversos estilos de decoração. Com um design que convida a ficar e compartilhar bons momentos, é a escolha ideal para quem busca beleza, praticidade e sofisticação atemporal no dia a dia
+*Destaques:* Pés em madeira maciça, Sapatas niveladoras ultra resistente, Caçapas embutidas que mantém o design moderno sem atrapalhar na performance do jogo
+*Slug:* `sinuca-capri`
+*Link:* https://7ball.com.br/produtos/sinuca-capri/
+
+#### DOBRÁVEL
+**Tipo:** Futmesa · **Linha:** Arena · **Categoria:** Futmesa
+O Futmesa Dobrável é a escolha ideal para quem busca diversão e dinamismo em qualquer ambiente. Projetado para proporcionar momentos inesquecíveis entre amigos e família, esse modelo combina resistência, inovação e praticidade, sem abrir mão do design sofisticado. Com um sistema dobrável inteligente, o Futmesa otimiza o espaço quando não está em uso, facilitando o transporte e armazenamento. Seu design funcional permite que o jogo aconteça em diferentes locais, seja em áreas de lazer, ambientes corporativos ou espaços ao ar livre. A estrutura robusta garante estabilidade e dura
+*Destaques:* Entretenimento e Praticidade, Design Versátil, Acabamento feito a mão
+*Slug:* `futmesa-dobravel`
+*Link:* https://7ball.com.br/produtos/futmesa-dobravel/
+
+#### DOBRÁVEL TINGIDO
+**Tipo:** Tênis de Mesa · **Linha:** Arena · **Categoria:** Tênis de Mesa
+O Tênis de Mesa Dobrável Tingido é a escolha ideal para quem busca um produto prático, versátil e de fácil manuseio, sem abrir mão da qualidade e do design. Ele combina resistência, sofisticação e durabilidade, proporcionando uma experiência de jogo profissional em qualquer ambiente. Sua estrutura robusta conta com pés em aço e um eficiente sistema de trava de segurança, garantindo máxima estabilidade durante as partidas e o transporte. Com um design dobrável em formato sanduíche, ele otimiza o espaço, permitindo armazenamento prático sem comprometer a estética do local. Al
+*Destaques:* Inovador e de Alto Desempenho, Design Versátil, Acabamento feito a mão
+*Slug:* `tenis-de-mesa-dobravel-tingido`
+*Link:* https://7ball.com.br/produtos/tenis-de-mesa-dobravel-tingido/
+
+#### DOHA
+**Tipo:** Mesa de Sinuca, Jantar & Sinuca · **Linha:** Icon · **Categoria:** Mesa de Sinuca e Jantar
+Elegância e Sofisticação A Mesa Doha é a perfeita fusão de design leve e encorpado, projetada para se integrar ao ambiente de maneira harmoniosa, sem chamar atenção excessiva. Suas linhas curvas e alinhadas, combinadas com cortes sutis nas bases, conferem um toque de sofisticação discreta, equilibrando leveza e robustez. As extremidades curvas, com uma estética neoclássica, permitem que a mesa se camufle de forma fluida. A Mesa Doha é a escolha ideal para quem busca funcionalidade e um estilo elegante sem sobrecarregar a decoração. Sua versatilidade a torna perfeita para ambientes que transi
+*Destaques:* Lançamento 2024, Acabamento Feito a Mão, Produto Minimalista
+*Slug:* `sinuca-doha`
+*Link:* https://7ball.com.br/produtos/sinuca-doha/
+
+#### DOHA (Jantar & Sinuca)
+**Tipo:** Jantar & Sinuca · **Linha:** Icon · **Categoria:** Jantar & Sinuca
+Elegância e Sofisticação
+A Mesa Doha é a perfeita fusão de design leve e encorpado, projetada para se integrar ao ambiente de maneira harmoniosa, sem chamar atenção excessiva. Suas linhas curvas e alinhadas, combinadas com cortes sutis nas bases, conferem um toque de sofisticação discreta, equilibrando leveza e robustez. As extremidades curvas, com uma estética neoclássica, permitem que a mesa se camufle de forma fluida. A Mesa Doha é a escolha ideal para quem busca funcionalidade e um estilo elegante sem sobrecarregar a decoração. Sua versatilidade a torna perfeita para ambientes que transitam entre o clássico e o contemporâneo, proporcionando elegância e sofisticação.
+*Destaques:* Cantos e pés arredondados;, Sapatas niveladoras em aço inox;, Marcação a laser nas tabelas e caçapas embutidas;
+*Slug:* `jantar-e-sinuca-doha`
+*Link:* https://7ball.com.br/produtos/jantar-e-sinuca-doha/
+
+#### ELEGANCE
+**Tipo:** Jantar & Sinuca, Air Hockey, Pebolim, Mesa de Sinuca · **Linha:** Aura · **Categoria:** Mesa de Sinuca e Jantar
+Imponente e Memorável A Mesa ELEGANCE impressiona pelo desenho estruturado e geométrico da base em metal, enquanto a parte superior, com leves arredondados, cria uma fusão que transforma a mesa em uma peça enriquecedora visual do ambiente. Sua base escultural proporciona um visual dinâmico, sem abrir mão da versatilidade que o conjunto oferece, adaptando-se tanto a ambientes arredondados quanto quadrados, sempre mantendo a estabilidade essencial para o jogo. Projetada para espaços que transitam entre o moderno e o contemporâneo, a ELEGANCE se adapta a ambientes com forte personalidade.
+*Destaques:* Lançamento 2022, Imponente e Memorável, Acabamento feito a mão
+*Slug:* `jantar-e-sinuca-elegance`
+*Link:* https://7ball.com.br/produtos/jantar-e-sinuca-elegance/
+
+#### ELEGANCE (Air Hockey)
+**Tipo:** Air Hockey · **Linha:** Aura · **Categoria:** Air Hockey
+O Air Hockey Elegance é a perfeita fusão entre entretenimento e design moderno e imponente, caracterizado por linhas dinâmicas e curvas elegantes. A estrutura metálica e os detalhes refinados conferem um toque de sofisticação, enquanto o motor bivolt garante versatilidade, funcionando perfeitamente em diferentes voltagens.
+
+Além disso, o Air Hockey Elegance oferece a possibilidade de adicionar um tampo de jantar ou tampo de tênis de mesa, tornando-se uma peça multifuncional que atende a diversas necessidades do usuário. Seus pés em aço combinam robustez e estilo, mantendo a essência do design industrial da linha Elegance.
+
+Com o Air Hockey Elegance, você não adquire apenas uma peça de design inovador, mas também cria um ambiente de lazer único, proporcionando momentos de diversão de alta qualidade, sem abrir mão da estética
+*Destaques:* Motor Bivolt, Possibilidade de acrescentar tampo de jantar, Possibilidade de acrescentar Tampo de Tênis de Mesa
+*Slug:* `air-hockey-elegance`
+*Link:* https://7ball.com.br/produtos/air-hockey-elegance/
+
+#### ELEGANCE (Mesa de Sinuca)
+**Tipo:** Mesa de Sinuca · **Linha:** Aura · **Categoria:** Mesa de Sinuca
+Imponente e Memorável
+A Mesa ELEGANCE impressiona pelo desenho estruturado e geométrico da base em metal, enquanto a parte superior, com leves arredondados, cria uma fusão que transforma a mesa em uma peça enriquecedora visual do ambiente. Sua base escultural proporciona um visual dinâmico, sem abrir mão da versatilidade que o conjunto oferece, adaptando-se tanto a ambientes arredondados quanto quadrados, sempre mantendo a estabilidade essencial para o jogo.
+Projetada para espaços que transitam entre o moderno e o contemporâneo, a ELEGANCE se adapta a ambientes com forte personalidade. Sua estética ousada a torna não apenas uma mesa de sinuca, mas também um ponto focal imponente na decoração.
+Mais do que um móvel de lazer, a ELEGANCE é uma peça de design memorável.
+*Destaques:* Canto da tabelas arredondadas para compor Design moderno, Pés em aço com pintura eletrostática preta texturizada, Sapatas niveladoras ultra resistente
+*Slug:* `sinuca-elegance`
+*Link:* https://7ball.com.br/produtos/sinuca-elegance/
+
+#### ELEGANCE (Pebolim)
+**Tipo:** Pebolim · **Linha:** Aura · **Categoria:** Pebolim
+O Pebolim Elegance se alinha à linha Elegance, criando uma interação visual impressionante e uma presença marcante no ambiente. Sua estrutura transmite estabilidade e dinamismo, equilibrando perfeitamente com o design moderno e a curvatura sofisticada.
+O Pebolim não é apenas um elemento de entretenimento, mas uma verdadeira peça de design, potencializada pelo LED integrado, que oferece uma iluminação sutil, criando um jogo de luzes que enriquece o espaço e transforma cada partida em uma experiência única.
+Ele compartilha o conceito de ser o ponto focal no design do ambiente, sendo perfeito para quem deseja agregar estética e funcionalidade ao espaço
+*Destaques:* Bonecos e manetes para o jogo com material de primeiríssima qualidade;, Tudo montado separadamente, o que aumenta a durabilidade da peça;, Acabamento pode ser, semi acetinado, alto brilho ou amadeirado;
+*Slug:* `pebolim-elegance`
+*Link:* https://7ball.com.br/produtos/pebolim-elegance/
+
+#### ELEGANCE GOURMET
+**Tipo:** Tênis de Mesa · **Linha:** Arena · **Categoria:** Tenis de Mesa
+Mesa Multifuncional Elegance Gourmet – Design, Versatilidade e Entretenimento A Mesa Multifuncional Elegance Gourmet é a escolha ideal para quem valoriza sofisticação e funcionalidade em um único móvel. Perfeita para espaços gourmet, ela combina design refinado e praticidade, acomodando toda a família. Muito além de uma mesa para refeições e reuniões, ela se transforma em um verdadeiro centro de entretenimento, acompanhada do Kit Tênis de Mesa IRON. Para um toque extra de elegância, a redinha IRON, confeccionada em couro ecológico com costura automotiva, acrescenta requinte e dur
+*Destaques:* Versatilidade e Entretenimento, Design Elegante, Acabamento feito a mão
+*Slug:* `mesa-multifuncional-elegance-gourmet`
+*Link:* https://7ball.com.br/produtos/mesa-multifuncional-elegance-gourmet/
+
+#### FIXO
+**Tipo:** Futmesa, Tênis de Mesa · **Linha:** Arena · **Categoria:** Futmesa
+O Futmesa FIXO é a escolha ideal para quem busca diversão e dinamismo em qualquer ambiente. Projetado para proporcionar momentos inesquecíveis entre amigos e família, esse modelo combina resistência, inovação e praticidade, sem abrir mão do design sofisticado. Com um sistema dobrável inteligente. Seu design funcional permite que o jogo aconteça em diferentes locais, seja em áreas de lazer, ambientes corporativos ou espaços ao ar livre. A estrutura robusta garante estabilidade e durabilidade, enquanto a jogabilidade fluida transforma cada partida em um desafio emocionante. O Futmesa
+*Destaques:* Entretenimento e Praticidade, Design Versátil, Acabamento feito a mão
+*Slug:* `futmesa-fixo`
+*Link:* https://7ball.com.br/produtos/futmesa-fixo/
+
+#### FIXO (Tênis de Mesa)
+**Tipo:** Tênis de Mesa · **Linha:** Arena · **Categoria:** Tênis de Mesa
+O Tênis de Mesa Fixo Soft é a escolha ideal para quem busca uma mesa de alta performance, com design sofisticado e excelente jogabilidade. Sua estrutura fixa garante uma experiência profissional.
+Feito com materiais de alta qualidade, mantém um visual elegante e moderno, sendo perfeito para espaços residenciais ou comerciais.
+Além de proporcionar diversão de qualidade, o Tênis de Mesa Fixo Soft é ideal para quem valoriza tanto a estética quanto o desempenho no jogo
+*Destaques:* Possui pés em aço (maior resistência), Pintura eletrostática (mais difícil de arranhar)., Abertura na lateral para perfeito encaixa da rede.
+*Slug:* `tenis-de-mesa-fixo-soft`
+*Link:* https://7ball.com.br/produtos/tenis-de-mesa-fixo-soft/
+
+#### IRON
+**Tipo:** Jantar & Sinuca, Carteado, Air Hockey, Pebolim, Mesa de Sinuca · **Linha:** Form · **Categoria:** Mesa de Sinuca e Jantar
+A Mesa IRON harmoniza metal e linhas retas em um design limpo, porém imponente, resultando em uma peça que combina elegância e força visual. Seu traço marcante reforça a estética industrial sofisticada, agregando personalidade sem comprometer a sutileza. Pensada para espaços modernos que transitam entre o urbano e o rústico contemporâneo, a IRON adapta-se com facilidade a diferentes estilos de decoração. Sua base metálica garante máxima estabilidade, proporcionando uma experiência de jogo precisa e envolvente. Ideal para quem busca um elemento sofisticado e impactante, a Mesa IR
+*Destaques:* Lançamento 2020, Impacto Equilibrado, Acabamento feito a mão
+*Slug:* `jantar-e-sinuca-iron`
+*Link:* https://7ball.com.br/produtos/jantar-e-sinuca-iron/
+
+#### IRON (Air Hockey)
+**Tipo:** Air Hockey · **Linha:** Form · **Categoria:** Air Hockey
+O Air Hockey IRON traduz a perfeita fusão entre metal e linhas retas, resultando em um design sofisticado, imponente e atemporal. Inspirado na estética industrial da linha IRON, destaca-se pelo traço marcante e pelo equilíbrio entre robustez e elegância.
+Sua base metálica garante máxima estabilidade, proporcionando uma experiência de jogo precisa e envolvente. Mais do que um jogo, é uma peça multifuncional: com a opção de tampo para jantar ou tênis de mesa, adapta-se a diferentes momentos e necessidades, unindo lazer e praticidade.
+Bivolt, projetado para oferecer diversão com requinte e estilo
+*Destaques:* Material mais resistente com design exclusivo, Possibilidade de acrescentar tampo de jantar, Possibilidade de acrescentar Tampo de Tênis de Mesa
+*Slug:* `air-hockey-iron`
+*Link:* https://7ball.com.br/produtos/air-hockey-iron/
+
+#### IRON (Carteado)
+**Tipo:** Carteado · **Linha:** Form · **Categoria:** Carteado
+A Mesa Carteado Iron é uma peça versátil e coringa, que se adapta facilmente a diversos estilos, com destaque para sua base em metal, que traz um toque moderno. Seu tampo reversível transforma a mesa em uma opção prática e funcional, perfeita para ambientes compactos. Apesar de seu design limpo, ela adiciona personalidade ao espaço sem comprometer a sutileza.
+Além de ser uma mesa de carteado, a Mesa de Carteado & Xadrez Iron Reversível também serve como uma mesa de jantar para 4 lugares, oferecendo uma solução elegante e funcional para qualquer ocasião. Com 4 gavetas embutidas e telescópicas para armazenamento de acessórios e porta-copos, ela une praticidade e sofisticação.
+A Mesa Carteado Iron é o equilíbrio perfeito entre funcionalidade e design, ideal para quem busca um móvel que atenda a múltiplas necessidades sem perder a elegância
+*Destaques:* Pino facilitador para inverter o tampo (xadrez-tecido), Opção de personalização direta no tecido com sua marca, nome, iniciais, time ou o que quiser, Pintura de alta resistência
+*Slug:* `carteado-e-xadrez-redonda-iron`
+*Link:* https://7ball.com.br/produtos/carteado-e-xadrez-redonda-iron/
+
+#### IRON (Mesa de Sinuca)
+**Tipo:** Mesa de Sinuca · **Linha:** Form · **Categoria:** Mesa de Sinuca
+A Mesa IRON harmoniza metal e linhas retas em um design limpo, porém imponente, resultando em uma peça que combina elegância e força visual. Seu traço marcante reforça a estética industrial sofisticada, agregando personalidade sem comprometer a sutileza.
+Pensada para espaços modernos que transitam entre o urbano e o rústico contemporâneo, a IRON adapta-se com facilidade a diferentes estilos de decoração. Sua base metálica garante máxima estabilidade, proporcionando uma experiência de jogo precisa e envolvente.
+Ideal para quem busca um elemento sofisticado e impactante, a Mesa IRON se destaca de forma sutil, tornando-se o ponto focal do ambiente. Mais do que uma mesa de sinuca, é um ícone de estilo, funcionalidade e atemporalidade.
+*Destaques:* Pés em aço com pintura eletrostática preta texturizada, Sapatas niveladoras ultra resistente, Caçapas embutidas que mantém o design moderno sem atrapalhar na performance do jogo
+*Slug:* `sinuca-iron`
+*Link:* https://7ball.com.br/produtos/sinuca-iron/
+
+#### IRON (Pebolim)
+**Tipo:** Pebolim · **Linha:** Form · **Categoria:** Pebolim
+O Pebolim IRON segue a mesma linha dos produtos IRON, combinando metal e linhas retas em um design limpo, mas impactante, que une elegância e força visual. Sua estrutura robusta e bem definida reforça a estética industrial sofisticada, agregando personalidade ao ambiente.
+Adapta-se com facilidade a diferentes estilos de decoração, mantendo a estabilidade e a funcionalidade essenciais para uma experiência de jogo envolvente. Além disso, seu design dinâmico e atrativo, proporcionando movimento e energia ao ambiente
+*Destaques:* Bonecos e manetes para o jogo com material de primeiríssima qualidade;, Tudo montado separadamente, o que aumenta a durabilidade da peça;, Melhor jogabilidade para a dupla de jogadores, possuindo caçapa de bola em ambos os lados;
+*Slug:* `pebolim-iron`
+*Link:* https://7ball.com.br/produtos/pebolim-iron/
+
+#### LAURA
+**Tipo:** Cadeiras · **Linha:** Decor · **Categoria:** Cadeiras
+O conjunto de cadeiras em madeira une sofisticação, conforto e versatilidade em um design atemporal. Com opções de encosto em tela rattan ou totalmente estofado, essas cadeiras são perfeitas para salas de jantar, recepções, escritórios ou ambientes corporativos que buscam unir aconchego e estilo. Disponíveis com ou sem braços, elas oferecem soluções personalizadas de acordo com a necessidade do espaço. A combinação entre a madeira de tonalidade quente, o estofado claro e o acabamento de alta qualidade proporciona um visual leve e acolhedor, além de garantir durabilidade para o uso diário. Essa
+*Destaques:* Elegante, Design Versátil, Acabamento feito a mão
+*Slug:* `laura`
+*Link:* https://7ball.com.br/produtos/laura/
+
+#### LIVERPOOL
+**Tipo:** Mesa de Sinuca · **Linha:** Icon · **Categoria:** Mesa de Sinuca
+A Mesa Liverpool carrega a essência do jogo em sua forma mais clássica, remetendo à tradição e à história que moldaram o bilhar ao longo dos séculos. Seu design imponente, com detalhes marcantes e estrutura robusta, evoca a elegância das antigas salas de jogos, onde o requinte e a competição andavam lado a lado. Com uma presença forte e sofisticada, a Mesa Liverpool é ideal para quem busca um peso visual tradicional, capaz de transformar qualquer ambiente em um espaço de prestígio. Destacando-se como um elemento atemporal na decoração, ela harmoniza-se com estilos clássicos e
+*Destaques:* Lançamento 2018, Tradição e Imponência, Acabamento feito a mão
+*Slug:* `sinuca-liverpool`
+*Link:* https://7ball.com.br/produtos/sinuca-liverpool/
+
+#### MILÃO
+**Tipo:** Pebolim · **Linha:** Icon · **Categoria:** Pebolim
+O Pebolim Milão reflete a elegância e a tradição do design clássico. Inspirado na luxuosidade da linha Milão, esta peça combina formas refinadas e curvaturas inspiradas no estilo Chippendale, criando uma estética sofisticada que se adapta a ambientes requintados. Seu design marcante exalta a imponência da peça sem comprometer a harmonia visual, tornando-se um ponto de destaque com leveza e equilíbrio. A estrutura robusta garante máxima estabilidade durante o jogo, proporcionando uma experiência envolvente e precisa, onde o entretenimento e a estética se encontram em perfeita sint
+*Destaques:* Praticidade, Sofisticação Clássica, Acabamento feito a mão
+*Slug:* `pebolim-milao`
+*Link:* https://7ball.com.br/produtos/pebolim-milao/
+
+#### MONACO OVAL
+**Tipo:** Carteado · **Linha:** Icon · **Categoria:** Poker
+Inspirada na elegância atemporal de Mônaco, esta mesa resgata a essência do design clássico e requintado, refletindo a tradição e a grandiosidade que marcaram sua história. Seu design imponente e bem proporcionado evoca a arquitetura sofisticada da cidade-estado, onde luxo e tradição se encontram em perfeita harmonia. Com detalhes marcantes e estrutura sólida, a Mesa Mônaco equilibra imponência e leveza visual, destacando-se sem sobrecarregar o ambiente. Atemporal e versátil, adapta-se a estilos clássicos e contemporâneos, preservando a essência nobre e icônica do jogo
+*Destaques:* Elegante, Design Personalizável, Acabamento feito a mão
+*Slug:* `mesa-de-poker-e-cartas-monaco-oval`
+*Link:* https://7ball.com.br/produtos/mesa-de-poker-e-cartas-monaco-oval/
+
+#### MONACO REDONDA
+**Tipo:** Carteado · **Linha:** Icon · **Categoria:** Carteado
+Inspirada na elegância atemporal de Mônaco, esta mesa resgata a essência do design clássico e requintado, refletindo a tradição e a grandiosidade que marcaram sua história. Seu design imponente e bem proporcionado evoca a arquitetura sofisticada da cidade-estado, onde luxo e tradição se encontram em perfeita harmonia. Com detalhes marcantes e estrutura sólida, a Mesa Mônaco equilibra imponência e leveza visual, destacando-se sem sobrecarregar o ambiente. Atemporal e versátil, adapta-se a estilos clássicos e contemporâneos, preservando a essência nobre e icônica do jogo
+*Destaques:* Elegante, Design Versátil, Acabamento feito a mão
+*Slug:* `poker-e-cartas-monaco`
+*Link:* https://7ball.com.br/produtos/poker-e-cartas-monaco/
+
+#### MUSA
+**Tipo:** Cadeiras · **Linha:** Decor · **Categoria:** Cadeira
+A cadeira MUSA é uma verdadeira peça de design assinada. Com estrutura em madeira maciça, assento estofado e encosto em tela rattan com moldura solta e centralizada, ela equilibra tradição e inovação com sofisticação. Seu visual leve e escultural traz um toque de originalidade para salas de jantar, espaços gourmet, salas de reunião ou ambientes corporativos de alto padrão. O detalhe do bastão metálico na base reforça a estabilidade estrutural ao mesmo tempo em que adiciona um charme extra, com uma leitura sutil de requinte.
+*Destaques:* Elegante, Design Versátil, Acabamento feito a mão
+*Slug:* `musa`
+*Link:* https://7ball.com.br/produtos/musa/
+
+#### NEW MILÃO
+**Tipo:** Mesa de Sinuca · **Linha:** Icon · **Categoria:** Mesa de Sinuca e Jantar
+Descubra a essência do luxo e da modernidade com a mesa de sinuca New Milão da 7Ball. Inspirada na icônica cidade de Milão, esta peça deslumbrante é um verdadeiro marco de sofisticação. Não é à toa que se tornou a queridinha dos apaixonados por sinuca e é a mesa mais vendida em toda a história da nossa empresa. Projetada para elevar o ambiente a um patamar de requinte, a New Milão se destaca como o centro das atenções por seu design único. Seu remake impressiona, tanto pela inovação quanto pela funcionalidade, que agora inclui um compartimento exclusivo para guardar seus acessórios de sinuca. 
+*Destaques:* Acabamento feito a mão, A mesa mais vendida, 1ª sinuca com compartimento
+*Slug:* `sinuca-new-milao`
+*Link:* https://7ball.com.br/produtos/sinuca-new-milao/
+
+#### NEW PURE
+**Tipo:** Cadeiras · **Linha:** Decor · **Categoria:** Cadeiras
+A cadeira NEW PURE é a escolha perfeita para quem busca um visual sofisticado com inspiração clássica e conforto absoluto. Com encosto e braços estofados em peça única, ela proporciona aconchego e suporte, enquanto os detalhes em tachas nas bordas reforçam sua personalidade marcante e acabamento artesanal. A base em madeira com pés curvos traz leveza ao conjunto e adiciona um toque retrô que enriquece ambientes como salas de jantar, salas de espera, escritórios elegantes ou espaços gourmet. A NEW PURE é mais do que uma cadeira — é um elemento de destaque no décor, feita para quem valoriza excl
+*Destaques:* Elegante, Contemporâneo, Acabamento feito a mão
+*Slug:* `new-pure`
+*Link:* https://7ball.com.br/produtos/new-pure/
+
+#### OSLO
+**Tipo:** Jantar & Sinuca · **Linha:** Icon · **Categoria:** Jantar & Sinuca
+A Oslo parte de uma linguagem contemporânea, construída a partir de uma geometria definida por curvas sutis e transições suaves entre seus volumes.
+*Destaques:* Canto das tabelas arredondadas para compor Design moderno;, Sapatas niveladoras ultra resistente, Caçapas embutidas que mantém o design moderno sem atrapalhar na performance do jogo
+*Slug:* `jantar-e-sinuca-oslo`
+*Link:* https://7ball.com.br/produtos/jantar-e-sinuca-oslo/
+
+#### OSLO (Mesa de Sinuca)
+**Tipo:** Mesa de Sinuca · **Linha:** Icon · **Categoria:** Mesa de Sinuca
+A Oslo parte de uma linguagem contemporânea, construída a partir de uma geometria definida por curvas sutis e transições suaves entre seus volumes.
+*Destaques:* Canto das tabelas arredondadas para compor Design moderno;, Sapatas niveladoras ultra resistente, Caçapas embutidas que mantém o design moderno sem atrapalhar na performance do jogo
+*Slug:* `oslo`
+*Link:* https://7ball.com.br/produtos/oslo/
+
+#### OUTSIDE
+**Tipo:** Tênis de Mesa · **Linha:** Arena · **Categoria:** Tênis de Mesa
+O Tênis de Mesa Dobrável Outside é a escolha perfeita para quem busca um produto resistente às condições externas, sem abrir mão da sofisticação e do desempenho. Feito com materiais de alta durabilidade, ele é capaz de resistir às intempéries, garantindo longevidade e um design único que se destaca em qualquer ambiente ao ar livre. Com um design dobrável em formato sanduíche, o Tênis de Mesa Outside oferece praticidade no armazenamento e otimização de espaço, sem comprometer a estética do local. Além disso, este modelo pode ser totalmente personalizado, permitindo que voce
+*Destaques:* Praticidade, Design Versátil, Acabamento feito a mão
+*Slug:* `tenis-de-mesa-outside-dobravel`
+*Link:* https://7ball.com.br/produtos/tenis-de-mesa-outside-dobravel/
+
+#### P. TAMPO LÍNEA
+**Tipo:** Essentials · **Categoria:** Acessórios
+Com linhas limpas e proporções equilibradas, o Porta-Tampo foi desenvolvido para se integrar com naturalidade a qualquer modelo de mesa. Seu visual neutro e discreto dialoga com diferentes estilos de decoração, sem interferir na estética do ambiente. Fundamental para mesas com tampo de jantar ou de tênis de mesa, este acessório permite armazenar os tampos com segurança, evitando riscos, deformações ou contato direto com o chão. Os rodízios integrados facilitam o deslocamento, mesmo em espaços menores, garantindo praticidade no dia a dia. Mais do que um item de apoio, o Porta-Tampo é uma soluçã
+*Destaques:* Lançamento 2024, Acabamento personalizável, Acabamento feito a mão
+*Slug:* `porta-tampo-linea`
+*Link:* https://7ball.com.br/produtos/porta-tampo-linea/
+
+#### PARIS
+**Tipo:** Mesa de Sinuca, Jantar & Sinuca · **Linha:** Aura · **Categoria:** Mesa de Sinuca e Jantar
+Inspirada na elegância e fluidez da Cidade Luz, a Mesa Paris combina um design leve com um efeito de flutuação, desprendendo a parte superior dos pés e criando uma presença sedutora. Seu corpo esbelto e estrutura equilibrada permitem que ela se integre ao ambiente de forma discreta, sem sobrecarregar a decoração, mas ainda assim cativando olhares.
+*Destaques:* Lançamento 2024, Leveza e Flutuação, Acabamento feito a mão
+*Slug:* `sinuca-paris`
+*Link:* https://7ball.com.br/produtos/sinuca-paris/
+
+#### PARIS (Jantar & Sinuca)
+**Tipo:** Jantar & Sinuca · **Linha:** Aura · **Categoria:** Jantar & Sinuca
+Inspirada na elegância e fluidez da Cidade Luz, a Mesa Paris combina um design leve com um efeito de flutuação, desprendendo a parte superior dos pés e criando uma presença sedutora. Seu corpo esbelto e estrutura equilibrada permitem que ela se integre ao ambiente de forma discreta, sem sobrecarregar a decoração, mas ainda assim cativando olhares.
+*Destaques:* Canto das tabelas arredondadas para compor Design moderno;, Pés em aço com pintura eletrostática preta texturizada, Sapatas niveladoras ultra resistente
+*Slug:* `jantar-e-sinuca-paris`
+*Link:* https://7ball.com.br/produtos/jantar-e-sinuca-paris/
+
+#### ROMA
+**Tipo:** Mesa de Sinuca · **Linha:** Form · **Categoria:** Mesa de Sinuca
+A Mesa Roma é uma verdadeira celebração à tradição, evocando o classismo das antigas civilizações. Seu design robusto, com adornos marcantes, remete tanto à história quanto à memória afetiva do jogo, projetando a imagem idealizada de como seria uma mesa de sinuca tradicional. Ideal para quem busca um peso visual que ressoe com o passado, a Mesa Roma se destaca em ambientes que valorizam a história. Sua presença imponente não passa despercebida, trazendo uma aura de grandeza e se adaptando perfeitamente a espaços que celebram o clássico e o tradicionalismo do jogo. Mais do que 
+*Destaques:* Lançamento 2024, Tradição e Grandiosidade, Acabamento feito a mão
+*Slug:* `sinuca-roma`
+*Link:* https://7ball.com.br/produtos/sinuca-roma/
+
+#### SANTORINI
+**Tipo:** Mesa de Sinuca, Jantar & Sinuca · **Linha:** Icon · **Categoria:** Mesa de Sinuca e Jantar
+A Mesa de Sinuca Santorini nasce da busca por simplicidade. Sem excessos ou traços desnecessários, seu desenho promove equilíbrio, leveza visual e uma sensação natural de permanência.
+*Destaques:* Lançamento 2024, Leveza e Flutuação, Acabamento feito a mão
+*Slug:* `sinuca-santorini`
+*Link:* https://7ball.com.br/produtos/sinuca-santorini/
+
+#### SANTORINI (Jantar & Sinuca)
+**Tipo:** Jantar & Sinuca · **Linha:** Icon · **Categoria:** Jantar & Sinuca
+A Mesa de Sinuca Santorini nasce da busca por simplicidade. Sem excessos ou traços desnecessários, seu desenho promove equilíbrio, leveza visual e uma sensação natural de permanência.
+*Destaques:* Canto das tabelas arredondadas para compor Design moderno;, Sapatas niveladoras ultra resistente, Caçapas embutidas que mantém o design moderno sem atrapalhar na performance do jogo
+*Slug:* `jantar-e-sinuca-santorini`
+*Link:* https://7ball.com.br/produtos/jantar-e-sinuca-santorini/
+
+#### SARDENHA
+**Tipo:** Cadeiras · **Linha:** Decor · **Categoria:** Cadeiras
+A Cadeira SARDENHA surge como uma variação elegante da Cadeira LARYSSA, mantendo sua essência funcional com um toque de sofisticação adicional. Com design semelhante e igualmente perfurado, seu diferencial está na ausência de braços — o que garante ainda mais versatilidade em composições com espaços otimizados. Fabricada em polipropileno, é leve, resistente e fácil de limpar, ideal para áreas externas, ambientes corporativos, espaços de eventos ou uso residencial. Sua empilhabilidade proporciona facilidade no armazenamento, enquanto a estética leve e contemporânea reforça sua vocação para ambi
+*Destaques:* Robusto, Design Versátil, Elegante
+*Slug:* `sardenha`
+*Link:* https://7ball.com.br/produtos/sardenha/
+
+#### SINGAPURA OVAL
+**Tipo:** Carteado · **Linha:** Icon · **Categoria:** Carteado
+A Mesa Singapura se destaca pela sutileza do design cônico da base, que se adapta facilmente a diversas decorações. Com proporções harmoniosas e um design equilibrado, ela se integra discretamente ao ambiente, sem evidenciar imediatamente sua função. Apesar de seu visual limpo e discreto, a mesa cria uma presença marcante, destacando-se pela elegância atemporal. A Mesa Singapura se encaixa perfeitamente em diferentes composições, seja em espaços modernos ou contemporâneos. Seu design minimalista a torna a escolha ideal para quem busca um mobiliário discreto, mas que, ao mesmo tem
+*Destaques:* Entretenimento, Design Cônico, Acabamento feito a mão
+*Slug:* `poker-e-cartas-singapura-oval`
+*Link:* https://7ball.com.br/produtos/poker-e-cartas-singapura-oval/
+
+#### SINGAPURA REDONDA
+**Tipo:** Carteado · **Linha:** Icon · **Categoria:** Carteado
+A Mesa Singapura se destaca pela sutileza do design cônico da base, que se adapta facilmente a diversas decorações. Com proporções harmoniosas e um design equilibrado, ela se integra discretamente ao ambiente, sem evidenciar imediatamente sua função. Apesar de seu visual limpo e discreto, a mesa cria uma presença marcante, destacando-se pela elegância atemporal. A Mesa Singapura se encaixa perfeitamente em diferentes composições, seja em espaços modernos ou contemporâneos. Seu design minimalista a torna a escolha ideal para quem busca um mobiliário discreto, mas que, ao mesmo tem
+*Destaques:* Minimalista, Design Cônico, Acabamento feito a mão
+*Slug:* `poker-e-cartas-singapura`
+*Link:* https://7ball.com.br/produtos/poker-e-cartas-singapura/
+
+#### SINTRA
+**Tipo:** Jantar & Sinuca · **Linha:** Icon · **Categoria:** Jantar & Sinuca
+A Mesa de Sinuca Sintra explora uma composição de volumes intensos e centrais bem definidos, cantos suavizados e uma base que se torna parte fundamental da configuração do produto.
+*Destaques:* Canto das tabelas arredondadas para compor Design moderno;, Sapatas niveladoras ultra resistente, Caçapas embutidas que mantém o design moderno sem atrapalhar na performance do jogo
+*Slug:* `jantar-e-sinuca-sintra`
+*Link:* https://7ball.com.br/produtos/jantar-e-sinuca-sintra/
+
+#### SINTRA (Mesa de Sinuca)
+**Tipo:** Mesa de Sinuca · **Linha:** Icon · **Categoria:** Mesa de Sinuca
+A Mesa de Sinuca Sintra explora uma composição de volumes intensos e centrais bem definidos, cantos suavizados e uma base que se torna parte fundamental da configuração do produto.
+*Destaques:* Canto das tabelas arredondadas para compor Design moderno;, Sapatas niveladoras ultra resistente, Caçapas embutidas que mantém o design moderno sem atrapalhar na performance do jogo
+*Slug:* `sintra`
+*Link:* https://7ball.com.br/produtos/sintra/
+
+#### TAMPO TINGIDO
+**Tipo:** Tênis de Mesa · **Linha:** Arena · **Categoria:** Tênis de Mesa
+O Tampo de Tênis de Mesa Tingido é a solução perfeita para quem busca aliar praticidade, elegância e alto desempenho em um único produto. Projetado para transformar qualquer mesa comum em uma verdadeira mesa profissional, ele entrega versatilidade sem abrir mão da resistência e do design sofisticado.
+*Destaques:* Inovador e de Alto Desempenho, Design Versátil, Acabamento feito a mão
+*Slug:* `tampo-tingido`
+*Link:* https://7ball.com.br/produtos/tampo-tingido/
+
+#### TAQUEIRA CHÃO LÍNEA
+**Tipo:** Essentials · **Categoria:** Acessórios
+A Taqueira Linea de Chão combina elegância e praticidade em um único acessório. Com estrutura vertical e base circular, ela organiza com estilo tacos e bolas de sinuca em nichos individuais, promovendo fácil acesso durante o jogo. Seu design funcional permite que seja posicionada em qualquer ambiente, sem necessidade de fixação na parede. Fabricada com materiais de alta qualidade e acabamento refinado, a Taqueira Linea de Chão protege os acessórios contra impactos e riscos, além de complementar a estética das mesas de sinuca 7ball. Suas formas suaves e compactas mantêm a organização do espaço 
+*Destaques:* Lançamento 2024, Acabamento personalizável, Acabamento feito a mão
+*Slug:* `taqueira-de-chao-linea`
+*Link:* https://7ball.com.br/produtos/taqueira-de-chao-linea/
+
+#### TAQUEIRA LÍNEA
+**Tipo:** Essentials · **Categoria:** Acessórios
+O Suporte de Parede para Tacos Linea carrega a mesma essência de sofisticação e funcionalidade que define toda a linha 7ball. Com linhas suaves e design minimalista, foi desenvolvido para se integrar com harmonia a qualquer ambiente com mesa de sinuca, otimizando o espaço com elegância e discrição. Produzido com materiais de alta qualidade, o suporte garante organização e proteção aos tacos, evitando riscos e impactos quando não estão em uso. Seus encaixes individuais preservam a integridade de cada peça, mantendo tudo pronto para a próxima partida. Com acabamento refinado e proporções equilib
+*Destaques:* Lançamento 2024, Acabamento personalizável, Acabamento feito a mão
+*Slug:* `taqueira-de-parede-linea`
+*Link:* https://7ball.com.br/produtos/taqueira-de-parede-linea/
+
+#### VERONA
+**Tipo:** Jantar & Sinuca, Mesa de Sinuca · **Linha:** Icon · **Categoria:** Mesa de Sinuca e Jantar
+A Mesa Verona é a síntese perfeita entre solidez e fluidez, concebida para ser um elemento marcante na decoração. Seu design inovador combina pés assimétricos e curvaturas suaves, criando um equilíbrio sofisticado entre robustez e leveza. Com extremidades curvas, a Verona apresenta uma estética acolhedora e fluida, enquanto sua assimetria intencional desperta curiosidade e confere dinamismo ao ambiente. Essa fusão única de formas orgânicas e estrutura sólida transforma a mesa em um verdadeiro ponto focal. Versátil e atemporal, a Mesa Verona transita entre o contemporâneo elegante
+*Destaques:* Lançamento 2024, Elegante e robusto, Acabamento feito a mão
+*Slug:* `jantar-e-sinuca-verona`
+*Link:* https://7ball.com.br/produtos/jantar-e-sinuca-verona/
+
+#### VERONA (Mesa de Sinuca)
+**Tipo:** Mesa de Sinuca · **Linha:** Icon · **Categoria:** Mesa de Sinuca
+A Mesa Verona é a síntese perfeita entre solidez e fluidez, concebida para ser um elemento marcante na decoração. Seu design inovador combina pés assimétricos e curvaturas suaves, criando um equilíbrio sofisticado entre robustez e leveza.
+
+Com extremidades curvas, a Verona apresenta uma estética acolhedora e fluida, enquanto sua assimetria intencional desperta curiosidade e confere dinamismo ao ambiente. Essa fusão única de formas orgânicas e estrutura sólida transforma a mesa em um verdadeiro ponto focal.
+
+Versátil e atemporal, a Mesa Verona transita entre o contemporâneo elegante e o rústico-chic, agregando autenticidade e sofisticação sem sobrecarregar a composição. Seu design impactante e envolvente redefine o conceito de estética funcional, elevando qualquer espaço com sua presença única.
+*Destaques:* Cantos e pés arredondados, Sapatas niveladoras em aço inox, Marcação a laser nas tabelas e caçapas embutidas
+*Slug:* `sinuca-verona`
+*Link:* https://7ball.com.br/produtos/sinuca-verona/
+
+#### XTREME EDGE
+**Tipo:** Jantar & Sinuca, Mesa de Sinuca · **Linha:** Aura · **Categoria:** Mesa de Sinuca e Jantar
+A XTREME EDGE com tampo para jantar traduz o conceito de multifuncionalidade com elegância e imponência. Seu design facetado, com bordas chanfradas e acabamento preciso, remete à estética de um mobiliário escultural — criado para impressionar de todos os ângulos. Com tampo removível, transforma-se com facilidade de uma mesa de sinuca robusta em uma sofisticada mesa de jantar, perfeita para quem valoriza versatilidade sem abrir mão do design. Os icônicos pés em “X” garantem a mesma estabilidade da linha XTREME, reforçando a presença marcante da peça no ambiente. Mais do que um móvel funcional, 
+*Destaques:* Lançamento 2024, Elegante e robusto, Acabamento feito a mão
+*Slug:* `jantar-e-sinuca-xtreme-edge`
+*Link:* https://7ball.com.br/produtos/jantar-e-sinuca-xtreme-edge/
+
+#### XTREME EDGE (Mesa de Sinuca)
+**Tipo:** Mesa de Sinuca · **Linha:** Aura · **Categoria:** Mesa de Sinuca
+A XTREME EDGE apresenta uma leitura mais dinâmica e ousada, com cantos chanfrados que elevam sua presença a um novo patamar de sofisticação.
+Seu grande diferencial está nas bordas inclinadas, que criam um visual facetado e contemporâneo — como se a mesa tivesse sido esculpida com precisão geométrica. Esse detalhe confere identidade única e reforça a excelência do acabamento.
+
+Mantendo os icônicos pés em “X”, a XTREME EDGE preserva toda a estabilidade e imponência do modelo original, agora com um toque extra de refinamento visual. É a escolha ideal para ambientes modernos, industriais ou minimalistas, onde design e funcionalidade caminham lado a lado.
+Mais do que uma mesa de sinuca, a XTREME EDGE é uma afirmação de estilo, personalidade e autenticidade. Uma escolha certeira para quem busca elegância atemporal e performance sem concessões.
+*Destaques:* Pés em aço com pintura eletrostática preta texturizada;, Sapatas niveladoras ultra resistente;, Caçapas embutidas que mantém o design moderno sem atrapalhar na performance do jogo;
+*Slug:* `sinuca-xtreme-edge`
+*Link:* https://7ball.com.br/produtos/sinuca-xtreme-edge/
+
+#### ZURICH
+**Tipo:** Mesa de Sinuca · **Linha:** Icon · **Categoria:** Mesa de Sinuca
+A Mesa Zurich é a síntese de sofisticação e personalidade, concebida para ser o ponto focal de qualquer ambiente. Inspirada no design contemporâneo europeu, suas formas geométricas marcantes e ângulos precisos conferem uma presença imponente e contemplativa ao espaço. Com superfícies chanfradas e inclinadas que sugerem dinamismo, a Zurich traduz força e intensidade. Além de sua imponência visual, destaca-se por transitar entre estilos que vão do moderno ao contemporâneo urbano. Mais do que um item de lazer, a Mesa Zurich é uma peça de design que redefine padrões e exala uma a
+*Destaques:* Lançamento 2018, Contemporâneo e Impactante, Acabamento feito a mão
+*Slug:* `sinuca-zurich`
+*Link:* https://7ball.com.br/produtos/sinuca-zurich/
+
+---
+
+---
+
+## 5. Guia de identificação de intenção
+
+### Passo 1 — Identificar o SEGMENTO/TIPO
+Use as tabelas de tipos da seção 2.1.
+
+- 'quero uma mesa que vira mesa de jantar' → tipo **Jantar & Sinuca**
+- 'mesa de sinuca para apartamento pequeno' → tipo **Jantar & Sinuca** (economiza espaço)
+- 'mesa de bilhar tradicional' → tipo **Mesa de Sinuca**
+- 'totó / pebolim' → tipo **Pebolim**
+- 'ping pong' → tipo **Tênis de Mesa**
+- 'mesa de pôquer / carteado' → tipo **Carteado**
+- 'futevôlei de mesa' → tipo **Futmesa**
+- 'hóquei de mesa' → tipo **Air Hockey**
+- 'cadeira / banco / mobiliário' → tipos **Cadeiras** ou **Bancos**
+- 'preciso de tacos e bolas' → tipo **Essentials**
+- 'equipamento', 'montar um espaço', 'não sei ainda' → indefinido, fazer 1 pergunta de qualificação
+
+### Passo 2 — Sugerir PRODUTO específico
+Se o cliente citar um nome de modelo (ex: 'mesa DOHA'), busque na ficha correspondente (seção 3) e confirme. Caso contrário, ofereça 2-3 opções do tipo identificado e encaminhe ao especialista.
+
+### Sinais de perfil de público
+- **Residencial de alto padrão / apartamento:** priorizar Jantar & Sinuca (2-em-1, economiza espaço).
+- **Área de lazer ampla / clube / condomínio:** Mesa de Sinuca tradicional, Pebolim, Air Hockey.
+- **Ambiente de jantar / decoração:** linha Decor (cadeiras e bancos).
+
+### Observações importantes
+- Preços não estão neste documento (venda consultiva). Não informe preço — encaminhe ao especialista.
+- Produtos com o mesmo nome em tipos diferentes existem (ex: 'IRON' e 'ELEGANCE' aparecem em várias linhas). Sempre confirmar o tipo com o cliente.
+
+---
+
+## 6. Índice rápido de nomes de produto
+
+ACESSÓRIOS, AGATA, AIDA, ALVO SISAL, BANCOS QUAD, CALIFÓRNIA, CAPAS, CAPRI, DOBRÁVEL, DOBRÁVEL TINGIDO, DOHA, ELEGANCE, ELEGANCE GOURMET, FIXO, IRON, LAURA, LIVERPOOL, MILÃO, MONACO OVAL, MONACO REDONDA, MUSA, NEW MILÃO, NEW PURE, OUTSIDE, P. TAMPO LÍNEA, PARIS, ROMA, SANTORINI, SARDENHA, SINGAPURA OVAL, SINGAPURA REDONDA, TAMPO TINGIDO, TAQUEIRA CHÃO LÍNEA, TAQUEIRA LÍNEA, VERONA, XTREME EDGE, ZURICH
+

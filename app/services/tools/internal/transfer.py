@@ -6,6 +6,7 @@ import random
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.chatwoot.client import ChatwootClient
 from app.helena.client import HelenaClient
@@ -17,6 +18,37 @@ from app.services.tool_handler import BaseTool
 from app.utils.alerter import send_critical_alert
 
 logger = logging.getLogger(__name__)
+
+
+async def escalate_helena_session(db: AsyncSession, company_id: int, session_id: str) -> None:
+    await CustomerRepository(db).update_status(session_id, company_id, new_status=False)
+    logger.info(
+        "[TransferToHuman] Customer status set to False for session=%s, company=%d",
+        session_id,
+        company_id,
+    )
+
+    company = await CompanyRepository(db).get_by_id(company_id)
+    helena_assignee_id = company.helena_assignee_id if company else None
+    helena_apikey = company.helena_apikey if company else None
+    if not helena_assignee_id or not helena_apikey:
+        logger.warning(
+            "[TransferToHuman] Helena assignee/apikey missing for company %d; "
+            "AI blocked, assignment skipped.",
+            company_id,
+        )
+        return
+    try:
+        await HelenaClient().assign_session(session_id, helena_assignee_id, helena_apikey)
+    except Exception as e:
+        # status stays False — never let the AI resume on assign failure
+        send_critical_alert(
+            "HELENA_ASSIGN_FAILED",
+            "transfer.py:escalate_helena_session",
+            e,
+            company_id=company_id,
+            extra=f"session={session_id}, assignee={helena_assignee_id}",
+        )
 
 
 class TransferToHumanTool(BaseTool):
@@ -54,9 +86,6 @@ class TransferToHumanTool(BaseTool):
                 content="Erro interno: sessão de banco de dados não disponível.",
             )
 
-        customer_repo = CustomerRepository(context.db)
-        company_repo = CompanyRepository(context.db)
-
         def _success() -> ToolResult:
             return ToolResult(
                 tool_call_id="",
@@ -66,8 +95,14 @@ class TransferToHumanTool(BaseTool):
                 content="Conversa transferida para atendimento humano com sucesso.",
             )
 
-        # 1. Common, always-first step: block the AI. Runs BEFORE any channel
-        #    branch so the AI stops even if the downstream CRM call fails (US 16/17).
+        if context.channel == "helena":
+            await escalate_helena_session(context.db, context.company_id, context.session_id)
+            return _success()
+
+        customer_repo = CustomerRepository(context.db)
+        company_repo = CompanyRepository(context.db)
+
+        # Block the AI before any Chatwoot call so it stops even if the CRM call fails (US 16/17).
         await customer_repo.update_status(
             context.session_id,
             context.company_id,
@@ -81,40 +116,11 @@ class TransferToHumanTool(BaseTool):
 
         company = await company_repo.get_by_id(context.company_id)
 
-        # 2. Branch by channel. Helena assigns the session to the fixed attendant;
-        #    Chatwoot (else) keeps the existing labels/team-assignment path.
-        if context.channel == "helena":
-            helena_assignee_id = company.helena_assignee_id if company else None
-            helena_apikey = company.helena_apikey if company else None
-            if not helena_assignee_id or not helena_apikey:
-                logger.warning(
-                    "[TransferToHuman] Helena assignee/apikey missing for company %d; "
-                    "AI blocked, assignment skipped.",
-                    context.company_id,
-                )
-                return _success()  # status already False
-            try:
-                await HelenaClient().assign_session(
-                    context.session_id, helena_assignee_id, helena_apikey
-                )
-            except Exception as e:
-                send_critical_alert(
-                    "HELENA_ASSIGN_FAILED",
-                    "transfer.py:execute",
-                    e,
-                    company_id=context.company_id,
-                    extra=f"session={context.session_id}, assignee={helena_assignee_id}",
-                )
-                # status stays False — never let the AI resume on assign failure
-            return _success()
-
-        # 3. Chatwoot path — get agent's responsible_team
         result = await context.db.execute(
             select(Agent.responsible_team).where(Agent.id == context.agent_id)
         )
         responsible_team: int | None = result.scalar_one_or_none()
 
-        # 4. Company Chatwoot data (company fetched above)
         if not company or not company.cw_base_url or not company.cw_apikey or not company.cw_account_id:
             logger.warning(
                 "[TransferToHuman] Company %d missing Chatwoot config. "
@@ -123,7 +129,6 @@ class TransferToHumanTool(BaseTool):
             )
             return _success()
 
-        # 5. Get customer's cw_conversation_id
         customer = await customer_repo.get_by_session(
             context.session_id, context.company_id
         )
@@ -135,7 +140,6 @@ class TransferToHumanTool(BaseTool):
             )
             return _success()
 
-        # 6. Swap labels + assignment
         try:
             async with ChatwootClient() as chatwoot_client:
                 # Swap labels: add "atendimento-humano", remove "atendimento-ia"

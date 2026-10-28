@@ -1,5 +1,6 @@
 """FastAPI application entry point."""
 
+import asyncio
 import logging
 import sys
 from collections.abc import AsyncGenerator
@@ -12,7 +13,6 @@ from sqlalchemy import text
 from app.chatwoot.buffer import close_redis_pool
 from app.config import settings
 from app.db.database import engine
-from app.utils.alerter import send_critical_alert_sync
 from app.followUp import start_follow_up_consumer
 from app.rabbitmq import (
     close_rabbitmq_connection,
@@ -20,6 +20,9 @@ from app.rabbitmq import (
     init_follow_up_queues,
     init_webhook_retry_queue,
 )
+from app.services.instagram_token_renewal import start_weekly_token_renewal
+from app.services.product_sync import start_weekly_sync
+from app.utils.alerter import send_critical_alert_sync
 from app.webhookRetry import start_webhook_retry_consumer
 
 # Configure logging to show in terminal
@@ -89,10 +92,31 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         )
         # Note: We don't fail startup, follow-ups will just not work
 
+    weekly_sync_task = None
+    if settings.product_sync_enabled:
+        weekly_sync_task = start_weekly_sync()
+        print("✅ Weekly product sync loop started")
+    else:
+        print("⏸️ Weekly product sync disabled (PRODUCT_SYNC_ENABLED=false)")
+
+    token_renewal_task = start_weekly_token_renewal()
+    print("✅ Weekly Instagram token renewal loop started")
+
     yield
 
     # Shutdown
     print("🛑 Shutting down...")
+    if weekly_sync_task:
+        weekly_sync_task.cancel()
+        try:
+            await weekly_sync_task
+        except asyncio.CancelledError:
+            pass
+    token_renewal_task.cancel()
+    try:
+        await token_renewal_task
+    except asyncio.CancelledError:
+        pass
     try:
         await close_redis_pool()
     except Exception as e:
@@ -122,13 +146,15 @@ app.add_middleware(
 )
 
 # Import and include routers
-from app.routes import chat, chatwoot, health, helena, meta, voe
+from app.routes import chat, chatwoot, health, helena, instagram, meta, products, voe
 
 app.include_router(health.router, prefix="/api", tags=["Health"])
 app.include_router(chat.router, prefix="/api", tags=["Chat"])
 app.include_router(chatwoot.router, prefix="/api", tags=["Chatwoot"])
 app.include_router(helena.router, prefix="/api", tags=["Helena"])
+app.include_router(instagram.router, prefix="/api", tags=["Instagram"])
 app.include_router(meta.router, prefix="/api", tags=["Meta"])
+app.include_router(products.router, prefix="/api", tags=["Products"])
 app.include_router(voe.router, prefix="/api", tags=["VOE"])
 
 

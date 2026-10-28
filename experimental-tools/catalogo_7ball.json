@@ -1,0 +1,2887 @@
+{
+  "source": "https://7ball.com.br/wp-json/wp/v2",
+  "marcas": {
+    "7ball": {
+      "categorias": [
+        {
+          "id": 14,
+          "name": "Air Hockey",
+          "slug": "air-hockey",
+          "count": 2
+        },
+        {
+          "id": 104,
+          "name": "Arena",
+          "slug": "arena",
+          "count": 7
+        },
+        {
+          "id": 105,
+          "name": "Aura",
+          "slug": "aura",
+          "count": 8
+        },
+        {
+          "id": 22,
+          "name": "Bancos",
+          "slug": "bancos",
+          "count": 1
+        },
+        {
+          "id": 24,
+          "name": "Banquetas",
+          "slug": "banquetas",
+          "count": 0
+        },
+        {
+          "id": 23,
+          "name": "Cadeiras",
+          "slug": "cadeiras",
+          "count": 6
+        },
+        {
+          "id": 19,
+          "name": "Capas",
+          "slug": "capas",
+          "count": 0
+        },
+        {
+          "id": 85,
+          "name": "Carteado",
+          "slug": "carteado",
+          "count": 5
+        },
+        {
+          "id": 15,
+          "name": "Essentials",
+          "slug": "complementos",
+          "count": 6
+        },
+        {
+          "id": 21,
+          "name": "Decor",
+          "slug": "decor",
+          "count": 7
+        },
+        {
+          "id": 91,
+          "name": "Esportes",
+          "slug": "esportes",
+          "count": 0
+        },
+        {
+          "id": 106,
+          "name": "Form",
+          "slug": "form",
+          "count": 8
+        },
+        {
+          "id": 12,
+          "name": "Futmesa",
+          "slug": "futmesa",
+          "count": 2
+        },
+        {
+          "id": 103,
+          "name": "Icon",
+          "slug": "icon",
+          "count": 19
+        },
+        {
+          "id": 8,
+          "name": "Jantar & Sinuca",
+          "slug": "jantar-e-sinuca",
+          "count": 10
+        },
+        {
+          "id": 13,
+          "name": "Kit Alvo de Sisal",
+          "slug": "kit-alvo-de-sisal",
+          "count": 0
+        },
+        {
+          "id": 17,
+          "name": "Kit Tênis de Mesa",
+          "slug": "kit-tenis-de-mesa",
+          "count": 0
+        },
+        {
+          "id": 25,
+          "name": "Linha Bistrô",
+          "slug": "linha-bistro",
+          "count": 0
+        },
+        {
+          "id": 89,
+          "name": "Linha Start",
+          "slug": "linha-start",
+          "count": 0
+        },
+        {
+          "id": 7,
+          "name": "Mesa de Sinuca",
+          "slug": "mesa-sinuca",
+          "count": 14
+        },
+        {
+          "id": 87,
+          "name": "Mesas",
+          "slug": "mesas",
+          "count": 0
+        },
+        {
+          "id": 9,
+          "name": "Pebolim",
+          "slug": "pebolim",
+          "count": 4
+        },
+        {
+          "id": 10,
+          "name": "Poker, Cartas & Xadrez",
+          "slug": "poker-cartas-xadrez",
+          "count": 0
+        },
+        {
+          "id": 20,
+          "name": "Serviços & Reformas",
+          "slug": "servicos-reformas",
+          "count": 0
+        },
+        {
+          "id": 16,
+          "name": "Tacos & Bolas",
+          "slug": "tacos-bolas",
+          "count": 0
+        },
+        {
+          "id": 18,
+          "name": "Taqueiras & Porta Tampo",
+          "slug": "taqueiras",
+          "count": 0
+        },
+        {
+          "id": 11,
+          "name": "Tênis de Mesa",
+          "slug": "tenis-de-mesa",
+          "count": 5
+        },
+        {
+          "id": 86,
+          "name": "Wood",
+          "slug": "wood",
+          "count": 0
+        }
+      ],
+      "produtos": [
+        {
+          "id": 2860,
+          "slug": "acessorios",
+          "title": "ACESSÓRIOS",
+          "url": "https://7ball.com.br/produtos/acessorios/",
+          "categorias": [
+            "complementos"
+          ]
+        },
+        {
+          "id": 3213,
+          "slug": "agata",
+          "title": "AGATA",
+          "url": "https://7ball.com.br/produtos/agata/",
+          "categorias": [
+            "cadeiras",
+            "decor"
+          ]
+        },
+        {
+          "id": 3087,
+          "slug": "aida",
+          "title": "AIDA",
+          "url": "https://7ball.com.br/produtos/aida/",
+          "categorias": [
+            "cadeiras",
+            "decor"
+          ]
+        },
+        {
+          "id": 1068,
+          "slug": "air-hockey-elegance",
+          "title": "ELEGANCE",
+          "url": "https://7ball.com.br/produtos/air-hockey-elegance/",
+          "categorias": [
+            "air-hockey",
+            "aura"
+          ]
+        },
+        {
+          "id": 1077,
+          "slug": "air-hockey-iron",
+          "title": "IRON",
+          "url": "https://7ball.com.br/produtos/air-hockey-iron/",
+          "categorias": [
+            "air-hockey",
+            "form"
+          ]
+        },
+        {
+          "id": 2939,
+          "slug": "alvo-sisal",
+          "title": "ALVO SISAL",
+          "url": "https://7ball.com.br/produtos/alvo-sisal/",
+          "categorias": [
+            "complementos"
+          ]
+        },
+        {
+          "id": 3121,
+          "slug": "bancos-quad",
+          "title": "BANCOS QUAD",
+          "url": "https://7ball.com.br/produtos/bancos-quad/",
+          "categorias": [
+            "bancos",
+            "decor"
+          ]
+        },
+        {
+          "id": 3026,
+          "slug": "capas",
+          "title": "CAPAS",
+          "url": "https://7ball.com.br/produtos/capas/",
+          "categorias": [
+            "complementos"
+          ]
+        },
+        {
+          "id": 2832,
+          "slug": "carteado-e-xadrez-redonda-iron",
+          "title": "IRON",
+          "url": "https://7ball.com.br/produtos/carteado-e-xadrez-redonda-iron/",
+          "categorias": [
+            "carteado",
+            "form"
+          ]
+        },
+        {
+          "id": 518,
+          "slug": "futmesa-dobravel",
+          "title": "DOBRÁVEL",
+          "url": "https://7ball.com.br/produtos/futmesa-dobravel/",
+          "categorias": [
+            "arena",
+            "futmesa"
+          ]
+        },
+        {
+          "id": 655,
+          "slug": "futmesa-fixo",
+          "title": "FIXO",
+          "url": "https://7ball.com.br/produtos/futmesa-fixo/",
+          "categorias": [
+            "arena",
+            "futmesa"
+          ]
+        },
+        {
+          "id": 298,
+          "slug": "jantar-e-sinuca-capri",
+          "title": "CAPRI",
+          "url": "https://7ball.com.br/produtos/jantar-e-sinuca-capri/",
+          "categorias": [
+            "form",
+            "jantar-e-sinuca"
+          ]
+        },
+        {
+          "id": 205,
+          "slug": "jantar-e-sinuca-doha",
+          "title": "DOHA",
+          "url": "https://7ball.com.br/produtos/jantar-e-sinuca-doha/",
+          "categorias": [
+            "icon",
+            "jantar-e-sinuca"
+          ]
+        },
+        {
+          "id": 284,
+          "slug": "jantar-e-sinuca-elegance",
+          "title": "ELEGANCE",
+          "url": "https://7ball.com.br/produtos/jantar-e-sinuca-elegance/",
+          "categorias": [
+            "aura",
+            "jantar-e-sinuca"
+          ]
+        },
+        {
+          "id": 269,
+          "slug": "jantar-e-sinuca-iron",
+          "title": "IRON",
+          "url": "https://7ball.com.br/produtos/jantar-e-sinuca-iron/",
+          "categorias": [
+            "form",
+            "jantar-e-sinuca"
+          ]
+        },
+        {
+          "id": 16395,
+          "slug": "jantar-e-sinuca-oslo",
+          "title": "OSLO",
+          "url": "https://7ball.com.br/produtos/jantar-e-sinuca-oslo/",
+          "categorias": [
+            "icon",
+            "jantar-e-sinuca"
+          ]
+        },
+        {
+          "id": 243,
+          "slug": "jantar-e-sinuca-paris",
+          "title": "PARIS",
+          "url": "https://7ball.com.br/produtos/jantar-e-sinuca-paris/",
+          "categorias": [
+            "aura",
+            "jantar-e-sinuca"
+          ]
+        },
+        {
+          "id": 10091,
+          "slug": "jantar-e-sinuca-santorini",
+          "title": "SANTORINI",
+          "url": "https://7ball.com.br/produtos/jantar-e-sinuca-santorini/",
+          "categorias": [
+            "icon",
+            "jantar-e-sinuca"
+          ]
+        },
+        {
+          "id": 16385,
+          "slug": "jantar-e-sinuca-sintra",
+          "title": "SINTRA",
+          "url": "https://7ball.com.br/produtos/jantar-e-sinuca-sintra/",
+          "categorias": [
+            "icon",
+            "jantar-e-sinuca"
+          ]
+        },
+        {
+          "id": 370,
+          "slug": "jantar-e-sinuca-verona",
+          "title": "VERONA",
+          "url": "https://7ball.com.br/produtos/jantar-e-sinuca-verona/",
+          "categorias": [
+            "icon",
+            "jantar-e-sinuca"
+          ]
+        },
+        {
+          "id": 185,
+          "slug": "jantar-e-sinuca-xtreme-edge",
+          "title": "XTREME EDGE",
+          "url": "https://7ball.com.br/produtos/jantar-e-sinuca-xtreme-edge/",
+          "categorias": [
+            "aura",
+            "jantar-e-sinuca"
+          ]
+        },
+        {
+          "id": 3059,
+          "slug": "laura",
+          "title": "LAURA",
+          "url": "https://7ball.com.br/produtos/laura/",
+          "categorias": [
+            "cadeiras",
+            "decor"
+          ]
+        },
+        {
+          "id": 2878,
+          "slug": "mesa-de-poker-e-cartas-monaco-oval",
+          "title": "MONACO OVAL",
+          "url": "https://7ball.com.br/produtos/mesa-de-poker-e-cartas-monaco-oval/",
+          "categorias": [
+            "carteado",
+            "icon"
+          ]
+        },
+        {
+          "id": 657,
+          "slug": "mesa-multifuncional-elegance-gourmet",
+          "title": "ELEGANCE GOURMET",
+          "url": "https://7ball.com.br/produtos/mesa-multifuncional-elegance-gourmet/",
+          "categorias": [
+            "arena",
+            "tenis-de-mesa"
+          ]
+        },
+        {
+          "id": 3230,
+          "slug": "musa",
+          "title": "MUSA",
+          "url": "https://7ball.com.br/produtos/musa/",
+          "categorias": [
+            "cadeiras",
+            "decor"
+          ]
+        },
+        {
+          "id": 3242,
+          "slug": "new-pure",
+          "title": "NEW PURE",
+          "url": "https://7ball.com.br/produtos/new-pure/",
+          "categorias": [
+            "cadeiras",
+            "decor"
+          ]
+        },
+        {
+          "id": 16409,
+          "slug": "oslo",
+          "title": "OSLO",
+          "url": "https://7ball.com.br/produtos/oslo/",
+          "categorias": [
+            "icon",
+            "mesa-sinuca"
+          ]
+        },
+        {
+          "id": 846,
+          "slug": "pebolim-california",
+          "title": "CALIFÓRNIA",
+          "url": "https://7ball.com.br/produtos/pebolim-california/",
+          "categorias": [
+            "icon",
+            "pebolim"
+          ]
+        },
+        {
+          "id": 858,
+          "slug": "pebolim-elegance",
+          "title": "ELEGANCE",
+          "url": "https://7ball.com.br/produtos/pebolim-elegance/",
+          "categorias": [
+            "aura",
+            "pebolim"
+          ]
+        },
+        {
+          "id": 869,
+          "slug": "pebolim-iron",
+          "title": "IRON",
+          "url": "https://7ball.com.br/produtos/pebolim-iron/",
+          "categorias": [
+            "form",
+            "pebolim"
+          ]
+        },
+        {
+          "id": 936,
+          "slug": "pebolim-milao",
+          "title": "MILÃO",
+          "url": "https://7ball.com.br/produtos/pebolim-milao/",
+          "categorias": [
+            "icon",
+            "pebolim"
+          ]
+        },
+        {
+          "id": 2867,
+          "slug": "poker-e-cartas-monaco",
+          "title": "MONACO REDONDA",
+          "url": "https://7ball.com.br/produtos/poker-e-cartas-monaco/",
+          "categorias": [
+            "carteado",
+            "icon"
+          ]
+        },
+        {
+          "id": 2892,
+          "slug": "poker-e-cartas-singapura",
+          "title": "SINGAPURA REDONDA",
+          "url": "https://7ball.com.br/produtos/poker-e-cartas-singapura/",
+          "categorias": [
+            "carteado",
+            "icon"
+          ]
+        },
+        {
+          "id": 2922,
+          "slug": "poker-e-cartas-singapura-oval",
+          "title": "SINGAPURA OVAL",
+          "url": "https://7ball.com.br/produtos/poker-e-cartas-singapura-oval/",
+          "categorias": [
+            "carteado",
+            "icon"
+          ]
+        },
+        {
+          "id": 5575,
+          "slug": "porta-tampo-linea",
+          "title": "P. TAMPO LÍNEA",
+          "url": "https://7ball.com.br/produtos/porta-tampo-linea/",
+          "categorias": [
+            "complementos"
+          ]
+        },
+        {
+          "id": 3826,
+          "slug": "sardenha",
+          "title": "SARDENHA",
+          "url": "https://7ball.com.br/produtos/sardenha/",
+          "categorias": [
+            "cadeiras",
+            "decor"
+          ]
+        },
+        {
+          "id": 15776,
+          "slug": "sintra",
+          "title": "SINTRA",
+          "url": "https://7ball.com.br/produtos/sintra/",
+          "categorias": [
+            "icon",
+            "mesa-sinuca"
+          ]
+        },
+        {
+          "id": 5026,
+          "slug": "sinuca-capri",
+          "title": "CAPRI",
+          "url": "https://7ball.com.br/produtos/sinuca-capri/",
+          "categorias": [
+            "form",
+            "mesa-sinuca"
+          ]
+        },
+        {
+          "id": 1923,
+          "slug": "sinuca-doha",
+          "title": "DOHA",
+          "url": "https://7ball.com.br/produtos/sinuca-doha/",
+          "categorias": [
+            "icon",
+            "mesa-sinuca"
+          ]
+        },
+        {
+          "id": 1933,
+          "slug": "sinuca-elegance",
+          "title": "ELEGANCE",
+          "url": "https://7ball.com.br/produtos/sinuca-elegance/",
+          "categorias": [
+            "aura",
+            "mesa-sinuca"
+          ]
+        },
+        {
+          "id": 1935,
+          "slug": "sinuca-iron",
+          "title": "IRON",
+          "url": "https://7ball.com.br/produtos/sinuca-iron/",
+          "categorias": [
+            "form",
+            "mesa-sinuca"
+          ]
+        },
+        {
+          "id": 484,
+          "slug": "sinuca-liverpool",
+          "title": "LIVERPOOL",
+          "url": "https://7ball.com.br/produtos/sinuca-liverpool/",
+          "categorias": [
+            "icon",
+            "mesa-sinuca"
+          ]
+        },
+        {
+          "id": 68,
+          "slug": "sinuca-new-milao",
+          "title": "NEW MILÃO",
+          "url": "https://7ball.com.br/produtos/sinuca-new-milao/",
+          "categorias": [
+            "icon",
+            "mesa-sinuca"
+          ]
+        },
+        {
+          "id": 1937,
+          "slug": "sinuca-paris",
+          "title": "PARIS",
+          "url": "https://7ball.com.br/produtos/sinuca-paris/",
+          "categorias": [
+            "aura",
+            "mesa-sinuca"
+          ]
+        },
+        {
+          "id": 496,
+          "slug": "sinuca-roma",
+          "title": "ROMA",
+          "url": "https://7ball.com.br/produtos/sinuca-roma/",
+          "categorias": [
+            "form",
+            "mesa-sinuca"
+          ]
+        },
+        {
+          "id": 10084,
+          "slug": "sinuca-santorini",
+          "title": "SANTORINI",
+          "url": "https://7ball.com.br/produtos/sinuca-santorini/",
+          "categorias": [
+            "icon",
+            "mesa-sinuca"
+          ]
+        },
+        {
+          "id": 1922,
+          "slug": "sinuca-verona",
+          "title": "VERONA",
+          "url": "https://7ball.com.br/produtos/sinuca-verona/",
+          "categorias": [
+            "icon",
+            "mesa-sinuca"
+          ]
+        },
+        {
+          "id": 4327,
+          "slug": "sinuca-xtreme-edge",
+          "title": "XTREME EDGE",
+          "url": "https://7ball.com.br/produtos/sinuca-xtreme-edge/",
+          "categorias": [
+            "aura",
+            "mesa-sinuca"
+          ]
+        },
+        {
+          "id": 507,
+          "slug": "sinuca-zurich",
+          "title": "ZURICH",
+          "url": "https://7ball.com.br/produtos/sinuca-zurich/",
+          "categorias": [
+            "icon",
+            "mesa-sinuca"
+          ]
+        },
+        {
+          "id": 3340,
+          "slug": "tampo-tingido",
+          "title": "TAMPO TINGIDO",
+          "url": "https://7ball.com.br/produtos/tampo-tingido/",
+          "categorias": [
+            "arena",
+            "tenis-de-mesa"
+          ]
+        },
+        {
+          "id": 4397,
+          "slug": "taqueira-de-chao-linea",
+          "title": "TAQUEIRA CHÃO LÍNEA",
+          "url": "https://7ball.com.br/produtos/taqueira-de-chao-linea/",
+          "categorias": [
+            "complementos"
+          ]
+        },
+        {
+          "id": 2907,
+          "slug": "taqueira-de-parede-linea",
+          "title": "TAQUEIRA LÍNEA",
+          "url": "https://7ball.com.br/produtos/taqueira-de-parede-linea/",
+          "categorias": [
+            "complementos"
+          ]
+        },
+        {
+          "id": 672,
+          "slug": "tenis-de-mesa-dobravel-tingido",
+          "title": "DOBRÁVEL TINGIDO",
+          "url": "https://7ball.com.br/produtos/tenis-de-mesa-dobravel-tingido/",
+          "categorias": [
+            "arena",
+            "tenis-de-mesa"
+          ]
+        },
+        {
+          "id": 3792,
+          "slug": "tenis-de-mesa-fixo-soft",
+          "title": "FIXO",
+          "url": "https://7ball.com.br/produtos/tenis-de-mesa-fixo-soft/",
+          "categorias": [
+            "arena",
+            "tenis-de-mesa"
+          ]
+        },
+        {
+          "id": 749,
+          "slug": "tenis-de-mesa-outside-dobravel",
+          "title": "OUTSIDE",
+          "url": "https://7ball.com.br/produtos/tenis-de-mesa-outside-dobravel/",
+          "categorias": [
+            "arena",
+            "tenis-de-mesa"
+          ]
+        }
+      ]
+    },
+    "reebok": {
+      "categorias": [
+        {
+          "id": 95,
+          "name": "Acessórios.",
+          "slug": "acessorios",
+          "count": 0
+        },
+        {
+          "id": 58,
+          "name": "Acessórios",
+          "slug": "acessorios_",
+          "count": 27
+        },
+        {
+          "id": 81,
+          "name": "Bancos",
+          "slug": "bancos",
+          "count": 18
+        },
+        {
+          "id": 119,
+          "name": "Bancos",
+          "slug": "bancos-2",
+          "count": 0
+        },
+        {
+          "id": 102,
+          "name": "Bikes",
+          "slug": "bikes",
+          "count": 8
+        },
+        {
+          "id": 114,
+          "name": "Brave",
+          "slug": "brave",
+          "count": 35
+        },
+        {
+          "id": 77,
+          "name": "Cardio",
+          "slug": "cardio",
+          "count": 1
+        },
+        {
+          "id": 118,
+          "name": "CrossFit",
+          "slug": "crossfit",
+          "count": 18
+        },
+        {
+          "id": 101,
+          "name": "Elípticos",
+          "slug": "elipticos",
+          "count": 5
+        },
+        {
+          "id": 107,
+          "name": "Energy",
+          "slug": "energy",
+          "count": 8
+        },
+        {
+          "id": 100,
+          "name": "Escadas",
+          "slug": "escadas",
+          "count": 2
+        },
+        {
+          "id": 115,
+          "name": "Essentials",
+          "slug": "essentials",
+          "count": 31
+        },
+        {
+          "id": 79,
+          "name": "Estações",
+          "slug": "estacoes",
+          "count": 14
+        },
+        {
+          "id": 99,
+          "name": "Esteiras",
+          "slug": "esteiras",
+          "count": 4
+        },
+        {
+          "id": 110,
+          "name": "Forge",
+          "slug": "forge",
+          "count": 36
+        },
+        {
+          "id": 122,
+          "name": "Fusion",
+          "slug": "fusion",
+          "count": 4
+        },
+        {
+          "id": 113,
+          "name": "Grid",
+          "slug": "grid",
+          "count": 13
+        },
+        {
+          "id": 121,
+          "name": "Heavy",
+          "slug": "heavy",
+          "count": 4
+        },
+        {
+          "id": 78,
+          "name": "Máquinas",
+          "slug": "maquinas",
+          "count": 36
+        },
+        {
+          "id": 80,
+          "name": "Peso Livre",
+          "slug": "peso-livre",
+          "count": 23
+        },
+        {
+          "id": 93,
+          "name": "Peso Livre e Racks",
+          "slug": "peso-livre-e-racks",
+          "count": 0
+        },
+        {
+          "id": 84,
+          "name": "Pesos",
+          "slug": "pesos",
+          "count": 0
+        },
+        {
+          "id": 94,
+          "name": "Pesos e Suportes",
+          "slug": "pesos-e-suportes",
+          "count": 8
+        },
+        {
+          "id": 120,
+          "name": "Power",
+          "slug": "power",
+          "count": 0
+        },
+        {
+          "id": 83,
+          "name": "Racks",
+          "slug": "racks",
+          "count": 14
+        },
+        {
+          "id": 116,
+          "name": "RBK Cross",
+          "slug": "rbk-cross",
+          "count": 18
+        },
+        {
+          "id": 117,
+          "name": "Remo e Ski",
+          "slug": "remo-e-ski",
+          "count": 2
+        },
+        {
+          "id": 82,
+          "name": "Suportes",
+          "slug": "suportes",
+          "count": 16
+        },
+        {
+          "id": 109,
+          "name": "Titan",
+          "slug": "titan",
+          "count": 6
+        },
+        {
+          "id": 112,
+          "name": "Torque",
+          "slug": "torque",
+          "count": 23
+        },
+        {
+          "id": 123,
+          "name": "Ultra",
+          "slug": "ultra",
+          "count": 4
+        },
+        {
+          "id": 111,
+          "name": "Vector",
+          "slug": "vector",
+          "count": 10
+        },
+        {
+          "id": 108,
+          "name": "Wave",
+          "slug": "wave",
+          "count": 4
+        }
+      ],
+      "produtos": [
+        {
+          "id": 4050,
+          "slug": "20-dumbbells",
+          "title": "Sup. 20 Dumbbells 11C",
+          "url": "https://7ball.com.br/produtos_reebok/20-dumbbells/",
+          "categorias": [
+            "brave",
+            "suportes"
+          ]
+        },
+        {
+          "id": 3886,
+          "slug": "abdominal",
+          "title": "Abdominal",
+          "url": "https://7ball.com.br/produtos_reebok/abdominal/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 5383,
+          "slug": "abdominal-lombar",
+          "title": "Abdominal/Lombar",
+          "url": "https://7ball.com.br/produtos_reebok/abdominal-lombar/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 7815,
+          "slug": "abdutor-em-pe",
+          "title": "Abdutor em Pé",
+          "url": "https://7ball.com.br/produtos_reebok/abdutor-em-pe/",
+          "categorias": [
+            "peso-livre",
+            "torque"
+          ]
+        },
+        {
+          "id": 3933,
+          "slug": "abdutora-adutora",
+          "title": "Abdutora/Adutora",
+          "url": "https://7ball.com.br/produtos_reebok/abdutora-adutora/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 7719,
+          "slug": "agach-guiado",
+          "title": "Agach. Guiado",
+          "url": "https://7ball.com.br/produtos_reebok/agach-guiado/",
+          "categorias": [
+            "grid",
+            "racks"
+          ]
+        },
+        {
+          "id": 4136,
+          "slug": "agach-guiado-smith",
+          "title": "Agach. Guiado",
+          "url": "https://7ball.com.br/produtos_reebok/agach-guiado-smith/",
+          "categorias": [
+            "grid",
+            "racks"
+          ]
+        },
+        {
+          "id": 7821,
+          "slug": "agach-pendulo",
+          "title": "Agach. Pêndulo",
+          "url": "https://7ball.com.br/produtos_reebok/agach-pendulo/",
+          "categorias": [
+            "peso-livre",
+            "torque"
+          ]
+        },
+        {
+          "id": 4111,
+          "slug": "agach-power-209",
+          "title": "Agachamento Power",
+          "url": "https://7ball.com.br/produtos_reebok/agach-power-209/",
+          "categorias": [
+            "grid",
+            "racks"
+          ]
+        },
+        {
+          "id": 7818,
+          "slug": "agach-sumo",
+          "title": "Agach. Sumô",
+          "url": "https://7ball.com.br/produtos_reebok/agach-sumo/",
+          "categorias": [
+            "peso-livre",
+            "torque"
+          ]
+        },
+        {
+          "id": 4103,
+          "slug": "agachamento-dual",
+          "title": "Agachamento Dual",
+          "url": "https://7ball.com.br/produtos_reebok/agachamento-dual/",
+          "categorias": [
+            "grid",
+            "racks"
+          ]
+        },
+        {
+          "id": 4099,
+          "slug": "agachamento-half",
+          "title": "R. Agachamento Half",
+          "url": "https://7ball.com.br/produtos_reebok/agachamento-half/",
+          "categorias": [
+            "grid",
+            "racks"
+          ]
+        },
+        {
+          "id": 4107,
+          "slug": "agachamento-multi",
+          "title": "Agachamento Multi",
+          "url": "https://7ball.com.br/produtos_reebok/agachamento-multi/",
+          "categorias": [
+            "grid",
+            "racks"
+          ]
+        },
+        {
+          "id": 2084,
+          "slug": "air-bike",
+          "title": "Air Bike",
+          "url": "https://7ball.com.br/produtos_reebok/air-bike/",
+          "categorias": [
+            "bikes",
+            "titan"
+          ]
+        },
+        {
+          "id": 4017,
+          "slug": "ajustavel-abdominal",
+          "title": "Banco Ajustável AB",
+          "url": "https://7ball.com.br/produtos_reebok/ajustavel-abdominal/",
+          "categorias": [
+            "bancos",
+            "brave"
+          ]
+        },
+        {
+          "id": 4013,
+          "slug": "ajustavel-inclinado",
+          "title": "Banco Tech",
+          "url": "https://7ball.com.br/produtos_reebok/ajustavel-inclinado/",
+          "categorias": [
+            "bancos",
+            "brave"
+          ]
+        },
+        {
+          "id": 3993,
+          "slug": "ajustavel-reto-declinado",
+          "title": "Banco Ajustável",
+          "url": "https://7ball.com.br/produtos_reebok/ajustavel-reto-declinado/",
+          "categorias": [
+            "bancos",
+            "brave"
+          ]
+        },
+        {
+          "id": 7121,
+          "slug": "anilha-colorida-cpu",
+          "title": "Anilha Colorida CPU",
+          "url": "https://7ball.com.br/produtos_reebok/anilha-colorida-cpu/",
+          "categorias": [
+            "crossfit",
+            "rbk-cross"
+          ]
+        },
+        {
+          "id": 4407,
+          "slug": "anilha-emborrachada",
+          "title": "Anilha Preta",
+          "url": "https://7ball.com.br/produtos_reebok/anilha-emborrachada/",
+          "categorias": [
+            "crossfit",
+            "rbk-cross"
+          ]
+        },
+        {
+          "id": 4414,
+          "slug": "anilha-tpu-preta",
+          "title": "Anilha 2 Pegadas",
+          "url": "https://7ball.com.br/produtos_reebok/anilha-tpu-preta/",
+          "categorias": [
+            "heavy",
+            "pesos-e-suportes"
+          ]
+        },
+        {
+          "id": 7730,
+          "slug": "arm-blaster",
+          "title": "Arm Blaster",
+          "url": "https://7ball.com.br/produtos_reebok/arm-blaster/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 6253,
+          "slug": "b-olimpica-agach",
+          "title": "B. Olímpica Agach.",
+          "url": "https://7ball.com.br/produtos_reebok/b-olimpica-agach/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 5424,
+          "slug": "b-vertical-709bvtft",
+          "title": "Bike Vert. Wave",
+          "url": "https://7ball.com.br/produtos_reebok/b-vertical-709bvtft/",
+          "categorias": [
+            "bikes",
+            "wave"
+          ]
+        },
+        {
+          "id": 4009,
+          "slug": "banco-90o",
+          "title": "Banco 90º",
+          "url": "https://7ball.com.br/produtos_reebok/banco-90o/",
+          "categorias": [
+            "bancos",
+            "brave"
+          ]
+        },
+        {
+          "id": 5657,
+          "slug": "banco-ajustavel",
+          "title": "Banco Classic",
+          "url": "https://7ball.com.br/produtos_reebok/banco-ajustavel/",
+          "categorias": [
+            "bancos",
+            "brave"
+          ]
+        },
+        {
+          "id": 7776,
+          "slug": "banco-de-supino",
+          "title": "Banco de Supino",
+          "url": "https://7ball.com.br/produtos_reebok/banco-de-supino/",
+          "categorias": [
+            "peso-livre",
+            "torque"
+          ]
+        },
+        {
+          "id": 4005,
+          "slug": "banco-reto",
+          "title": "Banco Reto",
+          "url": "https://7ball.com.br/produtos_reebok/banco-reto/",
+          "categorias": [
+            "bancos",
+            "brave"
+          ]
+        },
+        {
+          "id": 4021,
+          "slug": "banco-scott",
+          "title": "Banco Scott",
+          "url": "https://7ball.com.br/produtos_reebok/banco-scott/",
+          "categorias": [
+            "bancos",
+            "brave"
+          ]
+        },
+        {
+          "id": 7797,
+          "slug": "banco-scott-2",
+          "title": "Banco Scott",
+          "url": "https://7ball.com.br/produtos_reebok/banco-scott-2/",
+          "categorias": [
+            "peso-livre",
+            "torque"
+          ]
+        },
+        {
+          "id": 6255,
+          "slug": "barra-hexagonal",
+          "title": "Barra Hexagonal",
+          "url": "https://7ball.com.br/produtos_reebok/barra-hexagonal/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 6251,
+          "slug": "barra-olimpica-h",
+          "title": "Barra Olímpica H",
+          "url": "https://7ball.com.br/produtos_reebok/barra-olimpica-h/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 6252,
+          "slug": "barra-olimpica-w",
+          "title": "Barra Olímpica W",
+          "url": "https://7ball.com.br/produtos_reebok/barra-olimpica-w/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 4046,
+          "slug": "barra-triangulo",
+          "title": "Sup. Triângulo",
+          "url": "https://7ball.com.br/produtos_reebok/barra-triangulo/",
+          "categorias": [
+            "brave",
+            "suportes"
+          ]
+        },
+        {
+          "id": 6249,
+          "slug": "barras-olimpicas",
+          "title": "Barras Olímpicas",
+          "url": "https://7ball.com.br/produtos_reebok/barras-olimpicas/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 4091,
+          "slug": "barras-puxadores",
+          "title": "Barras/Puxadores",
+          "url": "https://7ball.com.br/produtos_reebok/barras-puxadores/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 6247,
+          "slug": "barras-retas-e-curvadas",
+          "title": "Barras em TPU",
+          "url": "https://7ball.com.br/produtos_reebok/barras-retas-e-curvadas/",
+          "categorias": [
+            "heavy",
+            "pesos-e-suportes"
+          ]
+        },
+        {
+          "id": 5395,
+          "slug": "biceps-triceps",
+          "title": "Biceps/Triceps",
+          "url": "https://7ball.com.br/produtos_reebok/biceps-triceps/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 5391,
+          "slug": "biceps-triceps-27",
+          "title": "Biceps/Ext. Triceps",
+          "url": "https://7ball.com.br/produtos_reebok/biceps-triceps-27/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 7101,
+          "slug": "bike-horiz-tt",
+          "title": "Bike Horiz. Wave",
+          "url": "https://7ball.com.br/produtos_reebok/bike-horiz-tt/",
+          "categorias": [
+            "bikes",
+            "wave"
+          ]
+        },
+        {
+          "id": 8176,
+          "slug": "bike-horizon-ultra",
+          "title": "Bike Horizon. Ultra",
+          "url": "https://7ball.com.br/produtos_reebok/bike-horizon-ultra/",
+          "categorias": [
+            "bikes",
+            "ultra"
+          ]
+        },
+        {
+          "id": 8193,
+          "slug": "bike-vertical-ultra",
+          "title": "Bike Vertical Ultra",
+          "url": "https://7ball.com.br/produtos_reebok/bike-vertical-ultra/",
+          "categorias": [
+            "bikes",
+            "ultra"
+          ]
+        },
+        {
+          "id": 6294,
+          "slug": "bola-ginastica",
+          "title": "Bola Ginástica",
+          "url": "https://7ball.com.br/produtos_reebok/bola-ginastica/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 6272,
+          "slug": "bosu-1201e",
+          "title": "Bosu 1201E",
+          "url": "https://7ball.com.br/produtos_reebok/bosu-1201e/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 6273,
+          "slug": "bosu-revestida",
+          "title": "Bosu Revestida",
+          "url": "https://7ball.com.br/produtos_reebok/bosu-revestida/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 2132,
+          "slug": "cable-crossover",
+          "title": "Crossover Angular",
+          "url": "https://7ball.com.br/produtos_reebok/cable-crossover/",
+          "categorias": [
+            "estacoes",
+            "vector"
+          ]
+        },
+        {
+          "id": 2156,
+          "slug": "cable-crossover-921",
+          "title": "Crossover Angular",
+          "url": "https://7ball.com.br/produtos_reebok/cable-crossover-921/",
+          "categorias": [
+            "estacoes",
+            "vector"
+          ]
+        },
+        {
+          "id": 3962,
+          "slug": "cadeira-extensora-05",
+          "title": "Cadeira Extensora",
+          "url": "https://7ball.com.br/produtos_reebok/cadeira-extensora-05/",
+          "categorias": [
+            "peso-livre",
+            "torque"
+          ]
+        },
+        {
+          "id": 5349,
+          "slug": "cadeira-extensora-2",
+          "title": "Cadeira Extensora Máq.",
+          "url": "https://7ball.com.br/produtos_reebok/cadeira-extensora-2/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 3897,
+          "slug": "cadeira-flexora",
+          "title": "Cadeira Flexora",
+          "url": "https://7ball.com.br/produtos_reebok/cadeira-flexora/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 5670,
+          "slug": "cadeira-romana",
+          "title": "Cadeira Romana",
+          "url": "https://7ball.com.br/produtos_reebok/cadeira-romana/",
+          "categorias": [
+            "bancos",
+            "brave"
+          ]
+        },
+        {
+          "id": 5674,
+          "slug": "cadeira-romana-2",
+          "title": "Cadeira Romana",
+          "url": "https://7ball.com.br/produtos_reebok/cadeira-romana-2/",
+          "categorias": [
+            "bancos",
+            "brave"
+          ]
+        },
+        {
+          "id": 6279,
+          "slug": "caixa-de-salto",
+          "title": "Kit Caixa de Salto",
+          "url": "https://7ball.com.br/produtos_reebok/caixa-de-salto/",
+          "categorias": [
+            "crossfit",
+            "rbk-cross"
+          ]
+        },
+        {
+          "id": 6281,
+          "slug": "caixa-de-salto-3",
+          "title": "Step Profissional",
+          "url": "https://7ball.com.br/produtos_reebok/caixa-de-salto-3/",
+          "categorias": [
+            "crossfit",
+            "rbk-cross"
+          ]
+        },
+        {
+          "id": 7125,
+          "slug": "caixa-de-salto-4",
+          "title": "Caixa de Salto",
+          "url": "https://7ball.com.br/produtos_reebok/caixa-de-salto-4/",
+          "categorias": [
+            "crossfit",
+            "rbk-cross"
+          ]
+        },
+        {
+          "id": 6291,
+          "slug": "cinto-de-agach",
+          "title": "Cinto de Agach.",
+          "url": "https://7ball.com.br/produtos_reebok/cinto-de-agach/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 7126,
+          "slug": "colchonete",
+          "title": "Colchonete",
+          "url": "https://7ball.com.br/produtos_reebok/colchonete/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 6288,
+          "slug": "colete-de-peso",
+          "title": "Colete de Peso",
+          "url": "https://7ball.com.br/produtos_reebok/colete-de-peso/",
+          "categorias": [
+            "crossfit",
+            "rbk-cross"
+          ]
+        },
+        {
+          "id": 7129,
+          "slug": "corda-de-pular",
+          "title": "Corda de Pular",
+          "url": "https://7ball.com.br/produtos_reebok/corda-de-pular/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 6260,
+          "slug": "corda-naval",
+          "title": "Corda Naval",
+          "url": "https://7ball.com.br/produtos_reebok/corda-naval/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 7023,
+          "slug": "cross-horizon-carenado",
+          "title": "Cross Carenado",
+          "url": "https://7ball.com.br/produtos_reebok/cross-horizon-carenado/",
+          "categorias": [
+            "estacoes",
+            "fusion"
+          ]
+        },
+        {
+          "id": 7104,
+          "slug": "crossover-angular-black",
+          "title": "Crossover Black",
+          "url": "https://7ball.com.br/produtos_reebok/crossover-angular-black/",
+          "categorias": [
+            "estacoes",
+            "vector"
+          ]
+        },
+        {
+          "id": 2109,
+          "slug": "crossover-pulley-combo",
+          "title": "Crossover Horizontal",
+          "url": "https://7ball.com.br/produtos_reebok/crossover-pulley-combo/",
+          "categorias": [
+            "estacoes",
+            "vector"
+          ]
+        },
+        {
+          "id": 2077,
+          "slug": "curved",
+          "title": "Est. Tração Titan",
+          "url": "https://7ball.com.br/produtos_reebok/curved/",
+          "categorias": [
+            "esteiras",
+            "titan"
+          ]
+        },
+        {
+          "id": 5222,
+          "slug": "desenv-de-ombro",
+          "title": "Desenv. de Ombro",
+          "url": "https://7ball.com.br/produtos_reebok/desenv-de-ombro/",
+          "categorias": [
+            "peso-livre",
+            "torque"
+          ]
+        },
+        {
+          "id": 3878,
+          "slug": "desenvolvimento-de-ombro",
+          "title": "Desenv. Ombro Máq.",
+          "url": "https://7ball.com.br/produtos_reebok/desenvolvimento-de-ombro/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 7112,
+          "slug": "dumbbell-regulavel",
+          "title": "Dumbbell Regulável",
+          "url": "https://7ball.com.br/produtos_reebok/dumbbell-regulavel/",
+          "categorias": [
+            "essentials",
+            "pesos-e-suportes"
+          ]
+        },
+        {
+          "id": 7029,
+          "slug": "dumbbells-gold",
+          "title": "Dumbbells Gold",
+          "url": "https://7ball.com.br/produtos_reebok/dumbbells-gold/",
+          "categorias": [
+            "essentials",
+            "pesos-e-suportes"
+          ]
+        },
+        {
+          "id": 6246,
+          "slug": "dumbbells-redondos",
+          "title": "Dumbbells CPU",
+          "url": "https://7ball.com.br/produtos_reebok/dumbbells-redondos/",
+          "categorias": [
+            "essentials",
+            "pesos-e-suportes"
+          ]
+        },
+        {
+          "id": 6245,
+          "slug": "dumbbells-sextavados",
+          "title": "Halteres Sextavados",
+          "url": "https://7ball.com.br/produtos_reebok/dumbbells-sextavados/",
+          "categorias": [
+            "essentials",
+            "pesos-e-suportes"
+          ]
+        },
+        {
+          "id": 5278,
+          "slug": "elevacao-c-barra",
+          "title": "Elevação de Joelho",
+          "url": "https://7ball.com.br/produtos_reebok/elevacao-c-barra/",
+          "categorias": [
+            "bancos",
+            "brave"
+          ]
+        },
+        {
+          "id": 5274,
+          "slug": "elevacao-de-joelho",
+          "title": "Elevação de Joelho",
+          "url": "https://7ball.com.br/produtos_reebok/elevacao-de-joelho/",
+          "categorias": [
+            "bancos",
+            "brave"
+          ]
+        },
+        {
+          "id": 7812,
+          "slug": "elevacao-de-quadril",
+          "title": "Elevação de Quadril",
+          "url": "https://7ball.com.br/produtos_reebok/elevacao-de-quadril/",
+          "categorias": [
+            "peso-livre",
+            "torque"
+          ]
+        },
+        {
+          "id": 3929,
+          "slug": "elevacao-lateral",
+          "title": "Elevação Lateral",
+          "url": "https://7ball.com.br/produtos_reebok/elevacao-lateral/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 5354,
+          "slug": "elevacao-lateral-2",
+          "title": "Elevação Lateral",
+          "url": "https://7ball.com.br/produtos_reebok/elevacao-lateral-2/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 3918,
+          "slug": "elevacao-pelvica",
+          "title": "Elevação Pélvica Máq.",
+          "url": "https://7ball.com.br/produtos_reebok/elevacao-pelvica/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 7806,
+          "slug": "elevacao-pelvica-2",
+          "title": "Elevação Pélvica",
+          "url": "https://7ball.com.br/produtos_reebok/elevacao-pelvica-2/",
+          "categorias": [
+            "peso-livre",
+            "torque"
+          ]
+        },
+        {
+          "id": 7809,
+          "slug": "elevacao-pelvica-fw",
+          "title": "Elevação Pélvica – FW",
+          "url": "https://7ball.com.br/produtos_reebok/elevacao-pelvica-fw/",
+          "categorias": [
+            "peso-livre",
+            "torque"
+          ]
+        },
+        {
+          "id": 5436,
+          "slug": "eliptico-609etft",
+          "title": "Elíptico Wave",
+          "url": "https://7ball.com.br/produtos_reebok/eliptico-609etft/",
+          "categorias": [
+            "elipticos",
+            "wave"
+          ]
+        },
+        {
+          "id": 5245,
+          "slug": "eliptico-7800e",
+          "title": "Elíptico Energy",
+          "url": "https://7ball.com.br/produtos_reebok/eliptico-7800e/",
+          "categorias": [
+            "elipticos",
+            "energy"
+          ]
+        },
+        {
+          "id": 6054,
+          "slug": "eliptico-7900",
+          "title": "Elíptico Energy",
+          "url": "https://7ball.com.br/produtos_reebok/eliptico-7900/",
+          "categorias": [
+            "elipticos",
+            "energy"
+          ]
+        },
+        {
+          "id": 8196,
+          "slug": "eliptico-ultra",
+          "title": "Elíptico Ultra",
+          "url": "https://7ball.com.br/produtos_reebok/eliptico-ultra/",
+          "categorias": [
+            "elipticos",
+            "ultra"
+          ]
+        },
+        {
+          "id": 1982,
+          "slug": "elliptical-7900met",
+          "title": "Elíptico inc. Energy",
+          "url": "https://7ball.com.br/produtos_reebok/elliptical-7900met/",
+          "categorias": [
+            "elipticos",
+            "energy"
+          ]
+        },
+        {
+          "id": 5250,
+          "slug": "escada-70s-70st",
+          "title": "Escada Energy",
+          "url": "https://7ball.com.br/produtos_reebok/escada-70s-70st/",
+          "categorias": [
+            "energy",
+            "escadas"
+          ]
+        },
+        {
+          "id": 6290,
+          "slug": "espaldar",
+          "title": "Espaldar",
+          "url": "https://7ball.com.br/produtos_reebok/espaldar/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 4075,
+          "slug": "estante-3-andares",
+          "title": "Estante 3 Andares",
+          "url": "https://7ball.com.br/produtos_reebok/estante-3-andares/",
+          "categorias": [
+            "brave",
+            "suportes"
+          ]
+        },
+        {
+          "id": 1670,
+          "slug": "esteira-energy",
+          "title": "Esteira Energy",
+          "url": "https://7ball.com.br/produtos_reebok/esteira-energy/",
+          "categorias": [
+            "energy",
+            "esteiras"
+          ]
+        },
+        {
+          "id": 1649,
+          "slug": "esteira-rbkhs-4-0",
+          "title": "Esteira Wave",
+          "url": "https://7ball.com.br/produtos_reebok/esteira-rbkhs-4-0/",
+          "categorias": [
+            "esteiras",
+            "wave"
+          ]
+        },
+        {
+          "id": 8179,
+          "slug": "esteira-ultra",
+          "title": "Esteira Ultra",
+          "url": "https://7ball.com.br/produtos_reebok/esteira-ultra/",
+          "categorias": [
+            "esteiras",
+            "ultra"
+          ]
+        },
+        {
+          "id": 3901,
+          "slug": "extensao-de-triceps",
+          "title": "Exten. de Triceps",
+          "url": "https://7ball.com.br/produtos_reebok/extensao-de-triceps/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 3910,
+          "slug": "extensora-lombar",
+          "title": "Extensora Lombar",
+          "url": "https://7ball.com.br/produtos_reebok/extensora-lombar/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 7827,
+          "slug": "flex-de-pernas",
+          "title": "Flex. de Pernas",
+          "url": "https://7ball.com.br/produtos_reebok/flex-de-pernas/",
+          "categorias": [
+            "peso-livre",
+            "torque"
+          ]
+        },
+        {
+          "id": 3906,
+          "slug": "flexao-biceps",
+          "title": "Flexão Biceps",
+          "url": "https://7ball.com.br/produtos_reebok/flexao-biceps/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 5559,
+          "slug": "flexao-de-pescoco",
+          "title": "Flexão de pescoço",
+          "url": "https://7ball.com.br/produtos_reebok/flexao-de-pescoco/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 5358,
+          "slug": "flexao-l-de-cintura",
+          "title": "Flexão L. de Cintura",
+          "url": "https://7ball.com.br/produtos_reebok/flexao-l-de-cintura/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 5366,
+          "slug": "flexora-e-extensora",
+          "title": "Flexora e Extensora",
+          "url": "https://7ball.com.br/produtos_reebok/flexora-e-extensora/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 3945,
+          "slug": "gluteo-coice",
+          "title": "Glúteo (Coice) Máq.",
+          "url": "https://7ball.com.br/produtos_reebok/gluteo-coice/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 3926,
+          "slug": "graviton",
+          "title": "Voador",
+          "url": "https://7ball.com.br/produtos_reebok/graviton/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 5230,
+          "slug": "graviton-2",
+          "title": "Gráviton",
+          "url": "https://7ball.com.br/produtos_reebok/graviton-2/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 6296,
+          "slug": "gym-timer",
+          "title": "Gym Timer",
+          "url": "https://7ball.com.br/produtos_reebok/gym-timer/",
+          "categorias": [
+            "crossfit",
+            "rbk-cross"
+          ]
+        },
+        {
+          "id": 7027,
+          "slug": "hack-de-agachamento",
+          "title": "Hack de Agachamento",
+          "url": "https://7ball.com.br/produtos_reebok/hack-de-agachamento/",
+          "categorias": [
+            "peso-livre",
+            "torque"
+          ]
+        },
+        {
+          "id": 2306,
+          "slug": "incline-bench",
+          "title": "Supino Inclinado",
+          "url": "https://7ball.com.br/produtos_reebok/incline-bench/",
+          "categorias": [
+            "bancos",
+            "brave"
+          ]
+        },
+        {
+          "id": 6243,
+          "slug": "kettlebell",
+          "title": "Kettlebell",
+          "url": "https://7ball.com.br/produtos_reebok/kettlebell/",
+          "categorias": [
+            "heavy",
+            "pesos-e-suportes"
+          ]
+        },
+        {
+          "id": 6244,
+          "slug": "kettlebell-p-u",
+          "title": "Kettlebell P.U.",
+          "url": "https://7ball.com.br/produtos_reebok/kettlebell-p-u/",
+          "categorias": [
+            "heavy",
+            "pesos-e-suportes"
+          ]
+        },
+        {
+          "id": 7130,
+          "slug": "kit-treinamento",
+          "title": "Kit Treinamento",
+          "url": "https://7ball.com.br/produtos_reebok/kit-treinamento/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 6257,
+          "slug": "landmine-360o",
+          "title": "Landmine 360º",
+          "url": "https://7ball.com.br/produtos_reebok/landmine-360o/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 3970,
+          "slug": "leg-press-45o-116aut",
+          "title": "Leg Press 45º",
+          "url": "https://7ball.com.br/produtos_reebok/leg-press-45o-116aut/",
+          "categorias": [
+            "peso-livre",
+            "torque"
+          ]
+        },
+        {
+          "id": 5375,
+          "slug": "leg-press-horiz",
+          "title": "Leg Press Art.",
+          "url": "https://7ball.com.br/produtos_reebok/leg-press-horiz/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 3914,
+          "slug": "leg-press-horizontal",
+          "title": "Leg Press Linear",
+          "url": "https://7ball.com.br/produtos_reebok/leg-press-horizontal/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 5450,
+          "slug": "m-estacao-4-354kg",
+          "title": "Multi Estação 4",
+          "url": "https://7ball.com.br/produtos_reebok/m-estacao-4-354kg/",
+          "categorias": [
+            "estacoes",
+            "vector"
+          ]
+        },
+        {
+          "id": 5454,
+          "slug": "m-estacao-5-431kg",
+          "title": "Multi Estação 5",
+          "url": "https://7ball.com.br/produtos_reebok/m-estacao-5-431kg/",
+          "categorias": [
+            "estacoes",
+            "fusion"
+          ]
+        },
+        {
+          "id": 5458,
+          "slug": "m-estacao-8-708kg",
+          "title": "Multi Estação 8",
+          "url": "https://7ball.com.br/produtos_reebok/m-estacao-8-708kg/",
+          "categorias": [
+            "estacoes",
+            "fusion"
+          ]
+        },
+        {
+          "id": 6284,
+          "slug": "medicine-ball",
+          "title": "Medicine Ball",
+          "url": "https://7ball.com.br/produtos_reebok/medicine-ball/",
+          "categorias": [
+            "crossfit",
+            "rbk-cross"
+          ]
+        },
+        {
+          "id": 6259,
+          "slug": "medicine-ball-reactor",
+          "title": "Medicine Ball Reactor",
+          "url": "https://7ball.com.br/produtos_reebok/medicine-ball-reactor/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 3941,
+          "slug": "mesa-flexora",
+          "title": "Mesa Flexora",
+          "url": "https://7ball.com.br/produtos_reebok/mesa-flexora/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 7824,
+          "slug": "mesa-flexora-2",
+          "title": "Mesa Flexora",
+          "url": "https://7ball.com.br/produtos_reebok/mesa-flexora-2/",
+          "categorias": [
+            "peso-livre",
+            "torque"
+          ]
+        },
+        {
+          "id": 5571,
+          "slug": "mono-cross",
+          "title": "Mono Cross",
+          "url": "https://7ball.com.br/produtos_reebok/mono-cross/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 6102,
+          "slug": "multi-estacao",
+          "title": "Multi Estação",
+          "url": "https://7ball.com.br/produtos_reebok/multi-estacao/",
+          "categorias": [
+            "estacoes",
+            "vector"
+          ]
+        },
+        {
+          "id": 7010,
+          "slug": "multi-estacao-4-354kg",
+          "title": "Multi Estação 4 – 354kg",
+          "url": "https://7ball.com.br/produtos_reebok/multi-estacao-4-354kg/",
+          "categorias": [
+            "estacoes",
+            "fusion"
+          ]
+        },
+        {
+          "id": 7013,
+          "slug": "multi-estacao-6",
+          "title": "Multi Estação 6",
+          "url": "https://7ball.com.br/produtos_reebok/multi-estacao-6/",
+          "categorias": [
+            "estacoes",
+            "vector"
+          ]
+        },
+        {
+          "id": 7018,
+          "slug": "multi-estacao-9",
+          "title": "Multi Estação 9",
+          "url": "https://7ball.com.br/produtos_reebok/multi-estacao-9/",
+          "categorias": [
+            "estacoes",
+            "vector"
+          ]
+        },
+        {
+          "id": 3949,
+          "slug": "multi-press",
+          "title": "Multi Press",
+          "url": "https://7ball.com.br/produtos_reebok/multi-press/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 5371,
+          "slug": "panturrilha-em-pe",
+          "title": "Máquina de Squad",
+          "url": "https://7ball.com.br/produtos_reebok/panturrilha-em-pe/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 3937,
+          "slug": "panturrilha-em-pe-17",
+          "title": "Panturrilha em Pé",
+          "url": "https://7ball.com.br/produtos_reebok/panturrilha-em-pe-17/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 3966,
+          "slug": "panturrilha-sentado-06",
+          "title": "Panturrilha Sentado",
+          "url": "https://7ball.com.br/produtos_reebok/panturrilha-sentado-06/",
+          "categorias": [
+            "peso-livre",
+            "torque"
+          ]
+        },
+        {
+          "id": 7118,
+          "slug": "piso-emb-colorido",
+          "title": "Piso Emb Colorido",
+          "url": "https://7ball.com.br/produtos_reebok/piso-emb-colorido/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 7115,
+          "slug": "piso-emb-preto",
+          "title": "Piso Emb Preto",
+          "url": "https://7ball.com.br/produtos_reebok/piso-emb-preto/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 7047,
+          "slug": "plat-levantamento-de-peso",
+          "title": "Plat. Levantamento",
+          "url": "https://7ball.com.br/produtos_reebok/plat-levantamento-de-peso/",
+          "categorias": [
+            "crossfit",
+            "rbk-cross"
+          ]
+        },
+        {
+          "id": 6295,
+          "slug": "pneu-de-treino",
+          "title": "Pneu de Treino",
+          "url": "https://7ball.com.br/produtos_reebok/pneu-de-treino/",
+          "categorias": [
+            "crossfit",
+            "rbk-cross"
+          ]
+        },
+        {
+          "id": 6287,
+          "slug": "power-bag",
+          "title": "Power Bag",
+          "url": "https://7ball.com.br/produtos_reebok/power-bag/",
+          "categorias": [
+            "crossfit",
+            "rbk-cross"
+          ]
+        },
+        {
+          "id": 4152,
+          "slug": "power-rack-217",
+          "title": "Power Rack",
+          "url": "https://7ball.com.br/produtos_reebok/power-rack-217/",
+          "categorias": [
+            "grid",
+            "racks"
+          ]
+        },
+        {
+          "id": 6256,
+          "slug": "presilha-lock-press",
+          "title": "Presilha Lock-Press",
+          "url": "https://7ball.com.br/produtos_reebok/presilha-lock-press/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 3870,
+          "slug": "prone-leg-curl-2",
+          "title": "Supino Reto Máq.",
+          "url": "https://7ball.com.br/produtos_reebok/prone-leg-curl-2/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 6286,
+          "slug": "protetor-barra-pu",
+          "title": "Protetor Barra PU",
+          "url": "https://7ball.com.br/produtos_reebok/protetor-barra-pu/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 7783,
+          "slug": "pux-alta-frontal",
+          "title": "Pux. Alta Frontal",
+          "url": "https://7ball.com.br/produtos_reebok/pux-alta-frontal/",
+          "categorias": [
+            "peso-livre",
+            "torque"
+          ]
+        },
+        {
+          "id": 5218,
+          "slug": "puxada-alta-02__trashed",
+          "title": "Puxada Alta",
+          "url": "https://7ball.com.br/produtos_reebok/puxada-alta-02__trashed/",
+          "categorias": [
+            "peso-livre",
+            "torque"
+          ]
+        },
+        {
+          "id": 5379,
+          "slug": "puxada-alta-baixa-2",
+          "title": "Puxada Alta/Baixa",
+          "url": "https://7ball.com.br/produtos_reebok/puxada-alta-baixa-2/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 5583,
+          "slug": "puxada-cruzada",
+          "title": "Puxada Cruzada",
+          "url": "https://7ball.com.br/produtos_reebok/puxada-cruzada/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 5712,
+          "slug": "rack-3a-9-pares",
+          "title": "Rack Curvado 9 Pares",
+          "url": "https://7ball.com.br/produtos_reebok/rack-3a-9-pares/",
+          "categorias": [
+            "brave",
+            "suportes"
+          ]
+        },
+        {
+          "id": 5704,
+          "slug": "rack-6-pares",
+          "title": "Rack Curvado 6 Pares",
+          "url": "https://7ball.com.br/produtos_reebok/rack-6-pares/",
+          "categorias": [
+            "brave",
+            "suportes"
+          ]
+        },
+        {
+          "id": 5286,
+          "slug": "rack-agach-livre",
+          "title": "Rack Agach. Livre",
+          "url": "https://7ball.com.br/produtos_reebok/rack-agach-livre/",
+          "categorias": [
+            "brave",
+            "racks"
+          ]
+        },
+        {
+          "id": 4095,
+          "slug": "rack-agachamento",
+          "title": "Rack Agach. Power",
+          "url": "https://7ball.com.br/produtos_reebok/rack-agachamento/",
+          "categorias": [
+            "grid",
+            "racks"
+          ]
+        },
+        {
+          "id": 7031,
+          "slug": "rack-curvado-13-pares",
+          "title": "Rack Curvado 13 Pares",
+          "url": "https://7ball.com.br/produtos_reebok/rack-curvado-13-pares/",
+          "categorias": [
+            "brave",
+            "suportes"
+          ]
+        },
+        {
+          "id": 5290,
+          "slug": "rack-desenv-ombro",
+          "title": "Rack Desenv.",
+          "url": "https://7ball.com.br/produtos_reebok/rack-desenv-ombro/",
+          "categorias": [
+            "bancos",
+            "brave"
+          ]
+        },
+        {
+          "id": 4156,
+          "slug": "rack-multi-217",
+          "title": "Rack Multi",
+          "url": "https://7ball.com.br/produtos_reebok/rack-multi-217/",
+          "categorias": [
+            "grid",
+            "racks"
+          ]
+        },
+        {
+          "id": 5308,
+          "slug": "rack-smith-cross",
+          "title": "Multi Rack S. Cross",
+          "url": "https://7ball.com.br/produtos_reebok/rack-smith-cross/",
+          "categorias": [
+            "estacoes",
+            "vector"
+          ]
+        },
+        {
+          "id": 2139,
+          "slug": "rack-smith-cross-2",
+          "title": "Rack Smith Cross",
+          "url": "https://7ball.com.br/produtos_reebok/rack-smith-cross-2/",
+          "categorias": [
+            "estacoes",
+            "vector"
+          ]
+        },
+        {
+          "id": 1955,
+          "slug": "recumbent-cycle-3900bht",
+          "title": "Bike Horizon. 3900",
+          "url": "https://7ball.com.br/produtos_reebok/recumbent-cycle-3900bht/",
+          "categorias": [
+            "bikes",
+            "energy"
+          ]
+        },
+        {
+          "id": 5387,
+          "slug": "remada-alta-34",
+          "title": "Puxada Alta Art.",
+          "url": "https://7ball.com.br/produtos_reebok/remada-alta-34/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 3953,
+          "slug": "remada-baixa",
+          "title": "Remada Baixa",
+          "url": "https://7ball.com.br/produtos_reebok/remada-baixa/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 7024,
+          "slug": "remada-cavalinho",
+          "title": "Remada Inclinada",
+          "url": "https://7ball.com.br/produtos_reebok/remada-cavalinho/",
+          "categorias": [
+            "peso-livre",
+            "torque"
+          ]
+        },
+        {
+          "id": 3874,
+          "slug": "remada-sentada",
+          "title": "Remada Sentada",
+          "url": "https://7ball.com.br/produtos_reebok/remada-sentada/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 3958,
+          "slug": "remada-unilateral",
+          "title": "Remada Unilateral",
+          "url": "https://7ball.com.br/produtos_reebok/remada-unilateral/",
+          "categorias": [
+            "peso-livre",
+            "torque"
+          ]
+        },
+        {
+          "id": 7006,
+          "slug": "remo-energy",
+          "title": "Remo Energy",
+          "url": "https://7ball.com.br/produtos_reebok/remo-energy/",
+          "categorias": [
+            "cardio",
+            "energy"
+          ]
+        },
+        {
+          "id": 4001,
+          "slug": "reto-declinado-ad",
+          "title": "Banco Ajustável",
+          "url": "https://7ball.com.br/produtos_reebok/reto-declinado-ad/",
+          "categorias": [
+            "bancos",
+            "brave"
+          ]
+        },
+        {
+          "id": 7046,
+          "slug": "rig-cross",
+          "title": "Rig Cross",
+          "url": "https://7ball.com.br/produtos_reebok/rig-cross/",
+          "categorias": [
+            "crossfit",
+            "rbk-cross"
+          ]
+        },
+        {
+          "id": 6270,
+          "slug": "roda-exercicio",
+          "title": "Roda Exercício",
+          "url": "https://7ball.com.br/produtos_reebok/roda-exercicio/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 6266,
+          "slug": "rolo-espuma",
+          "title": "Rolo Espuma",
+          "url": "https://7ball.com.br/produtos_reebok/rolo-espuma/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 5563,
+          "slug": "rotacao-de-pescoco",
+          "title": "Rot. de pescoço",
+          "url": "https://7ball.com.br/produtos_reebok/rotacao-de-pescoco/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 5362,
+          "slug": "rotacao-de-quadril",
+          "title": "Rotação de Quadril",
+          "url": "https://7ball.com.br/produtos_reebok/rotacao-de-quadril/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 3882,
+          "slug": "rotacao-de-tronco",
+          "title": "Rotação de Tronco",
+          "url": "https://7ball.com.br/produtos_reebok/rotacao-de-tronco/",
+          "categorias": [
+            "forge",
+            "maquinas"
+          ]
+        },
+        {
+          "id": 2088,
+          "slug": "rower",
+          "title": "Remo",
+          "url": "https://7ball.com.br/produtos_reebok/rower/",
+          "categorias": [
+            "remo-e-ski",
+            "titan"
+          ]
+        },
+        {
+          "id": 2321,
+          "slug": "rubber-plates-kg",
+          "title": "Anilha Colorida",
+          "url": "https://7ball.com.br/produtos_reebok/rubber-plates-kg/",
+          "categorias": [
+            "crossfit",
+            "rbk-cross"
+          ]
+        },
+        {
+          "id": 2096,
+          "slug": "ski-machine",
+          "title": "Simulador Ski",
+          "url": "https://7ball.com.br/produtos_reebok/ski-machine/",
+          "categorias": [
+            "remo-e-ski",
+            "titan"
+          ]
+        },
+        {
+          "id": 6282,
+          "slug": "slam-ball",
+          "title": "Slam Ball",
+          "url": "https://7ball.com.br/produtos_reebok/slam-ball/",
+          "categorias": [
+            "crossfit",
+            "rbk-cross"
+          ]
+        },
+        {
+          "id": 1928,
+          "slug": "spin-bike-880bs",
+          "title": "Bike Spinning",
+          "url": "https://7ball.com.br/produtos_reebok/spin-bike-880bs/",
+          "categorias": [
+            "bikes",
+            "titan"
+          ]
+        },
+        {
+          "id": 2049,
+          "slug": "stairtrainer-3a",
+          "title": "Escada Titan",
+          "url": "https://7ball.com.br/produtos_reebok/stairtrainer-3a/",
+          "categorias": [
+            "escadas",
+            "titan"
+          ]
+        },
+        {
+          "id": 4128,
+          "slug": "sup-agach-barra",
+          "title": "Sup. Agach. Barra",
+          "url": "https://7ball.com.br/produtos_reebok/sup-agach-barra/",
+          "categorias": [
+            "grid",
+            "racks"
+          ]
+        },
+        {
+          "id": 4115,
+          "slug": "sup-agachamento",
+          "title": "Sup. Agachamento",
+          "url": "https://7ball.com.br/produtos_reebok/sup-agachamento/",
+          "categorias": [
+            "grid",
+            "racks"
+          ]
+        },
+        {
+          "id": 4033,
+          "slug": "sup-anilhas-6-barras",
+          "title": "Sup. Anilhas e Barras",
+          "url": "https://7ball.com.br/produtos_reebok/sup-anilhas-6-barras/",
+          "categorias": [
+            "brave",
+            "suportes"
+          ]
+        },
+        {
+          "id": 7042,
+          "slug": "sup-anilhas-8-pinos",
+          "title": "Sup. Anilhas 8 pinos",
+          "url": "https://7ball.com.br/produtos_reebok/sup-anilhas-8-pinos/",
+          "categorias": [
+            "brave",
+            "suportes"
+          ]
+        },
+        {
+          "id": 7724,
+          "slug": "sup-barra-curvado",
+          "title": "Sup. Barra Curvado",
+          "url": "https://7ball.com.br/produtos_reebok/sup-barra-curvado/",
+          "categorias": [
+            "brave",
+            "suportes"
+          ]
+        },
+        {
+          "id": 4042,
+          "slug": "sup-barra-quadrado",
+          "title": "Sup. Quadrado",
+          "url": "https://7ball.com.br/produtos_reebok/sup-barra-quadrado/",
+          "categorias": [
+            "brave",
+            "suportes"
+          ]
+        },
+        {
+          "id": 4079,
+          "slug": "sup-chao-anilha",
+          "title": "Sup. Chão Anilha",
+          "url": "https://7ball.com.br/produtos_reebok/sup-chao-anilha/",
+          "categorias": [
+            "crossfit",
+            "rbk-cross"
+          ]
+        },
+        {
+          "id": 7897,
+          "slug": "sup-dumb-sext-2a",
+          "title": "Sup. Dumb. Sext. 2A",
+          "url": "https://7ball.com.br/produtos_reebok/sup-dumb-sext-2a/",
+          "categorias": [
+            "brave",
+            "suportes"
+          ]
+        },
+        {
+          "id": 7896,
+          "slug": "sup-dumb-sext-3a",
+          "title": "Sup. Dumb. Sext. 3A",
+          "url": "https://7ball.com.br/produtos_reebok/sup-dumb-sext-3a/",
+          "categorias": [
+            "brave",
+            "suportes"
+          ]
+        },
+        {
+          "id": 7037,
+          "slug": "sup-dumbbell-gold",
+          "title": "Sup. Dumbbell Gold",
+          "url": "https://7ball.com.br/produtos_reebok/sup-dumbbell-gold/",
+          "categorias": [
+            "brave",
+            "suportes"
+          ]
+        },
+        {
+          "id": 7034,
+          "slug": "sup-dumbbell-regulavel",
+          "title": "Sup. Regulável",
+          "url": "https://7ball.com.br/produtos_reebok/sup-dumbbell-regulavel/",
+          "categorias": [
+            "brave",
+            "suportes"
+          ]
+        },
+        {
+          "id": 5678,
+          "slug": "sup-sissy-flexao",
+          "title": "Agachamento Sissy",
+          "url": "https://7ball.com.br/produtos_reebok/sup-sissy-flexao/",
+          "categorias": [
+            "bancos",
+            "brave"
+          ]
+        },
+        {
+          "id": 2309,
+          "slug": "super-over-pull",
+          "title": "Super Rack",
+          "url": "https://7ball.com.br/produtos_reebok/super-over-pull/",
+          "categorias": [
+            "grid",
+            "racks"
+          ]
+        },
+        {
+          "id": 3997,
+          "slug": "supino-ajustavel",
+          "title": "Supino Ajustável",
+          "url": "https://7ball.com.br/produtos_reebok/supino-ajustavel/",
+          "categorias": [
+            "bancos",
+            "brave"
+          ]
+        },
+        {
+          "id": 3985,
+          "slug": "supino-declinado",
+          "title": "Supino Declinado",
+          "url": "https://7ball.com.br/produtos_reebok/supino-declinado/",
+          "categorias": [
+            "bancos",
+            "brave"
+          ]
+        },
+        {
+          "id": 7779,
+          "slug": "supino-declinado-2",
+          "title": "Supino Declinado",
+          "url": "https://7ball.com.br/produtos_reebok/supino-declinado-2/",
+          "categorias": [
+            "peso-livre",
+            "torque"
+          ]
+        },
+        {
+          "id": 7771,
+          "slug": "supino-inclinado",
+          "title": "Supino Inclinado",
+          "url": "https://7ball.com.br/produtos_reebok/supino-inclinado/",
+          "categorias": [
+            "peso-livre",
+            "torque"
+          ]
+        },
+        {
+          "id": 3989,
+          "slug": "supino-reto",
+          "title": "Supino Reto",
+          "url": "https://7ball.com.br/produtos_reebok/supino-reto/",
+          "categorias": [
+            "bancos",
+            "brave"
+          ]
+        },
+        {
+          "id": 5214,
+          "slug": "supino-reto-01__trashed",
+          "title": "Supino Reto",
+          "url": "https://7ball.com.br/produtos_reebok/supino-reto-01__trashed/",
+          "categorias": [
+            "peso-livre",
+            "torque"
+          ]
+        },
+        {
+          "id": 4145,
+          "slug": "suporte-smith",
+          "title": "Sup. Agachamento",
+          "url": "https://7ball.com.br/produtos_reebok/suporte-smith/",
+          "categorias": [
+            "grid",
+            "racks"
+          ]
+        },
+        {
+          "id": 7792,
+          "slug": "t-bar-remada",
+          "title": "T-Bar Remada",
+          "url": "https://7ball.com.br/produtos_reebok/t-bar-remada/",
+          "categorias": [
+            "peso-livre",
+            "torque"
+          ]
+        },
+        {
+          "id": 6261,
+          "slug": "tapete-de-yoga",
+          "title": "Tapete de Yoga",
+          "url": "https://7ball.com.br/produtos_reebok/tapete-de-yoga/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 6269,
+          "slug": "tornozeleira",
+          "title": "Tornozeleira",
+          "url": "https://7ball.com.br/produtos_reebok/tornozeleira/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 4059,
+          "slug": "torre-1-a-10kg",
+          "title": "Torre 1 a 10kg",
+          "url": "https://7ball.com.br/produtos_reebok/torre-1-a-10kg/",
+          "categorias": [
+            "brave",
+            "suportes"
+          ]
+        },
+        {
+          "id": 4067,
+          "slug": "torre-1-a-10kg-17a",
+          "title": "Torre 1 a 10kg 17A",
+          "url": "https://7ball.com.br/produtos_reebok/torre-1-a-10kg-17a/",
+          "categorias": [
+            "brave",
+            "suportes"
+          ]
+        },
+        {
+          "id": 6258,
+          "slug": "trampolim",
+          "title": "Trampolim",
+          "url": "https://7ball.com.br/produtos_reebok/trampolim/",
+          "categorias": [
+            "acessorios_",
+            "essentials"
+          ]
+        },
+        {
+          "id": 6289,
+          "slug": "treno-de-forca-2",
+          "title": "Trenó de Força",
+          "url": "https://7ball.com.br/produtos_reebok/treno-de-forca-2/",
+          "categorias": [
+            "crossfit",
+            "rbk-cross"
+          ]
+        },
+        {
+          "id": 7711,
+          "slug": "treno-de-potencia",
+          "title": "Trenó de Potência",
+          "url": "https://7ball.com.br/produtos_reebok/treno-de-potencia/",
+          "categorias": [
+            "crossfit",
+            "rbk-cross"
+          ]
+        },
+        {
+          "id": 1947,
+          "slug": "upright-cycle-2900bvt",
+          "title": "Bike Vert. Energy",
+          "url": "https://7ball.com.br/produtos_reebok/upright-cycle-2900bvt/",
+          "categorias": [
+            "bikes",
+            "energy"
+          ]
+        },
+        {
+          "id": 6283,
+          "slug": "wall-ball",
+          "title": "Wall Ball",
+          "url": "https://7ball.com.br/produtos_reebok/wall-ball/",
+          "categorias": [
+            "crossfit",
+            "rbk-cross"
+          ]
+        }
+      ]
+    }
+  }
+}

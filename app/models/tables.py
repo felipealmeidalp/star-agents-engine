@@ -14,6 +14,9 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Boolean,
+    Enum,
+    UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -49,6 +52,12 @@ class Company(Base):
     helena_apikey: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     # userId (UUID as text) of the fixed Helena attendant escalations are assigned to.
     helena_assignee_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    # Instagram comment welcome
+    instagram_account_id: Mapped[Optional[str]] = mapped_column(
+        String, nullable=True, unique=True, index=True
+    )
+    instagram_access_token: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    instagram_public_reply: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     # Unified inbox+contact filtering (replaces allowed_inboxes and allowed_contacts)
     # Structure: {"allowed_inboxes": [{"id": 1, "allowed_contacts": [1,2,3]}, ...]}
     # null or {"allowed_inboxes": []} = all allowed
@@ -144,6 +153,7 @@ class SubAgent(Base):
     tools: Mapped[Optional[List[str]]] = mapped_column(ARRAY(String), nullable=True)
     model: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     temperature: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    reasoning_effort: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP, default=datetime.utcnow, nullable=False
     )
@@ -438,6 +448,7 @@ class Prompt(Base):
     reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     model: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     temperature: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    reasoning_effort: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     type: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -544,3 +555,76 @@ class Category(Base):
         TIMESTAMP, default=datetime.utcnow, nullable=False
     )
     updated_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP, nullable=True)
+
+
+class Product(Base):
+    """Products table - per-brand catalog synced from 7ball.com.br (WP REST + render)."""
+
+    __tablename__ = "products"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    company_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("companies.id"))
+    # id do WP: repete entre CPTs/marcas, por isso é coluna e não PK
+    wp_id: Mapped[int] = mapped_column("wpId", BigInteger, nullable=False)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    slug: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    image_url: Mapped[Optional[str]] = mapped_column("imageUrl", String, nullable=True)
+    url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    mother_category: Mapped[Optional[str]] = mapped_column(
+        "motherCategory", String, nullable=True
+    )
+    mother_category_slug: Mapped[Optional[str]] = mapped_column(
+        "motherCategorySlug", String, nullable=True
+    )
+    is_mother_category: Mapped[bool] = mapped_column(
+        "isMotherCategory", Boolean, nullable=False, default=False
+    )
+    type: Mapped[str] = mapped_column(
+        Enum("sinuca", "fitness", name="product_type"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), default=datetime.utcnow, nullable=False
+    )
+    updated_at: Mapped[Optional[datetime]] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "company_id", "type", "wpId", "isMotherCategory",
+            name="uq_products_company_type_wp",
+        ),
+    )
+
+
+class InstagramWelcome(Base):
+    """One row per Comentário elegível processed (the Boas-vindas pendente lives here)."""
+
+    __tablename__ = "instagram_welcomes"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    # único por (company_id, media_id, commenter_id) via índice parcial só na migration 011
+    company_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("companies.id"), nullable=False
+    )
+    comment_id: Mapped[str] = mapped_column(Text, nullable=False)
+    media_id: Mapped[str] = mapped_column(Text, nullable=False)
+    commenter_id: Mapped[str] = mapped_column(Text, nullable=False)
+    commenter_username: Mapped[str | None] = mapped_column(Text, nullable=True)
+    comment_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    caption: Mapped[str | None] = mapped_column(Text, nullable=True)
+    product: Mapped[str | None] = mapped_column(Text, nullable=True)
+    dm_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    recipient_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Categoria do comentário; nula nas linhas anteriores à migration 012
+    category: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # em_processamento → pendente → casada, ou falhou
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    session_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
+    )
+    matched_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )

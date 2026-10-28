@@ -44,6 +44,21 @@ class CustomerRepository:
         )
         return result.scalar_one_or_none()
 
+    async def find_latest_by_phone(self, company_id: int, phone: str) -> Customer | None:
+        """Most recent Customer of the Company whose custom_information phone is `phone`."""
+        # ponytail: no index on the JSON key; add one when the customers table makes this slow
+        result = await self.db.execute(
+            select(Customer)
+            .where(
+                Customer.company_id == company_id,
+                Customer.custom_information["phone"].as_string() == phone,
+                Customer.deleted_at.is_(None),
+            )
+            .order_by(Customer.created_at.desc(), Customer.id.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
     async def get_status(self, session_id: str, company_id: int) -> bool | None:
         """Get current customer status (True=AI active, False=transferred)."""
         result = await self.db.execute(
